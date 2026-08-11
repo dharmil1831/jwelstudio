@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: jewel
+      POSTGRES_PASSWORD: jewel
+      POSTGRES_DB: jewel_studio
+    volumes:
+      - jewel_pg_data:/data
+
+volumes:
+  jewel_pg_data:

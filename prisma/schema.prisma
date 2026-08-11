@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String       @unique
+  phone           String?      @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  credits         Int          @default(5)
+  createdAt       DateTime     @default(now())
+  generations     Generation[]
+  payments        Payment[]
+}
+
+model Generation {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placement  String
+  subject    String
+  shot       String
+  scene      String
+  vibe       String
+  sourceMime String?
+  resultUrl  String
+  thumbUrl   String?
+  status     String   @default("succeeded")
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?
+  amountPaise       Int
+  creditsAdded      Int
+  status            String
+  createdAt         DateTime @default(now())
+}
+
+model ProcessedPaymentEvent {
+  id        String   @id
+  createdAt DateTime @default(now())
+}
+
+model IdentityLedger {
+  id                  String   @id @default(cuid())
+  emailHash           String?  @unique
+  phoneHash           String?  @unique
+  freeGenerationsUsed Int      @default(0)
+  createdAt           DateTime @default(now())
+}
