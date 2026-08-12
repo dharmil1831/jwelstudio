@@ -81,6 +81,22 @@ export async function verifyUserPassword(
   return { id: u.id, email: u.email, phone: u.phone, credits: u.credits };
 }
 
+export async function updateUserPassword(
+  email: string,
+  password: string,
+): Promise<boolean> {
+  const u = await prisma.user.findUnique({
+    where: { email: normalizeEmail(email) },
+  });
+  if (!u) return false;
+  const passwordHash = await hashPassword(password);
+  await prisma.user.update({
+    where: { id: u.id },
+    data: { passwordHash },
+  });
+  return true;
+}
+
 export async function deductCredits(
   userId: string,
   amount: number,

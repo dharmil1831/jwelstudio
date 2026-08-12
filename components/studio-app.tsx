@@ -150,7 +150,9 @@ export function StudioApp() {
     setResultUrl(null);
 
     try {
-      const { base64, mimeType } = await resizeImageFile(file, 2048, 0.95);
+      const { base64, mimeType } = await resizeImageFile(file, 1536, 0.9);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 90_000);
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,7 +165,9 @@ export function StudioApp() {
           scene,
           vibe,
         }),
+        signal: controller.signal,
       });
+      window.clearTimeout(timeout);
       const data = (await res.json()) as {
         error?: string;
         resultUrl?: string;
@@ -174,7 +178,11 @@ export function StudioApp() {
       if (typeof data.credits === "number") setCredits(data.credits);
       if (data.resultUrl) setResultUrl(data.resultUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Generation timed out. Please try again with a smaller photo.");
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
     } finally {
       setLoading(false);
     }

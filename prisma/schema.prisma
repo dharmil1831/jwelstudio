@@ -63,3 +63,15 @@ model IdentityLedger {
   freeGenerationsUsed Int      @default(0)
   createdAt           DateTime @default(now())
 }
+
+model OtpChallenge {
+  id        String   @id @default(cuid())
+  purpose   String
+  email     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([purpose, email])
+}

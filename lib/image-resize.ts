@@ -1,4 +1,4 @@
-/** Downscale large photos in-browser; keep high quality for jewelry detail. */
+/** Downscale photos in-browser. JPEG keeps payloads under Vercel body limits. */
 export function resizeImageFile(
   file: File,
   maxEdge: number,
@@ -27,20 +27,23 @@ export function resizeImageFile(
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Prefer PNG to avoid JPEG artifacts on metal/stones; fall back to high-quality JPEG if huge.
-      let mimeType = "image/png";
-      let dataUrl = canvas.toDataURL(mimeType);
-      if (dataUrl.length > 6_000_000) {
-        mimeType = "image/jpeg";
-        dataUrl = canvas.toDataURL(mimeType, Math.max(quality, 0.92));
-      }
+      const mimeType = "image/jpeg";
+      const dataUrl = canvas.toDataURL(mimeType, quality);
       const base64 = dataUrl.split(",")[1] ?? "";
+      if (!base64) {
+        reject(new Error("Could not process image"));
+        return;
+      }
       resolve({ base64, mimeType });
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("Could not read image"));
+      reject(
+        new Error(
+          "Could not read this image. Please use JPG, PNG, or WebP (not HEIC).",
+        ),
+      );
     };
 
     img.src = url;

@@ -22,6 +22,21 @@ export function hashIdentity(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+export function hashOtp(code: string): string {
+  return createHash("sha256").update(code).digest("hex");
+}
+
+export function verifyOtpHash(code: string, codeHash: string): boolean {
+  const a = Buffer.from(hashOtp(code));
+  const b = Buffer.from(codeHash);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+export function generateOtpCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 export function getAuthSecret(): string {
   const secret = process.env.AUTH_SECRET?.trim();
   if (!secret || secret.length < 16) {

@@ -12,7 +12,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const user = await getSessionUser();
@@ -96,12 +96,11 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     const credits = await refundCredits(user.id, CREDIT_COST_PER_GENERATION);
-    return NextResponse.json(
-      {
-        error: e instanceof Error ? e.message : "Generation failed",
-        credits,
-      },
-      { status: 502 },
-    );
+    const raw = e instanceof Error ? e.message : "Generation failed";
+    const error =
+      /timeout|timed out|deadline|FUNCTION_INVOCATION_TIMEOUT/i.test(raw)
+        ? "Generation took too long. Please try again with a smaller photo."
+        : raw;
+    return NextResponse.json({ error, credits }, { status: 502 });
   }
 }
