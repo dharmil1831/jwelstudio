@@ -54,9 +54,9 @@ If those env vars are missing, the app keeps using local disk (nothing breaks).
 
 ## Auth & credits
 
-- Sign up: **email OTP** (proves the inbox is real) then set a password
-- Log in: **email + password** (no OTP)
-- Forgot password: email OTP, then set a new password
+- Sign up: **email + password** (phone optional; email OTP paused for demos)
+- Log in: **email + password**
+- Forgot password: email OTP, then set a new password (needs Resend)
 - **5 credits** on first account (1 credit = 1 generation)
 - Same email (or phone, if provided) cannot register twice
 
@@ -90,9 +90,9 @@ See [MOBILE.md](MOBILE.md) for PWA + Capacitor App Store path.
 | Route | Purpose |
 |-------|---------|
 | `GET /api/session` | Auth state + credits |
-| `POST /api/auth/signup` | Create account (email OTP + password) |
+| `POST /api/auth/signup` | Create account (email + password) |
 | `POST /api/auth/login` | Log in (email + password) |
-| `POST /api/auth/send-otp` | Send signup or password-reset code |
+| `POST /api/auth/send-otp` | Send password-reset code (signup OTP paused) |
 | `POST /api/auth/reset-password` | Set a new password with email OTP |
 | `POST /api/auth/logout` | Log out |
 | `POST /api/generate` | Generate model shot (auth required) |

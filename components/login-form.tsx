@@ -12,8 +12,6 @@ export function LoginForm() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [resetEmail, setResetEmail] = useState("");
@@ -26,7 +24,7 @@ export function LoginForm() {
   const [info, setInfo] = useState<string | null>(null);
   const [devHint, setDevHint] = useState<string | null>(null);
 
-  async function requestOtp(target: string, purpose: "signup" | "reset") {
+  async function requestResetOtp(target: string) {
     setLoading(true);
     setError(null);
     setInfo(null);
@@ -35,7 +33,7 @@ export function LoginForm() {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: target, purpose }),
+        body: JSON.stringify({ email: target, purpose: "reset" }),
       });
       const data = (await res.json()) as {
         error?: string;
@@ -43,8 +41,7 @@ export function LoginForm() {
         devCode?: string;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not send code");
-      if (purpose === "signup") setCodeSent(true);
-      else setResetSent(true);
+      setResetSent(true);
       setInfo(data.message ?? "Code sent.");
       if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
     } catch (e) {
@@ -68,7 +65,6 @@ export function LoginForm() {
           email,
           password,
           phone: phone.trim() || undefined,
-          code,
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -174,93 +170,57 @@ export function LoginForm() {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!codeSent) void requestOtp(email, "signup");
-            else void signup();
+            void signup();
           }}
         >
           <p className="text-sm text-stone-600">
-            We send a <strong>one-time code</strong> to your email so only a real inbox
-            can claim the <strong>5 free</strong> generations. Then you set a password
-            for later logins.
+            Create an account with email and password. You get{" "}
+            <strong>5 free</strong> generations. Phone is optional.
           </p>
           <input
             type="email"
             autoComplete="email"
             placeholder="Email address"
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setCodeSent(false);
-              setCode("");
-            }}
+            onChange={(e) => setEmail(e.target.value)}
             required
             className={inputClass}
           />
-          {!codeSent ? (
-            <button
-              type="submit"
-              disabled={loading || !email}
-              className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              {loading ? "Sending code…" : "Send email code"}
-            </button>
-          ) : (
-            <>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="6-digit code from email"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
-                className={inputClass}
-              />
-              <input
-                type="password"
-                autoComplete="new-password"
-                placeholder="Password (min 8 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className={inputClass}
-              />
-              <input
-                type="password"
-                autoComplete="new-password"
-                placeholder="Confirm password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={8}
-                className={inputClass}
-              />
-              <input
-                type="tel"
-                autoComplete="tel"
-                placeholder="Mobile number (optional)"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className={inputClass}
-              />
-              <button
-                type="submit"
-                disabled={loading || code.length < 4 || password.length < 8}
-                className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                {loading ? "Creating account…" : "Verify & create account"}
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => void requestOtp(email, "signup")}
-                className="w-full text-sm text-amber-800 hover:underline"
-              >
-                Resend code
-              </button>
-            </>
-          )}
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder="Password (min 8 characters)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            className={inputClass}
+          />
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder="Confirm password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={8}
+            className={inputClass}
+          />
+          <input
+            type="tel"
+            autoComplete="tel"
+            placeholder="Mobile number (optional)"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className={inputClass}
+          />
+          <button
+            type="submit"
+            disabled={loading || !email || password.length < 8}
+            className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {loading ? "Creating account…" : "Create account"}
+          </button>
         </form>
       ) : null}
 
@@ -316,7 +276,7 @@ export function LoginForm() {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!resetSent) void requestOtp(resetEmail, "reset");
+            if (!resetSent) void requestResetOtp(resetEmail);
             else void resetPasswordSubmit();
           }}
         >
