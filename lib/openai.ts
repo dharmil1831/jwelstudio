@@ -11,7 +11,7 @@ export async function generateJewelryModelShot(
     throw new Error("OPENAI_API_KEY is not configured");
   }
 
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, timeout: 50_000, maxRetries: 0 });
   const buffer = Buffer.from(imageBase64, "base64");
   const extension =
     mimeType === "image/png"
@@ -29,9 +29,9 @@ export async function generateJewelryModelShot(
       model,
       image,
       prompt,
-      size: "1024x1536",
+      size: "1024x1024",
       ...(supportsHighFidelity
-        ? { input_fidelity: "high" as const, quality: "high" as const }
+        ? { input_fidelity: "high" as const, quality: "medium" as const }
         : {}),
     });
 

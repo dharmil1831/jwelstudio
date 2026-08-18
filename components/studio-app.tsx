@@ -166,7 +166,7 @@ export function StudioApp() {
     setResultUrl(null);
 
     try {
-      const { base64, mimeType } = await resizeImageFile(file, 1536, 0.9);
+      const { base64, mimeType } = await resizeImageFile(file, 1024, 0.85);
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 90_000);
       const res = await fetch("/api/generate", {
@@ -361,7 +361,7 @@ export function StudioApp() {
                 <img
                   src={resultUrl}
                   alt="Model shot"
-                  className="aspect-[4/5] w-full object-cover"
+                  className="aspect-square w-full object-contain bg-stone-50"
                 />
               </button>
             </div>
