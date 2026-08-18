@@ -1,6 +1,7 @@
 "use client";
 
 import { resizeImageFile } from "@/lib/image-resize";
+import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
 import {
   PLACEMENT_LABELS,
   PLACEMENTS,
@@ -110,9 +111,20 @@ export function StudioApp() {
       setPreviewUrl(null);
       return;
     }
-    const u = URL.createObjectURL(file);
-    setPreviewUrl(u);
-    return () => URL.revokeObjectURL(u);
+    let u: string | null = null;
+    try {
+      u = URL.createObjectURL(file);
+      setPreviewUrl(u);
+    } catch {
+      setPreviewUrl(null);
+      setError(
+        "Could not preview this photo. Please try a JPG or PNG instead.",
+      );
+      return;
+    }
+    return () => {
+      if (u) URL.revokeObjectURL(u);
+    };
   }, [file]);
 
   const applyFile = useCallback((next: File | null) => {
@@ -128,7 +140,11 @@ export function StudioApp() {
   const onPick = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       applyFile(e.target.files?.[0] ?? null);
-      e.target.value = "";
+      try {
+        e.target.value = "";
+      } catch {
+        /* iOS Safari can throw on resetting file inputs with strict accept lists */
+      }
     },
     [applyFile],
   );
@@ -168,21 +184,17 @@ export function StudioApp() {
         signal: controller.signal,
       });
       window.clearTimeout(timeout);
-      const data = (await res.json()) as {
+      const data = await readApiJson<{
         error?: string;
         resultUrl?: string;
         credits?: number;
-      };
+      }>(res);
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       if (typeof data.credits === "number") setCredits(data.credits);
       if (data.resultUrl) setResultUrl(data.resultUrl);
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setError("Generation timed out. Please try again with a smaller photo.");
-      } else {
-        setError(err instanceof Error ? err.message : "Something went wrong");
-      }
+      setError(friendlyClientError(err));
     } finally {
       setLoading(false);
     }
@@ -244,7 +256,7 @@ export function StudioApp() {
           <input
             id="jewelry-upload"
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+            accept="image/*"
             className="sr-only"
             onChange={onPick}
           />
@@ -273,7 +285,12 @@ export function StudioApp() {
                 <span className="text-xs text-stone-700">{file.name}</span>
               </>
             ) : (
-              "Drop or tap to upload"
+              <>
+                Drop or tap to upload
+                <span className="mt-1 block text-xs text-stone-400">
+                  JPG or PNG works best on iPhone
+                </span>
+              </>
             )}
           </label>
         </div>

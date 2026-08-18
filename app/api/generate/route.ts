@@ -58,6 +58,16 @@ export async function POST(req: Request) {
     );
   }
 
+  if (imageBase64.length > 4_000_000) {
+    return NextResponse.json(
+      {
+        error:
+          "Photo is too large. Please try a smaller JPG, or crop closer to the jewelry.",
+      },
+      { status: 413 },
+    );
+  }
+
   const style = parseStudioStyle(json);
   const prompt = buildJewelryPrompt(style);
 
