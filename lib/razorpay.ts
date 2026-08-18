@@ -35,10 +35,11 @@ export function getCreditPacks(): CreditPack[] {
       /* fall through */
     }
   }
+  // ~40% gross margin vs OpenAI cost (~₹43/credit): ₹899 / ₹2149 / ₹6499
   return [
-    { id: "starter", label: "Starter", amountPaise: 9900, credits: 20 },
-    { id: "pro", label: "Pro", amountPaise: 19900, credits: 50 },
-    { id: "studio", label: "Studio", amountPaise: 49900, credits: 150 },
+    { id: "starter", label: "Starter", amountPaise: 89900, credits: 20 },
+    { id: "pro", label: "Pro", amountPaise: 214900, credits: 50 },
+    { id: "studio", label: "Studio", amountPaise: 649900, credits: 150 },
   ];
 }
 

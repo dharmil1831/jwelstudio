@@ -25,10 +25,10 @@ Restart `npm run dev` after saving.
 Optional custom packs (JSON array):
 
 ```env
-RAZORPAY_CREDIT_PACKS=[{"id":"starter","label":"Starter","amountPaise":9900,"credits":20}]
+RAZORPAY_CREDIT_PACKS=[{"id":"starter","label":"Starter","amountPaise":89900,"credits":20}]
 ```
 
-Default packs if unset: Starter ₹99 (20 credits), Pro ₹199 (50), Studio ₹499 (150).
+Default packs if unset: Starter ₹899 (20 credits), Pro ₹2,149 (50), Studio ₹6,499 (150) — ~40% margin vs OpenAI cost.
 
 ## 3. Local test
 
