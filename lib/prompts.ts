@@ -1,4 +1,12 @@
-import type { StudioStyle } from "@/lib/style-options";
+import type { Framing, StudioStyle } from "@/lib/style-options";
+
+const jewelryFidelityRules = [
+  "CRITICAL JEWELRY FIDELITY RULES (must obey):",
+  "The uploaded image is the product reference. The jewelry in the output must be visually identical to that reference.",
+  "Keep the exact same design silhouette, metal color, finish, gemstone count/shapes/colors/cuts, settings, engravings, clasp or backing, proportions, and relative sizes.",
+  "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add extra sparkle, or invent new jewelry.",
+  "If any style instruction conflicts with jewelry accuracy, jewelry accuracy wins.",
+].join(" ");
 
 const placementCopy: Record<StudioStyle["placement"], string> = {
   auto:
@@ -43,6 +51,16 @@ const shotCopy: Record<StudioStyle["shot"], string> = {
   movement: "Dynamic pose with subtle motion energy; jewelry stays sharp.",
 };
 
+const framingCopy: Record<Framing, string> = {
+  catalog:
+    "Clean catalog e-commerce product photo: jewelry centered, sharp, evenly lit, commercial crop.",
+  hero: "Luxury hero still: jewelry as the campaign centerpiece with premium depth and glow on metal only.",
+  macro:
+    "Macro product detail: close crop on craftsmanship, stones, and metalwork; jewelry fills the frame.",
+  lifestyle_still:
+    "Lifestyle still life: jewelry arranged on a styled surface with supporting props that never hide the piece.",
+};
+
 const sceneCopy: Record<StudioStyle["scene"], string> = {
   studio: "Clean studio background, softbox lighting, neutral backdrop.",
   boutique: "Upscale jewelry boutique interior with warm reflections.",
@@ -64,14 +82,20 @@ const vibeCopy: Record<StudioStyle["vibe"], string> = {
   minimalist_luxe: "Minimalist luxe: clean lines with premium finish.",
 };
 
+const backgroundVibeCopy: Record<StudioStyle["vibe"], string> = {
+  minimal: "Minimal product styling; uncluttered surface; focus on metal and stones.",
+  luxury: "Luxury display: silk, velvet, or rich tones with a premium finish.",
+  festive: "Celebratory festive context; jewelry highlighted tastefully.",
+  bridal: "Bridal still life; traditional-meets-modern elegance.",
+  everyday: "Everyday wearable product styling; approachable and relatable.",
+  vintage: "Vintage-inspired still life with classic tones.",
+  minimalist_luxe: "Minimalist luxe: clean lines with premium finish.",
+};
+
 export function buildJewelryPrompt(style: StudioStyle): string {
   return [
-    "CRITICAL JEWELRY FIDELITY RULES (must obey):",
-    "The uploaded image is the product reference. The jewelry in the output must be visually identical to that reference.",
-    "Keep the exact same design silhouette, metal color, finish, gemstone shapes/colors/cuts, settings, engravings, proportions, and relative sizes.",
-    "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, or invent new jewelry.",
+    jewelryFidelityRules,
     "Only change the model, pose, wardrobe, background, and lighting — never the jewelry identity.",
-    "If any style instruction conflicts with jewelry accuracy, jewelry accuracy wins.",
     "",
     "Task: create one photorealistic photograph of a model wearing this exact jewelry piece.",
     "Skin tones natural; anatomy correct; jewelry sharp and true to the reference.",
@@ -88,6 +112,26 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     sceneCopy[style.scene],
     "Mood:",
     vibeCopy[style.vibe],
+    "",
+    "Final check: the jewelry must match the uploaded product image exactly — same piece, not a similar piece.",
+  ].join(" ");
+}
+
+export function buildBackgroundPrompt(style: StudioStyle): string {
+  return [
+    jewelryFidelityRules,
+    "Only change the backdrop, surface, lighting, and camera — never the jewelry identity.",
+    "",
+    "Task: create one photorealistic product photograph of this exact jewelry piece on a styled background.",
+    "No model, no person, no hands, no body, no mannequin, no neck form.",
+    "The jewelry must remain the hero subject, sharp and true to the reference.",
+    "",
+    "Framing:",
+    framingCopy[style.framing],
+    "Scene / background:",
+    sceneCopy[style.scene],
+    "Mood:",
+    backgroundVibeCopy[style.vibe],
     "",
     "Final check: the jewelry must match the uploaded product image exactly — same piece, not a similar piece.",
   ].join(" ");

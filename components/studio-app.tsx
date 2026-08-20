@@ -3,6 +3,10 @@
 import { resizeImageFile } from "@/lib/image-resize";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
 import {
+  FRAMING_LABELS,
+  FRAMINGS,
+  GENERATION_MODES,
+  MODE_LABELS,
   PLACEMENT_LABELS,
   PLACEMENTS,
   SCENE_LABELS,
@@ -13,6 +17,8 @@ import {
   SUBJECTS,
   VIBE_LABELS,
   VIBES,
+  type Framing,
+  type GenerationMode,
   type Placement,
   type Scene,
   type Shot,
@@ -46,9 +52,11 @@ export function StudioApp() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [mode, setMode] = useState<GenerationMode>("model");
   const [placement, setPlacement] = useState<Placement>("auto");
   const [subject, setSubject] = useState<Subject>("auto");
   const [shot, setShot] = useState<Shot>("editorial");
+  const [framing, setFraming] = useState<Framing>("catalog");
   const [scene, setScene] = useState<Scene>("studio");
   const [vibe, setVibe] = useState<Vibe>("luxury");
   const [loading, setLoading] = useState(false);
@@ -175,9 +183,11 @@ export function StudioApp() {
         body: JSON.stringify({
           imageBase64: base64,
           mimeType,
+          mode,
           placement,
           subject,
           shot,
+          framing,
           scene,
           vibe,
         }),
@@ -198,7 +208,7 @@ export function StudioApp() {
     } finally {
       setLoading(false);
     }
-  }, [file, placement, subject, shot, scene, vibe]);
+  }, [file, mode, placement, subject, shot, framing, scene, vibe]);
 
   if (authenticated === null) {
     return (
@@ -211,7 +221,9 @@ export function StudioApp() {
   if (authenticated === false) {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-8 text-center">
-        <p className="text-stone-700">Log in to upload jewelry and generate model shots.</p>
+        <p className="text-stone-700">
+          Log in to upload jewelry and generate model shots or background stills.
+        </p>
         <Link
           href="/login"
           className="mt-4 inline-block rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white"
@@ -248,6 +260,33 @@ export function StudioApp() {
             Server missing OPENAI_API_KEY.
           </p>
         ) : null}
+
+        <div
+          role="tablist"
+          aria-label="Generation mode"
+          className="grid grid-cols-2 gap-1 rounded-xl bg-stone-100 p-1"
+        >
+          {GENERATION_MODES.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={mode === key}
+              onClick={() => {
+                setMode(key);
+                setResultUrl(null);
+                setError(null);
+              }}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                mode === key
+                  ? "bg-white text-stone-900 shadow-sm"
+                  : "text-stone-600 hover:text-stone-900"
+              }`}
+            >
+              {MODE_LABELS[key]}
+            </button>
+          ))}
+        </div>
 
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-amber-800/80">
@@ -295,24 +334,35 @@ export function StudioApp() {
           </label>
         </div>
 
-        <Field
-          label="Where to show jewelry"
-          value={placement}
-          onChange={setPlacement}
-          options={PLACEMENTS.map((k) => [k, PLACEMENT_LABELS[k]] as const)}
-        />
-        <Field
-          label="Model type"
-          value={subject}
-          onChange={setSubject}
-          options={SUBJECTS.map((k) => [k, SUBJECT_LABELS[k]] as const)}
-        />
-        <Field
-          label="Shot type"
-          value={shot}
-          onChange={setShot}
-          options={SHOTS.map((k) => [k, SHOT_LABELS[k]] as const)}
-        />
+        {mode === "model" ? (
+          <>
+            <Field
+              label="Where to show jewelry"
+              value={placement}
+              onChange={setPlacement}
+              options={PLACEMENTS.map((k) => [k, PLACEMENT_LABELS[k]] as const)}
+            />
+            <Field
+              label="Model type"
+              value={subject}
+              onChange={setSubject}
+              options={SUBJECTS.map((k) => [k, SUBJECT_LABELS[k]] as const)}
+            />
+            <Field
+              label="Shot type"
+              value={shot}
+              onChange={setShot}
+              options={SHOTS.map((k) => [k, SHOT_LABELS[k]] as const)}
+            />
+          </>
+        ) : (
+          <Field
+            label="Framing"
+            value={framing}
+            onChange={setFraming}
+            options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
+          />
+        )}
         <Field
           label="Scene"
           value={scene}
@@ -337,7 +387,11 @@ export function StudioApp() {
           onClick={() => void generate()}
           className="rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
         >
-          {loading ? "Generating…" : "Generate model shot"}
+          {loading
+            ? "Generating…"
+            : mode === "background"
+              ? "Generate background"
+              : "Generate model shot"}
         </button>
 
         {error ? (
@@ -360,7 +414,7 @@ export function StudioApp() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={resultUrl}
-                  alt="Model shot"
+                  alt={mode === "background" ? "Background still" : "Model shot"}
                   className="aspect-square w-full object-contain bg-stone-50"
                 />
               </button>
@@ -375,22 +429,32 @@ export function StudioApp() {
               </button>
               <DownloadImageButton
                 url={resultUrl}
-                filename="jewel-studio-model-shot.png"
+                filename={
+                  mode === "background"
+                    ? "jewel-studio-background.png"
+                    : "jewel-studio-model-shot.png"
+                }
                 className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
                 label="Download image"
               />
             </div>
             <ImageLightbox
               url={resultUrl}
-              alt="Model shot"
+              alt={mode === "background" ? "Background still" : "Model shot"}
               open={lightboxOpen}
               onClose={() => setLightboxOpen(false)}
-              filename="jewel-studio-model-shot.png"
+              filename={
+                mode === "background"
+                  ? "jewel-studio-background.png"
+                  : "jewel-studio-model-shot.png"
+              }
             />
           </>
         ) : (
           <p className="max-w-sm text-center text-sm text-stone-500">
-            Your AI model shot will appear here after generation.
+            {mode === "background"
+              ? "Your jewelry on a styled background will appear here after generation."
+              : "Your AI model shot will appear here after generation."}
           </p>
         )}
       </section>

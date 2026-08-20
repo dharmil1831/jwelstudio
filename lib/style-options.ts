@@ -1,5 +1,7 @@
 /** Shared studio style enums for UI, API validation, and prompts. */
 
+export const GENERATION_MODES = ["model", "background"] as const;
+
 export const PLACEMENTS = [
   "auto",
   "neck",
@@ -41,6 +43,13 @@ export const SHOTS = [
   "movement",
 ] as const;
 
+export const FRAMINGS = [
+  "catalog",
+  "hero",
+  "macro",
+  "lifestyle_still",
+] as const;
+
 export const SCENES = [
   "studio",
   "boutique",
@@ -62,18 +71,27 @@ export const VIBES = [
   "minimalist_luxe",
 ] as const;
 
+export type GenerationMode = (typeof GENERATION_MODES)[number];
 export type Placement = (typeof PLACEMENTS)[number];
 export type Subject = (typeof SUBJECTS)[number];
 export type Shot = (typeof SHOTS)[number];
+export type Framing = (typeof FRAMINGS)[number];
 export type Scene = (typeof SCENES)[number];
 export type Vibe = (typeof VIBES)[number];
 
 export type StudioStyle = {
+  mode: GenerationMode;
   placement: Placement;
   subject: Subject;
   shot: Shot;
+  framing: Framing;
   scene: Scene;
   vibe: Vibe;
+};
+
+export const MODE_LABELS: Record<GenerationMode, string> = {
+  model: "Model shot",
+  background: "Background",
 };
 
 export const PLACEMENT_LABELS: Record<Placement, string> = {
@@ -117,6 +135,13 @@ export const SHOT_LABELS: Record<Shot, string> = {
   movement: "Movement / dynamic",
 };
 
+export const FRAMING_LABELS: Record<Framing, string> = {
+  catalog: "Catalog / e-commerce",
+  hero: "Luxury hero",
+  macro: "Macro detail",
+  lifestyle_still: "Lifestyle still life",
+};
+
 export const SCENE_LABELS: Record<Scene, string> = {
   studio: "Studio",
   boutique: "Boutique",
@@ -139,18 +164,30 @@ export const VIBE_LABELS: Record<Vibe, string> = {
 };
 
 export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
+  const modeRaw = body.mode as GenerationMode;
+  const mode = GENERATION_MODES.includes(modeRaw) ? modeRaw : "model";
   const placement = body.placement as Placement;
   const subject = body.subject as Subject;
   const shotRaw = body.shot ?? body.model;
   const shot = shotRaw as Shot;
+  const framing = body.framing as Framing;
   const scene = body.scene as Scene;
   const vibe = body.vibe as Vibe;
 
-  return {
+  const parsed: StudioStyle = {
+    mode,
     placement: PLACEMENTS.includes(placement) ? placement : "auto",
     subject: SUBJECTS.includes(subject) ? subject : "auto",
     shot: SHOTS.includes(shot) ? shot : "editorial",
+    framing: FRAMINGS.includes(framing) ? framing : "catalog",
     scene: SCENES.includes(scene) ? scene : "studio",
     vibe: VIBES.includes(vibe) ? vibe : "luxury",
   };
+
+  if (mode === "background") {
+    parsed.placement = "auto";
+    parsed.subject = "auto";
+  }
+
+  return parsed;
 }

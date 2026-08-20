@@ -7,7 +7,7 @@ export default async function AdminGenerationsPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-stone-900">Generations</h1>
-      <p className="mt-1 text-sm text-stone-600">Recent model shots</p>
+      <p className="mt-1 text-sm text-stone-600">Recent model shots and background stills</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {generations.length === 0 ? (
@@ -22,14 +22,20 @@ export default async function AdminGenerationsPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={g.resultUrl}
-                  alt="Model shot"
+                  alt={g.mode === "background" ? "Background still" : "Model shot"}
                   className="aspect-[4/5] w-full object-cover"
                 />
               </Link>
               <div className="px-3 py-2 text-xs text-stone-600">
                 <p className="truncate font-medium text-stone-800">{g.user.email}</p>
                 <p className="mt-0.5 text-stone-500">
-                  {[g.placement, g.vibe].join(" · ").replace(/_/g, " ")}
+                  {[
+                    g.mode === "background" ? "background" : "model",
+                    g.mode === "background" ? g.shot : g.placement,
+                    g.vibe,
+                  ]
+                    .join(" · ")
+                    .replace(/_/g, " ")}
                 </p>
                 <p className="mt-0.5 text-stone-400">
                   {g.createdAt.toLocaleString("en-IN")}

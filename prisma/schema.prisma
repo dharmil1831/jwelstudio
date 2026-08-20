@@ -25,6 +25,7 @@ model Generation {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode       String   @default("model")
   placement  String
   subject    String
   shot       String

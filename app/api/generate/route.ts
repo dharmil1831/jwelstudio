@@ -1,6 +1,6 @@
 import { isOpenAIConfigured } from "@/lib/env";
 import { generateJewelryModelShot } from "@/lib/openai";
-import { buildJewelryPrompt } from "@/lib/prompts";
+import { buildBackgroundPrompt, buildJewelryPrompt } from "@/lib/prompts";
 import { getSessionUser } from "@/lib/session";
 import { parseStudioStyle } from "@/lib/style-options";
 import { storeGenerationImage } from "@/lib/storage";
@@ -13,6 +13,35 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 60;
+
+async function persistGeneration(data: {
+  userId: string;
+  mode: string;
+  placement: string;
+  subject: string;
+  shot: string;
+  scene: string;
+  vibe: string;
+  sourceMime: string;
+  resultUrl: string;
+}) {
+  try {
+    await prisma.generation.create({
+      data: { ...data, status: "succeeded" },
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "";
+    if (!/Unknown argument `mode`/.test(message)) throw e;
+
+    const { mode, ...rest } = data;
+    const row = await prisma.generation.create({
+      data: { ...rest, status: "succeeded" },
+    });
+    await prisma.$executeRaw`
+      UPDATE "Generation" SET "mode" = ${mode} WHERE id = ${row.id}
+    `;
+  }
+}
 
 export async function POST(req: Request) {
   const user = await getSessionUser();
@@ -69,7 +98,10 @@ export async function POST(req: Request) {
   }
 
   const style = parseStudioStyle(json);
-  const prompt = buildJewelryPrompt(style);
+  const prompt =
+    style.mode === "background"
+      ? buildBackgroundPrompt(style)
+      : buildJewelryPrompt(style);
 
   const deducted = await deductCredits(user.id, CREDIT_COST_PER_GENERATION);
   if (!deducted.ok) {
@@ -84,18 +116,16 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(out.imageBase64, "base64");
     const resultUrl = await storeGenerationImage(user.id, buffer, "png");
 
-    await prisma.generation.create({
-      data: {
-        userId: user.id,
-        placement: style.placement,
-        subject: style.subject,
-        shot: style.shot,
-        scene: style.scene,
-        vibe: style.vibe,
-        sourceMime: mimeType,
-        resultUrl,
-        status: "succeeded",
-      },
+    await persistGeneration({
+      userId: user.id,
+      mode: style.mode,
+      placement: style.placement,
+      subject: style.subject,
+      shot: style.mode === "background" ? style.framing : style.shot,
+      scene: style.scene,
+      vibe: style.vibe,
+      sourceMime: mimeType,
+      resultUrl,
     });
 
     return NextResponse.json({

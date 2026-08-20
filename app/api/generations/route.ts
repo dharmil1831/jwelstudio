@@ -25,5 +25,29 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({ items: rows });
+  const modes = new Map<string, string>();
+  if (rows.length > 0) {
+    try {
+      const withMode = await prisma.generation.findMany({
+        where: { id: { in: rows.map((r) => r.id) } },
+        select: { id: true, mode: true },
+      });
+      for (const row of withMode) modes.set(row.id, row.mode);
+    } catch {
+      const withMode = await prisma.$queryRaw<Array<{ id: string; mode: string }>>`
+        SELECT id, mode FROM "Generation"
+        WHERE "userId" = ${user.id} AND status = 'succeeded'
+        ORDER BY "createdAt" DESC
+        LIMIT 48
+      `;
+      for (const row of withMode) modes.set(row.id, row.mode);
+    }
+  }
+
+  return NextResponse.json({
+    items: rows.map((row) => ({
+      ...row,
+      mode: modes.get(row.id) ?? "model",
+    })),
+  });
 }

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 type GenerationItem = {
   id: string;
   resultUrl: string;
+  mode?: string;
   placement: string;
   subject: string;
   shot: string;
@@ -15,6 +16,19 @@ type GenerationItem = {
   vibe: string;
   createdAt: string;
 };
+
+function generationCaption(item: GenerationItem): string {
+  const mode = item.mode === "background" ? "background" : "model";
+  const detail = item.mode === "background" ? item.shot : item.placement;
+  return [mode, detail, item.vibe]
+    .filter(Boolean)
+    .join(" · ")
+    .replace(/_/g, " ");
+}
+
+function generationAlt(item: GenerationItem): string {
+  return item.mode === "background" ? "Background still" : "Model shot";
+}
 
 export function GalleryGrid() {
   const [items, setItems] = useState<GenerationItem[]>([]);
@@ -50,7 +64,7 @@ export function GalleryGrid() {
         <Link href="/login" className="font-medium text-amber-800 underline">
           Log in
         </Link>{" "}
-        to see your past model shots.
+        to see your past generations.
       </p>
     );
   }
@@ -62,7 +76,7 @@ export function GalleryGrid() {
   if (items.length === 0) {
     return (
       <p className="text-center text-sm text-stone-500">
-        No generations yet. Create your first model shot in the studio.
+        No generations yet. Create your first shot in the studio.
       </p>
     );
   }
@@ -84,7 +98,7 @@ export function GalleryGrid() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.resultUrl}
-                alt="Model shot"
+                alt={generationAlt(item)}
                 className="aspect-[4/5] w-full object-cover transition group-hover:brightness-95"
               />
               <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100">
@@ -95,7 +109,7 @@ export function GalleryGrid() {
             </button>
             <figcaption className="flex items-center justify-between gap-2 px-2 py-2">
               <span className="truncate text-[10px] uppercase tracking-wide text-stone-500">
-                {[item.placement, item.vibe].join(" · ").replace(/_/g, " ")}
+                {generationCaption(item)}
               </span>
               <DownloadImageButton
                 url={item.resultUrl}
@@ -110,7 +124,7 @@ export function GalleryGrid() {
 
       <ImageLightbox
         url={lightboxItem?.resultUrl ?? ""}
-        alt="Model shot"
+        alt={lightboxItem ? generationAlt(lightboxItem) : "Generated image"}
         open={lightboxItem !== null}
         onClose={() => setLightboxItem(null)}
         filename={
