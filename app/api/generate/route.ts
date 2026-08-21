@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (imageBase64.length > 4_000_000) {
+  if (imageBase64.length > 6_000_000) {
     return NextResponse.json(
       {
         error:

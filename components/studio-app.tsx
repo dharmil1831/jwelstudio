@@ -174,9 +174,9 @@ export function StudioApp() {
     setResultUrl(null);
 
     try {
-      const { base64, mimeType } = await resizeImageFile(file, 1024, 0.85);
+      const { base64, mimeType } = await resizeImageFile(file, 1536, 0.92);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 90_000);
+      const timeout = window.setTimeout(() => controller.abort(), 120_000);
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -1,11 +1,12 @@
 import type { Framing, StudioStyle } from "@/lib/style-options";
 
 const jewelryFidelityRules = [
-  "CRITICAL JEWELRY FIDELITY RULES (must obey):",
-  "The uploaded image is the product reference. The jewelry in the output must be visually identical to that reference.",
-  "Keep the exact same design silhouette, metal color, finish, gemstone count/shapes/colors/cuts, settings, engravings, clasp or backing, proportions, and relative sizes.",
-  "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add extra sparkle, or invent new jewelry.",
-  "If any style instruction conflicts with jewelry accuracy, jewelry accuracy wins.",
+  "CRITICAL JEWELRY FIDELITY RULES (must obey — highest priority):",
+  "The uploaded image is the ONLY product reference. The jewelry in the output must be a pixel-faithful recreation of that exact piece.",
+  "Preserve exact design silhouette, metal color/temperature, polish vs matte finish, gemstone count, shapes, colors, cuts, settings, bezels, prongs, engravings, clasp/backing, chain/link pattern, proportions, and relative sizes.",
+  "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add extra sparkle, change stone hue, or invent new jewelry.",
+  "Do NOT invent matching earrings, rings, bracelets, or set pieces that are not clearly present in the uploaded reference. Show only what is in the reference photo.",
+  "If any style, scene, mood, casting, or camera instruction conflicts with jewelry accuracy, jewelry accuracy always wins.",
 ].join(" ");
 
 const placementCopy: Record<StudioStyle["placement"], string> = {
@@ -21,9 +22,10 @@ const placementCopy: Record<StudioStyle["placement"], string> = {
   hair: "Show hair jewelry: maang tikka, jhoomar, or hair pins integrated in styled hair.",
   nose: "Show nose ring or nath on the nose with respectful beauty framing.",
   chest_brooch: "Show brooch pinned on chest, lapel, or saree blouse.",
-  multi_piece: "Show coordinated jewelry set (necklace + earrings + bangles) styled together.",
+  multi_piece:
+    "Show the coordinated jewelry pieces that appear in the uploaded reference only — do not invent extra matching items.",
   full_outfit:
-    "Full upper-body or full-length fashion shot where jewelry is visible in a styled look.",
+    "Full upper-body or full-length fashion shot where the uploaded jewelry is clearly visible in a styled look.",
 };
 
 const subjectCopy: Record<StudioStyle["subject"], string> = {
@@ -32,7 +34,7 @@ const subjectCopy: Record<StudioStyle["subject"], string> = {
   man: "Casting: adult man; elegant fashion/portrait portrayal.",
   youth: "Casting: young adult model (18–25); fresh contemporary look.",
   mature: "Casting: mature adult (40s–60s); sophisticated premium feel.",
-  couple: "Casting: couple wearing complementary jewelry; warm chemistry.",
+  couple: "Casting: couple; only the uploaded jewelry pieces are worn — do not invent complementary jewelry.",
   diverse: "Casting: inclusive representation across skin tones; authentic campaign.",
   south_asian: "Casting: South Asian model; natural features and styling.",
   western: "Casting: Western model; contemporary global campaign aesthetic.",
@@ -41,24 +43,25 @@ const subjectCopy: Record<StudioStyle["subject"], string> = {
 };
 
 const shotCopy: Record<StudioStyle["shot"], string> = {
-  editorial: "High-end editorial portrait with magazine lighting.",
-  lifestyle: "Natural lifestyle portrait with soft daylight.",
-  hands_macro: "Macro beauty shot; jewelry is the hero.",
-  catalog: "Clean catalog e-commerce framing, neutral pose, product clarity.",
-  side_profile: "Side or three-quarter profile highlighting placement.",
-  full_body: "Full-body fashion framing with jewelry visible.",
-  close_up: "Tight beauty close-up on jewelry placement area.",
-  movement: "Dynamic pose with subtle motion energy; jewelry stays sharp.",
+  editorial: "High-end editorial portrait with magazine lighting; jewelry identity locked to the reference.",
+  lifestyle: "Natural lifestyle portrait with soft daylight; jewelry identity locked to the reference.",
+  hands_macro: "Macro beauty shot; jewelry is the hero and must match the reference exactly.",
+  catalog: "Clean catalog e-commerce framing, neutral pose, maximum product clarity.",
+  side_profile: "Side or three-quarter profile highlighting placement; jewelry must match the reference.",
+  full_body: "Full-body fashion framing with jewelry clearly visible and true to the reference.",
+  close_up: "Tight beauty close-up on jewelry placement area; prioritize exact jewelry detail.",
+  movement:
+    "Subtle dynamic energy in pose, hair, or fabric only. Jewelry must remain sharp, undistorted, and identical to the reference — no motion blur on metal or stones.",
 };
 
 const framingCopy: Record<Framing, string> = {
   catalog:
     "Clean catalog e-commerce product photo: jewelry centered, sharp, evenly lit, commercial crop.",
-  hero: "Luxury hero still: jewelry as the campaign centerpiece with premium depth and glow on metal only.",
+  hero: "Luxury hero still: jewelry as the campaign centerpiece; keep metal and stones true to the reference (no invented glow patterns).",
   macro:
-    "Macro product detail: close crop on craftsmanship, stones, and metalwork; jewelry fills the frame.",
+    "Macro product detail: close crop on craftsmanship, stones, and metalwork; jewelry fills the frame and matches the reference exactly.",
   lifestyle_still:
-    "Lifestyle still life: jewelry arranged on a styled surface with supporting props that never hide the piece.",
+    "Lifestyle still life: jewelry arranged on a styled surface with supporting props that never hide or alter the piece.",
 };
 
 const sceneCopy: Record<StudioStyle["scene"], string> = {
@@ -74,30 +77,33 @@ const sceneCopy: Record<StudioStyle["scene"], string> = {
 
 const vibeCopy: Record<StudioStyle["vibe"], string> = {
   minimal: "Minimal styling; understated wardrobe; focus on metal and stones.",
-  luxury: "Luxury campaign: silk, velvet, rich tones, premium finish.",
-  festive: "Celebratory festive context; jewelry highlighted tastefully.",
-  bridal: "Bridal styling; traditional-meets-modern elegance.",
+  luxury: "Luxury campaign: silk, velvet, rich tones, premium finish — wardrobe and set only, not jewelry redesign.",
+  festive: "Celebratory festive context; jewelry highlighted tastefully without altering the piece.",
+  bridal: "Bridal styling; traditional-meets-modern elegance — wardrobe and set only.",
   everyday: "Everyday wearable styling; approachable and relatable.",
-  vintage: "Vintage-inspired styling with classic tones.",
-  minimalist_luxe: "Minimalist luxe: clean lines with premium finish.",
+  vintage: "Vintage-inspired wardrobe and set tones — do not restyle the jewelry itself into a different vintage design.",
+  minimalist_luxe: "Minimalist luxe wardrobe and set: clean lines with premium finish — jewelry stays exactly as uploaded.",
 };
 
 const backgroundVibeCopy: Record<StudioStyle["vibe"], string> = {
   minimal: "Minimal product styling; uncluttered surface; focus on metal and stones.",
-  luxury: "Luxury display: silk, velvet, or rich tones with a premium finish.",
-  festive: "Celebratory festive context; jewelry highlighted tastefully.",
-  bridal: "Bridal still life; traditional-meets-modern elegance.",
+  luxury: "Luxury display: silk, velvet, or rich tones with a premium finish — backdrop only.",
+  festive: "Celebratory festive context; jewelry highlighted tastefully without altering the piece.",
+  bridal: "Bridal still life; traditional-meets-modern elegance — surface and props only.",
   everyday: "Everyday wearable product styling; approachable and relatable.",
-  vintage: "Vintage-inspired still life with classic tones.",
-  minimalist_luxe: "Minimalist luxe: clean lines with premium finish.",
+  vintage: "Vintage-inspired still-life surface and props — do not restyle the jewelry design.",
+  minimalist_luxe: "Minimalist luxe surface: clean lines with premium finish — jewelry stays exactly as uploaded.",
 };
+
+const finalCheck =
+  "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions. Not a similar piece. No extra jewelry added.";
 
 export function buildJewelryPrompt(style: StudioStyle): string {
   return [
     jewelryFidelityRules,
     "Only change the model, pose, wardrobe, background, and lighting — never the jewelry identity.",
     "",
-    "Task: create one photorealistic photograph of a model wearing this exact jewelry piece.",
+    "Task: create one photorealistic photograph of a model wearing this exact jewelry piece from the upload.",
     "Skin tones natural; anatomy correct; jewelry sharp and true to the reference.",
     "",
     "Jewelry placement:",
@@ -113,7 +119,7 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     "Mood:",
     vibeCopy[style.vibe],
     "",
-    "Final check: the jewelry must match the uploaded product image exactly — same piece, not a similar piece.",
+    finalCheck,
   ].join(" ");
 }
 
@@ -133,7 +139,7 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
     "Mood:",
     backgroundVibeCopy[style.vibe],
     "",
-    "Final check: the jewelry must match the uploaded product image exactly — same piece, not a similar piece.",
+    finalCheck,
   ].join(" ");
 }
 
