@@ -1,5 +1,10 @@
 import { isAdminEmail } from "@/lib/admin";
-import { isOpenAIConfigured } from "@/lib/env";
+import {
+  getImageProviderPreference,
+  isGeminiConfigured,
+  isGenerationConfigured,
+  isOpenAIConfigured,
+} from "@/lib/env";
 import { isRazorpayConfigured } from "@/lib/razorpay";
 import { getSessionUser } from "@/lib/session";
 import { STARTING_CREDITS } from "@/lib/users";
@@ -7,13 +12,24 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const user = await getSessionUser();
+  const generationConfigured = isGenerationConfigured();
+  const preference = getImageProviderPreference();
+
+  const base = {
+    generationConfigured,
+    razorpayConfigured: isRazorpayConfigured(),
+    startingCredits: STARTING_CREDITS,
+    providers: {
+      openai: isOpenAIConfigured(),
+      gemini: isGeminiConfigured(),
+      preference,
+    },
+  };
 
   if (!user) {
     return NextResponse.json({
       authenticated: false,
-      generationConfigured: isOpenAIConfigured(),
-      razorpayConfigured: isRazorpayConfigured(),
-      startingCredits: STARTING_CREDITS,
+      ...base,
     });
   }
 
@@ -25,9 +41,7 @@ export async function GET() {
     },
     credits: user.credits,
     isAdmin: isAdminEmail(user.email),
-    startingCredits: STARTING_CREDITS,
-    generationConfigured: isOpenAIConfigured(),
-    razorpayConfigured: isRazorpayConfigured(),
-    provider: "openai",
+    ...base,
+    provider: preference,
   });
 }

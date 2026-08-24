@@ -1,8 +1,8 @@
-import { isOpenAIConfigured } from "@/lib/env";
-import { generateJewelryModelShot } from "@/lib/openai";
+import { isGenerationConfigured } from "@/lib/env";
+import { generateJewelryImage } from "@/lib/generate-image";
 import { buildBackgroundPrompt, buildJewelryPrompt } from "@/lib/prompts";
 import { getSessionUser } from "@/lib/session";
-import { parseStudioStyle, OUTPUT_FORMAT_SIZES } from "@/lib/style-options";
+import { parseStudioStyle } from "@/lib/style-options";
 import { storeGenerationImage } from "@/lib/storage";
 import {
   CREDIT_COST_PER_GENERATION,
@@ -65,9 +65,12 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isOpenAIConfigured()) {
+  if (!isGenerationConfigured()) {
     return NextResponse.json(
-      { error: "Server is missing OPENAI_API_KEY." },
+      {
+        error:
+          "Server is missing image generation keys. Set OPENAI_API_KEY and/or GEMINI_API_KEY.",
+      },
       { status: 503 },
     );
   }
@@ -115,12 +118,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const out = await generateJewelryModelShot(
+    const out = await generateJewelryImage({
       imageBase64,
       mimeType,
       prompt,
-      OUTPUT_FORMAT_SIZES[style.format],
-    );
+      format: style.format,
+    });
     const buffer = Buffer.from(out.imageBase64, "base64");
     const resultUrl = await storeGenerationImage(user.id, buffer, "png");
 
@@ -141,7 +144,8 @@ export async function POST(req: Request) {
       resultUrl,
       mimeType: out.mimeType,
       credits: deducted.credits,
-      provider: "openai",
+      provider: out.provider,
+      attemptedProviders: out.attempted,
     });
   } catch (e) {
     const credits = await refundCredits(user.id, CREDIT_COST_PER_GENERATION);

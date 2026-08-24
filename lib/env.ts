@@ -12,6 +12,8 @@ function normalizeKey(raw: string | undefined): string | undefined {
   return k.length > 0 ? k : undefined;
 }
 
+export type ImageProviderPreference = "auto" | "openai" | "gemini";
+
 /** OpenAI API key from https://platform.openai.com/api-keys */
 export function getOpenAIApiKey(): string | undefined {
   return normalizeKey(process.env.OPENAI_API_KEY);
@@ -25,6 +27,33 @@ export function isOpenAIConfigured(): boolean {
   return Boolean(getOpenAIApiKey());
 }
 
+/** Gemini API key from https://aistudio.google.com/apikey */
+export function getGeminiApiKey(): string | undefined {
+  return (
+    normalizeKey(process.env.GEMINI_API_KEY) ??
+    normalizeKey(process.env.GOOGLE_AI_API_KEY) ??
+    normalizeKey(process.env.GOOGLE_GENERATIVE_AI_API_KEY)
+  );
+}
+
+export function getGeminiImageModel(): string {
+  return (
+    process.env.GEMINI_IMAGE_MODEL?.trim() ||
+    "gemini-3.1-flash-image-preview"
+  );
+}
+
+export function isGeminiConfigured(): boolean {
+  return Boolean(getGeminiApiKey());
+}
+
+/** auto = OpenAI first when available, Gemini fallback; openai/gemini force one provider. */
+export function getImageProviderPreference(): ImageProviderPreference {
+  const raw = process.env.IMAGE_PROVIDER?.trim().toLowerCase();
+  if (raw === "openai" || raw === "gemini" || raw === "auto") return raw;
+  return "auto";
+}
+
 export function isGenerationConfigured(): boolean {
-  return isOpenAIConfigured();
+  return isOpenAIConfigured() || isGeminiConfigured();
 }

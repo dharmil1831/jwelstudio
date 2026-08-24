@@ -194,6 +194,16 @@ export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
   landscape: "1536x1024",
 };
 
+/** Gemini native aspect ratios closest to each studio format. */
+export const OUTPUT_FORMAT_GEMINI_ASPECT: Record<OutputFormat, string> = {
+  square: "1:1",
+  whatsapp: "1:1",
+  catalog: "4:5",
+  instagram_post: "4:5",
+  instagram_story: "9:16",
+  landscape: "3:2",
+};
+
 export const OUTPUT_FORMAT_ASPECT_CLASS: Record<OutputFormat, string> = {
   square: "aspect-square max-w-xl",
   whatsapp: "aspect-square max-w-xl",
