@@ -1,10 +1,12 @@
 import { getOpenAIApiKey, getOpenAIImageModel } from "@/lib/env";
+import type { OpenAIImageSize } from "@/lib/style-options";
 import OpenAI, { toFile } from "openai";
 
 export async function generateJewelryModelShot(
   imageBase64: string,
   mimeType: string,
   prompt: string,
+  size: OpenAIImageSize = "1024x1024",
 ): Promise<{ imageBase64: string; mimeType: string }> {
   const apiKey = getOpenAIApiKey();
   if (!apiKey) {
@@ -29,7 +31,7 @@ export async function generateJewelryModelShot(
       model,
       image,
       prompt,
-      size: "1024x1024",
+      size,
       ...(supportsHighFidelity
         ? { input_fidelity: "high" as const, quality: "high" as const }
         : {}),

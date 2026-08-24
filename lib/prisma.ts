@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 /** Bump when Generation fields change so the cached PrismaClient is rebuilt. */
-const PRISMA_SCHEMA_ID = "generation-mode-v1";
+const PRISMA_SCHEMA_ID = "generation-format-v1";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

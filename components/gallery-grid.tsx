@@ -9,6 +9,7 @@ type GenerationItem = {
   id: string;
   resultUrl: string;
   mode?: string;
+  format?: string;
   placement: string;
   subject: string;
   shot: string;
@@ -20,7 +21,7 @@ type GenerationItem = {
 function generationCaption(item: GenerationItem): string {
   const mode = item.mode === "background" ? "background" : "model";
   const detail = item.mode === "background" ? item.shot : item.placement;
-  return [mode, detail, item.vibe]
+  return [mode, item.format, detail, item.vibe]
     .filter(Boolean)
     .join(" · ")
     .replace(/_/g, " ");

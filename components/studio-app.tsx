@@ -7,6 +7,9 @@ import {
   FRAMINGS,
   GENERATION_MODES,
   MODE_LABELS,
+  OUTPUT_FORMAT_ASPECT_CLASS,
+  OUTPUT_FORMAT_LABELS,
+  OUTPUT_FORMATS,
   PLACEMENT_LABELS,
   PLACEMENTS,
   SCENE_LABELS,
@@ -19,6 +22,7 @@ import {
   VIBES,
   type Framing,
   type GenerationMode,
+  type OutputFormat,
   type Placement,
   type Scene,
   type Shot,
@@ -59,6 +63,7 @@ export function StudioApp() {
   const [framing, setFraming] = useState<Framing>("catalog");
   const [scene, setScene] = useState<Scene>("studio");
   const [vibe, setVibe] = useState<Vibe>("luxury");
+  const [format, setFormat] = useState<OutputFormat>("square");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -190,6 +195,7 @@ export function StudioApp() {
           framing,
           scene,
           vibe,
+          format,
         }),
         signal: controller.signal,
       });
@@ -208,7 +214,7 @@ export function StudioApp() {
     } finally {
       setLoading(false);
     }
-  }, [file, mode, placement, subject, shot, framing, scene, vibe]);
+  }, [file, mode, placement, subject, shot, framing, scene, vibe, format]);
 
   if (authenticated === null) {
     return (
@@ -364,6 +370,12 @@ export function StudioApp() {
           />
         )}
         <Field
+          label="Output format"
+          value={format}
+          onChange={setFormat}
+          options={OUTPUT_FORMATS.map((k) => [k, OUTPUT_FORMAT_LABELS[k]] as const)}
+        />
+        <Field
           label="Scene"
           value={scene}
           onChange={setScene}
@@ -404,18 +416,18 @@ export function StudioApp() {
       <section className="flex min-h-[420px] flex-col items-center justify-center gap-4">
         {resultUrl ? (
           <>
-            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-lg">
+            <div className={`w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]} mx-auto`}>
               <button
                 type="button"
                 onClick={() => setLightboxOpen(true)}
-                className="block w-full cursor-zoom-in"
+                className="block h-full w-full cursor-zoom-in"
                 aria-label="View full size"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={resultUrl}
                   alt={mode === "background" ? "Background still" : "Model shot"}
-                  className="aspect-square w-full object-contain bg-stone-50"
+                  className="h-full w-full object-contain bg-stone-50"
                 />
               </button>
             </div>
@@ -431,8 +443,8 @@ export function StudioApp() {
                 url={resultUrl}
                 filename={
                   mode === "background"
-                    ? "jewel-studio-background.png"
-                    : "jewel-studio-model-shot.png"
+                    ? `jewel-studio-background-${format}.png`
+                    : `jewel-studio-model-${format}.png`
                 }
                 className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
                 label="Download image"
@@ -445,8 +457,8 @@ export function StudioApp() {
               onClose={() => setLightboxOpen(false)}
               filename={
                 mode === "background"
-                  ? "jewel-studio-background.png"
-                  : "jewel-studio-model-shot.png"
+                  ? `jewel-studio-background-${format}.png`
+                  : `jewel-studio-model-${format}.png`
               }
             />
           </>

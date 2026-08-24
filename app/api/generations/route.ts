@@ -25,29 +25,39 @@ export async function GET() {
     },
   });
 
-  const modes = new Map<string, string>();
+  const extras = new Map<string, { mode: string; format: string }>();
   if (rows.length > 0) {
     try {
-      const withMode = await prisma.generation.findMany({
+      const withExtras = await prisma.generation.findMany({
         where: { id: { in: rows.map((r) => r.id) } },
-        select: { id: true, mode: true },
+        select: { id: true, mode: true, format: true },
       });
-      for (const row of withMode) modes.set(row.id, row.mode);
+      for (const row of withExtras) {
+        extras.set(row.id, { mode: row.mode, format: row.format });
+      }
     } catch {
-      const withMode = await prisma.$queryRaw<Array<{ id: string; mode: string }>>`
-        SELECT id, mode FROM "Generation"
+      const withExtras = await prisma.$queryRaw<
+        Array<{ id: string; mode: string; format: string | null }>
+      >`
+        SELECT id, mode, format FROM "Generation"
         WHERE "userId" = ${user.id} AND status = 'succeeded'
         ORDER BY "createdAt" DESC
         LIMIT 48
       `;
-      for (const row of withMode) modes.set(row.id, row.mode);
+      for (const row of withExtras) {
+        extras.set(row.id, {
+          mode: row.mode,
+          format: row.format ?? "square",
+        });
+      }
     }
   }
 
   return NextResponse.json({
     items: rows.map((row) => ({
       ...row,
-      mode: modes.get(row.id) ?? "model",
+      mode: extras.get(row.id)?.mode ?? "model",
+      format: extras.get(row.id)?.format ?? "square",
     })),
   });
 }

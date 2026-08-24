@@ -2,7 +2,7 @@ import { StudioApp } from "@/components/studio-app";
 
 const STEPS = [
   { n: "01", title: "Upload", body: "Add your jewelry photo" },
-  { n: "02", title: "Style", body: "Pick model shot or background, then scene & mood" },
+  { n: "02", title: "Style", body: "Pick format, model or background, then scene & mood" },
   { n: "03", title: "Generate", body: "AI creates a model shot or product still" },
   { n: "04", title: "Gallery", body: "View past shots in your account" },
 ] as const;

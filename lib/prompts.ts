@@ -95,6 +95,21 @@ const backgroundVibeCopy: Record<StudioStyle["vibe"], string> = {
   minimalist_luxe: "Minimalist luxe surface: clean lines with premium finish — jewelry stays exactly as uploaded.",
 };
 
+const formatCopy: Record<StudioStyle["format"], string> = {
+  square:
+    "Compose as a square 1:1 frame. Center the jewelry; leave even margins on all sides.",
+  whatsapp:
+    "Compose as a square 1:1 WhatsApp Business catalog photo. Jewelry centered, clean, easy to read on a phone.",
+  catalog:
+    "Compose as a vertical catalog / e-commerce frame (about 4:5). Product-first crop with the jewelry fully visible.",
+  instagram_post:
+    "Compose as a vertical Instagram feed post (about 4:5). Jewelry is the hero; keep important detail away from edges.",
+  instagram_story:
+    "Compose as a vertical Instagram Story / WhatsApp Status (9:16). Place jewelry in the safe center; leave extra space top and bottom for Story UI.",
+  landscape:
+    "Compose as a wide landscape / banner frame (about 3:2). Jewelry prominent, not cropped at the sides.",
+};
+
 const finalCheck =
   "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions. Not a similar piece. No extra jewelry added.";
 
@@ -114,6 +129,8 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     "",
     "Shot & camera:",
     shotCopy[style.shot],
+    "Output format:",
+    formatCopy[style.format],
     "Scene:",
     sceneCopy[style.scene],
     "Mood:",
@@ -134,6 +151,8 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
     "",
     "Framing:",
     framingCopy[style.framing],
+    "Output format:",
+    formatCopy[style.format],
     "Scene / background:",
     sceneCopy[style.scene],
     "Mood:",

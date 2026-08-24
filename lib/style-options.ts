@@ -71,6 +71,17 @@ export const VIBES = [
   "minimalist_luxe",
 ] as const;
 
+export const OUTPUT_FORMATS = [
+  "square",
+  "whatsapp",
+  "catalog",
+  "instagram_post",
+  "instagram_story",
+  "landscape",
+] as const;
+
+export type OpenAIImageSize = "1024x1024" | "1536x1024" | "1024x1536";
+
 export type GenerationMode = (typeof GENERATION_MODES)[number];
 export type Placement = (typeof PLACEMENTS)[number];
 export type Subject = (typeof SUBJECTS)[number];
@@ -78,6 +89,7 @@ export type Shot = (typeof SHOTS)[number];
 export type Framing = (typeof FRAMINGS)[number];
 export type Scene = (typeof SCENES)[number];
 export type Vibe = (typeof VIBES)[number];
+export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
 
 export type StudioStyle = {
   mode: GenerationMode;
@@ -87,6 +99,7 @@ export type StudioStyle = {
   framing: Framing;
   scene: Scene;
   vibe: Vibe;
+  format: OutputFormat;
 };
 
 export const MODE_LABELS: Record<GenerationMode, string> = {
@@ -163,6 +176,33 @@ export const VIBE_LABELS: Record<Vibe, string> = {
   minimalist_luxe: "Minimalist luxe",
 };
 
+export const OUTPUT_FORMAT_LABELS: Record<OutputFormat, string> = {
+  square: "Square (1:1)",
+  whatsapp: "WhatsApp catalog (1:1)",
+  catalog: "Catalog / e-commerce (4:5)",
+  instagram_post: "Instagram post (4:5)",
+  instagram_story: "Instagram story (9:16)",
+  landscape: "Landscape / banner (3:2)",
+};
+
+export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
+  square: "1024x1024",
+  whatsapp: "1024x1024",
+  catalog: "1024x1536",
+  instagram_post: "1024x1536",
+  instagram_story: "1024x1536",
+  landscape: "1536x1024",
+};
+
+export const OUTPUT_FORMAT_ASPECT_CLASS: Record<OutputFormat, string> = {
+  square: "aspect-square max-w-xl",
+  whatsapp: "aspect-square max-w-xl",
+  catalog: "aspect-[4/5] max-w-md",
+  instagram_post: "aspect-[4/5] max-w-md",
+  instagram_story: "aspect-[9/16] max-w-[280px]",
+  landscape: "aspect-[3/2] max-w-2xl",
+};
+
 export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
   const modeRaw = body.mode as GenerationMode;
   const mode = GENERATION_MODES.includes(modeRaw) ? modeRaw : "model";
@@ -173,6 +213,7 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
   const framing = body.framing as Framing;
   const scene = body.scene as Scene;
   const vibe = body.vibe as Vibe;
+  const format = body.format as OutputFormat;
 
   const parsed: StudioStyle = {
     mode,
@@ -182,6 +223,7 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
     framing: FRAMINGS.includes(framing) ? framing : "catalog",
     scene: SCENES.includes(scene) ? scene : "studio",
     vibe: VIBES.includes(vibe) ? vibe : "luxury",
+    format: OUTPUT_FORMATS.includes(format) ? format : "square",
   };
 
   if (mode === "background") {

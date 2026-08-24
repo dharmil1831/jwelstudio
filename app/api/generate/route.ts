@@ -2,7 +2,7 @@ import { isOpenAIConfigured } from "@/lib/env";
 import { generateJewelryModelShot } from "@/lib/openai";
 import { buildBackgroundPrompt, buildJewelryPrompt } from "@/lib/prompts";
 import { getSessionUser } from "@/lib/session";
-import { parseStudioStyle } from "@/lib/style-options";
+import { parseStudioStyle, OUTPUT_FORMAT_SIZES } from "@/lib/style-options";
 import { storeGenerationImage } from "@/lib/storage";
 import {
   CREDIT_COST_PER_GENERATION,
@@ -17,6 +17,7 @@ export const maxDuration = 60;
 async function persistGeneration(data: {
   userId: string;
   mode: string;
+  format: string;
   placement: string;
   subject: string;
   shot: string;
@@ -31,14 +32,16 @@ async function persistGeneration(data: {
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "";
-    if (!/Unknown argument `mode`/.test(message)) throw e;
+    if (!/Unknown argument `(mode|format)`/.test(message)) throw e;
 
-    const { mode, ...rest } = data;
+    const { mode, format, ...rest } = data;
     const row = await prisma.generation.create({
       data: { ...rest, status: "succeeded" },
     });
     await prisma.$executeRaw`
-      UPDATE "Generation" SET "mode" = ${mode} WHERE id = ${row.id}
+      UPDATE "Generation"
+      SET "mode" = ${mode}, "format" = ${format}
+      WHERE id = ${row.id}
     `;
   }
 }
@@ -112,13 +115,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const out = await generateJewelryModelShot(imageBase64, mimeType, prompt);
+    const out = await generateJewelryModelShot(
+      imageBase64,
+      mimeType,
+      prompt,
+      OUTPUT_FORMAT_SIZES[style.format],
+    );
     const buffer = Buffer.from(out.imageBase64, "base64");
     const resultUrl = await storeGenerationImage(user.id, buffer, "png");
 
     await persistGeneration({
       userId: user.id,
       mode: style.mode,
+      format: style.format,
       placement: style.placement,
       subject: style.subject,
       shot: style.mode === "background" ? style.framing : style.shot,

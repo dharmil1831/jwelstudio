@@ -31,9 +31,11 @@ export default async function AdminGenerationsPage() {
                 <p className="mt-0.5 text-stone-500">
                   {[
                     g.mode === "background" ? "background" : "model",
+                    g.format,
                     g.mode === "background" ? g.shot : g.placement,
                     g.vibe,
                   ]
+                    .filter(Boolean)
                     .join(" · ")
                     .replace(/_/g, " ")}
                 </p>
