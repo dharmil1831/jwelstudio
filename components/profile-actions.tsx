@@ -23,7 +23,7 @@ export function ProfileActions() {
       type="button"
       disabled={loggingOut}
       onClick={() => void logout()}
-      className="mt-4 w-full rounded-xl border border-red-400/40 py-3 text-sm font-medium text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+      className="mt-4 w-full rounded-xl border border-red-200 py-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
     >
       {loggingOut ? "Logging out…" : "Log out"}
     </button>

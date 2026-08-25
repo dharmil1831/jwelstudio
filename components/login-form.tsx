@@ -357,11 +357,11 @@ export function LoginForm() {
       ) : null}
 
       {devHint ? (
-        <p className="mt-4 rounded-lg bg-sky-500/15 px-3 py-2 text-xs text-sky-200">{devHint}</p>
+        <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{devHint}</p>
       ) : null}
       {info ? <p className="mt-4 text-sm text-foreground/80">{info}</p> : null}
       {error ? (
-        <p className="mt-4 text-sm text-red-400" role="alert">
+        <p className="mt-4 text-sm text-red-600" role="alert">
           {error}
         </p>
       ) : null}

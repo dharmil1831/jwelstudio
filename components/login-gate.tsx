@@ -78,7 +78,7 @@ export function LoginGate() {
           type="button"
           disabled={loggingOut}
           onClick={() => void logout()}
-          className="mt-3 w-full rounded-xl py-2 text-sm text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+          className="mt-3 w-full rounded-xl py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
         >
           {loggingOut ? "Logging out…" : "Log out"}
         </button>

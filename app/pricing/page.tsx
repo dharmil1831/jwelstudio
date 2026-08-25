@@ -53,7 +53,7 @@ export default async function PricingPage({
 
         {paid ? (
           <div className="mt-6 space-y-2">
-            <p className="rounded-xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
               Payment successful. Credits are added to your account.
             </p>
             <Link

@@ -1,30 +1,27 @@
 @import "tailwindcss";
 
-/*
-  Mid purple: page uses former card tone (#533166) —
-  lighter than near-black, darker than the soft lavender.
-*/
+/* Soft Plum (theme A) — light page, purple CTAs, white cards */
 :root {
-  --background: #533166;
-  --foreground: #fcf6f6;
-  --primary: #c3b4fe;
-  --secondary: #3d2548;
-  --accent: #9166af;
+  --background: #e8e0f0;
+  --foreground: #2a1f33;
+  --primary: #7c5cbf;
+  --secondary: #ffffff;
+  --accent: #a78bfa;
 }
 
 @theme inline {
-  --color-background: #533166;
-  --color-foreground: #fcf6f6;
-  --color-primary: #c3b4fe;
-  --color-secondary: #3d2548;
-  --color-accent: #9166af;
+  --color-background: #e8e0f0;
+  --color-foreground: #2a1f33;
+  --color-primary: #7c5cbf;
+  --color-secondary: #ffffff;
+  --color-accent: #a78bfa;
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display), ui-serif, Georgia, serif;
 }
 
 body {
-  background-color: #533166;
-  color: #fcf6f6;
+  background-color: #e8e0f0;
+  color: #2a1f33;
   font-family: var(--font-sans);
   overflow-x: hidden;
 }

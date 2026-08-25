@@ -83,7 +83,7 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
                 description: `${data.pack?.credits ?? ""} generation credits`,
                 order_id: data.orderId,
                 prefill: data.prefill,
-                theme: { color: "#9166af" },
+                theme: { color: "#7c5cbf" },
                 handler: (response: {
                   razorpay_payment_id: string;
                   razorpay_order_id: string;
