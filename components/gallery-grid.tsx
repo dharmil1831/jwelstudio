@@ -56,13 +56,13 @@ export function GalleryGrid() {
   }, []);
 
   if (loading) {
-    return <p className="text-center text-sm text-stone-500">Loading gallery…</p>;
+    return <p className="text-center text-sm text-foreground/55">Loading gallery…</p>;
   }
 
   if (error === "login") {
     return (
-      <p className="text-center text-sm text-stone-600">
-        <Link href="/login" className="font-medium text-amber-800 underline">
+      <p className="text-center text-sm text-foreground/70">
+        <Link href="/login" className="font-medium text-primary underline">
           Log in
         </Link>{" "}
         to see your past generations.
@@ -71,12 +71,12 @@ export function GalleryGrid() {
   }
 
   if (error) {
-    return <p className="text-center text-sm text-red-600">{error}</p>;
+    return <p className="text-center text-sm text-red-400">{error}</p>;
   }
 
   if (items.length === 0) {
     return (
-      <p className="text-center text-sm text-stone-500">
+      <p className="text-center text-sm text-foreground/55">
         No generations yet. Create your first shot in the studio.
       </p>
     );
@@ -88,7 +88,7 @@ export function GalleryGrid() {
         {items.map((item) => (
           <figure
             key={item.id}
-            className="group overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm"
+            className="group overflow-hidden rounded-xl border border-primary/20 bg-secondary shadow-sm"
           >
             <button
               type="button"
@@ -103,20 +103,20 @@ export function GalleryGrid() {
                 className="aspect-[4/5] w-full object-cover transition group-hover:brightness-95"
               />
               <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100">
-                <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-stone-900">
+                <span className="rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-background">
                   Tap to zoom
                 </span>
               </span>
             </button>
             <figcaption className="flex items-center justify-between gap-2 px-2 py-2">
-              <span className="truncate text-[10px] uppercase tracking-wide text-stone-500">
+              <span className="truncate text-[10px] uppercase tracking-wide text-foreground/55">
                 {generationCaption(item)}
               </span>
               <DownloadImageButton
                 url={item.resultUrl}
                 filename={`jewel-studio-${item.id}.png`}
                 label="Save"
-                className="shrink-0 rounded-md bg-stone-100 px-2 py-1 text-[10px] font-semibold text-stone-700 hover:bg-stone-200"
+                className="shrink-0 rounded-md bg-background/50 px-2 py-1 text-[10px] font-semibold text-foreground hover:bg-accent/40"
               />
             </figcaption>
           </figure>

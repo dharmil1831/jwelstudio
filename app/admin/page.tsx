@@ -10,12 +10,12 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+    <div className="rounded-xl border border-primary/20 bg-secondary p-6 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
         {label}
       </p>
-      <p className="mt-2 text-3xl font-light text-stone-900">{value}</p>
-      {sub ? <p className="mt-1 text-xs text-stone-500">{sub}</p> : null}
+      <p className="mt-2 text-3xl font-light text-foreground">{value}</p>
+      {sub ? <p className="mt-1 text-xs text-foreground/55">{sub}</p> : null}
     </div>
   );
 }
@@ -25,8 +25,8 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-stone-900">Dashboard</h1>
-      <p className="mt-1 text-sm text-stone-600">Jewel Studio overview</p>
+      <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+      <p className="mt-1 text-sm text-foreground/70">Jewel Studio overview</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Users" value={stats.userCount} />

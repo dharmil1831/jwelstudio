@@ -48,7 +48,7 @@ export default async function RootLayout({
       lang="en"
       className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col overflow-x-hidden bg-stone-50 font-sans text-stone-900">
+      <body className="flex min-h-full flex-col overflow-x-hidden bg-background font-sans text-foreground">
         <SiteHeader initialSession={initialSession} />
         {children}
       </body>

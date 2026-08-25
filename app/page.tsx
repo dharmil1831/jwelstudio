@@ -9,13 +9,13 @@ const STEPS = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50/80 via-stone-50 to-stone-100 text-stone-800">
+    <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto max-w-6xl px-6 pb-20 pt-10">
         <section className="mx-auto max-w-2xl text-center">
-          <h1 className="text-4xl font-light leading-tight text-stone-900 sm:text-5xl">
+          <h1 className="font-[family-name:var(--font-display)] text-4xl font-light leading-tight text-foreground sm:text-5xl">
             Model-ready jewelry visuals in minutes
           </h1>
-          <p className="mt-4 text-lg text-stone-600">
+          <p className="mt-4 text-lg text-foreground/70">
             Upload your piece, choose the look, and generate campaign shots — 5 free
             generations for every new account.
           </p>
@@ -25,11 +25,11 @@ export default function Home() {
           {STEPS.map((s) => (
             <div
               key={s.n}
-              className="rounded-xl border border-stone-200 bg-white/90 px-4 py-4 text-left"
+              className="rounded-xl border border-primary/20 bg-secondary/80 px-4 py-4 text-left"
             >
-              <p className="text-xs font-bold text-amber-700">{s.n}</p>
-              <p className="mt-1 font-medium text-stone-900">{s.title}</p>
-              <p className="mt-1 text-xs text-stone-600">{s.body}</p>
+              <p className="text-xs font-bold text-primary">{s.n}</p>
+              <p className="mt-1 font-medium text-foreground">{s.title}</p>
+              <p className="mt-1 text-xs text-foreground/65">{s.body}</p>
             </div>
           ))}
         </section>

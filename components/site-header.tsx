@@ -78,27 +78,27 @@ export function SiteHeader({
   const credits = session?.credits;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-stone-200/80 bg-white/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 w-full border-b border-primary/15 bg-background/90 backdrop-blur-sm">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
         <Link
           href="/"
-          className="mr-auto shrink-0 text-lg font-semibold tracking-tight text-stone-900 hover:text-amber-900 sm:text-xl"
+          className="mr-auto shrink-0 font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-foreground hover:text-primary sm:text-xl"
         >
           Jewel Studio
         </Link>
 
-        <nav className="flex shrink-0 items-center gap-3 text-sm text-stone-600">
-          <Link href="/pricing" className="hover:text-amber-800">
+        <nav className="flex shrink-0 items-center gap-3 text-sm text-foreground/70">
+          <Link href="/pricing" className="hover:text-primary">
             Pricing
           </Link>
-          <Link href="/gallery" className="hover:text-amber-800">
+          <Link href="/gallery" className="hover:text-primary">
             Gallery
           </Link>
 
           {session === null ? (
             <Link
               href="/login"
-              className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-stone-700 hover:border-amber-300"
+              className="rounded-full border border-primary/25 bg-secondary px-3 py-1.5 text-foreground/80 hover:border-primary"
             >
               Account
             </Link>
@@ -110,12 +110,12 @@ export function SiteHeader({
                 aria-haspopup="menu"
                 aria-label={`Account menu for ${email}`}
                 onClick={() => setMenuOpen((open) => !open)}
-                className="flex items-center gap-2 rounded-full border border-stone-200 bg-white py-1 pl-1 pr-3 shadow-sm transition hover:border-amber-300"
+                className="flex items-center gap-2 rounded-full border border-primary/25 bg-secondary py-1 pl-1 pr-3 shadow-sm transition hover:border-primary"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-600 text-xs font-semibold text-white">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-background">
                   {avatarLabel(email)}
                 </span>
-                <span className="hidden max-w-[10rem] truncate text-left text-sm font-medium text-stone-900 sm:block">
+                <span className="hidden max-w-[10rem] truncate text-left text-sm font-medium text-foreground sm:block">
                   {email.split("@")[0]}
                 </span>
               </button>
@@ -123,14 +123,14 @@ export function SiteHeader({
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
+                  className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-primary/20 bg-secondary py-1 shadow-lg"
                 >
-                  <div className="border-b border-stone-100 px-4 py-3">
-                    <p className="text-xs text-stone-500">Signed in as</p>
-                    <p className="mt-0.5 break-all text-sm font-medium text-stone-900">
+                  <div className="border-b border-primary/15 px-4 py-3">
+                    <p className="text-xs text-foreground/55">Signed in as</p>
+                    <p className="mt-0.5 break-all text-sm font-medium text-foreground">
                       {email}
                     </p>
-                    <p className="mt-1 text-xs text-stone-500">
+                    <p className="mt-1 text-xs text-foreground/55">
                       {credits ?? "—"} credits left
                       {isAdmin ? " · Admin" : ""}
                     </p>
@@ -139,7 +139,7 @@ export function SiteHeader({
                     href="/profile"
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}
-                    className="block px-4 py-2 text-sm text-stone-700 hover:bg-amber-50"
+                    className="block px-4 py-2 text-sm text-foreground/80 hover:bg-accent/30"
                   >
                     Profile
                   </Link>
@@ -147,7 +147,7 @@ export function SiteHeader({
                     href="/gallery"
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}
-                    className="block px-4 py-2 text-sm text-stone-700 hover:bg-amber-50"
+                    className="block px-4 py-2 text-sm text-foreground/80 hover:bg-accent/30"
                   >
                     Gallery
                   </Link>
@@ -156,7 +156,7 @@ export function SiteHeader({
                       href="/admin"
                       role="menuitem"
                       onClick={() => setMenuOpen(false)}
-                      className="block px-4 py-2 text-sm font-medium text-stone-900 hover:bg-amber-50"
+                      className="block px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/30"
                     >
                       Admin panel
                     </Link>
@@ -166,7 +166,7 @@ export function SiteHeader({
                       href="/pricing"
                       role="menuitem"
                       onClick={() => setMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-amber-800 hover:bg-amber-50"
+                      className="block px-4 py-2 text-sm text-primary hover:bg-accent/30"
                     >
                       Buy credits
                     </Link>
@@ -176,7 +176,7 @@ export function SiteHeader({
                     role="menuitem"
                     disabled={loggingOut}
                     onClick={() => void logout()}
-                    className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    className="block w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/15 disabled:opacity-50"
                   >
                     {loggingOut ? "Logging out…" : "Log out"}
                   </button>
@@ -186,7 +186,7 @@ export function SiteHeader({
           ) : (
             <Link
               href="/login"
-              className="rounded-full bg-amber-600 px-4 py-1.5 font-medium text-white hover:bg-amber-700"
+              className="rounded-full bg-primary px-4 py-1.5 font-medium text-background hover:bg-accent hover:text-foreground"
             >
               Log in
             </Link>

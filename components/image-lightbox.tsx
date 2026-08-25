@@ -96,7 +96,7 @@ export function ImageLightbox({
             type="button"
             disabled={downloading}
             onClick={() => void handleDownload()}
-            className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-background hover:bg-accent hover:text-foreground disabled:opacity-50"
           >
             {downloading ? "Downloading…" : "Download"}
           </button>

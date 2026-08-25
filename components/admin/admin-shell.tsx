@@ -20,13 +20,13 @@ export function AdminShell({
   const pathname = usePathname();
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-stone-100">
+    <div className="min-h-[calc(100vh-4rem)] bg-background">
       <div className="mx-auto flex max-w-7xl gap-8 px-6 py-8">
         <aside className="w-52 shrink-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-stone-500">
+          <p className="text-xs font-semibold uppercase tracking-widest text-foreground/55">
             Admin
           </p>
-          <p className="mt-1 truncate text-sm text-stone-700">{email}</p>
+          <p className="mt-1 truncate text-sm text-foreground/80">{email}</p>
           <nav className="mt-6 flex flex-col gap-1">
             {NAV.map((item) => {
               const active =
@@ -39,8 +39,8 @@ export function AdminShell({
                   href={item.href}
                   className={`rounded-lg px-3 py-2 text-sm font-medium ${
                     active
-                      ? "bg-stone-900 text-white"
-                      : "text-stone-700 hover:bg-stone-200"
+                      ? "bg-primary text-background"
+                      : "text-foreground/80 hover:bg-accent/30"
                   }`}
                 >
                   {item.label}
@@ -50,7 +50,7 @@ export function AdminShell({
           </nav>
           <Link
             href="/"
-            className="mt-8 inline-block text-sm text-amber-800 hover:text-amber-900"
+            className="mt-8 inline-block text-sm text-primary hover:text-accent"
           >
             ← Back to studio
           </Link>

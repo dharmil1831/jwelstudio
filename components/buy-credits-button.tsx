@@ -83,7 +83,7 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
                 description: `${data.pack?.credits ?? ""} generation credits`,
                 order_id: data.orderId,
                 prefill: data.prefill,
-                theme: { color: "#d97706" },
+                theme: { color: "#9166af" },
                 handler: (response: {
                   razorpay_payment_id: string;
                   razorpay_order_id: string;
@@ -119,7 +119,7 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
             }
           })();
         }}
-        className="mt-6 w-full rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-50 hover:bg-accent hover:text-foreground"
       >
         {loading ? "Opening checkout…" : "Buy with Razorpay"}
       </button>

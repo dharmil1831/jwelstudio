@@ -218,43 +218,43 @@ export function StudioApp() {
 
   if (authenticated === null) {
     return (
-      <div className="rounded-2xl border border-stone-200 bg-white/90 p-8 text-center">
-        <p className="text-sm text-stone-500">Checking your session…</p>
+      <div className="rounded-2xl border border-primary/20 bg-secondary/90 p-8 text-center">
+        <p className="text-sm text-foreground/55">Checking your session…</p>
       </div>
     );
   }
 
   if (authenticated === false) {
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-8 text-center">
-        <p className="text-stone-700">
+      <div className="rounded-2xl border border-primary/30 bg-primary/10 p-8 text-center">
+        <p className="text-foreground/80">
           Log in to upload jewelry and generate model shots or background stills.
         </p>
         <Link
           href="/login"
-          className="mt-4 inline-block rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white"
+          className="mt-4 inline-block rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-background"
         >
           Log in / Sign up
         </Link>
-        <p className="mt-3 text-xs text-stone-500">5 free generations for new accounts.</p>
+        <p className="mt-3 text-xs text-foreground/55">5 free generations for new accounts.</p>
       </div>
     );
   }
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
-      <aside className="flex flex-col gap-5 rounded-2xl border border-stone-200/90 bg-white/95 p-6 shadow-md">
+      <aside className="flex flex-col gap-5 rounded-2xl border border-primary/20 bg-secondary/95 p-6 shadow-md">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-foreground/70">
             Credits:{" "}
-            <span className="text-lg font-medium text-stone-900">
+            <span className="text-lg font-medium text-foreground">
               {credits ?? "—"}
             </span>
           </p>
           {credits === 0 ? (
             <Link
               href="/pricing"
-              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white"
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-background"
             >
               Buy credits
             </Link>
@@ -262,7 +262,7 @@ export function StudioApp() {
         </div>
 
         {generationReady === false ? (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p className="rounded-lg bg-primary/15 px-3 py-2 text-xs text-primary">
             Server missing image generation keys (OPENAI_API_KEY and/or GEMINI_API_KEY).
           </p>
         ) : null}
@@ -270,7 +270,7 @@ export function StudioApp() {
         <div
           role="tablist"
           aria-label="Generation mode"
-          className="grid grid-cols-2 gap-1 rounded-xl bg-stone-100 p-1"
+          className="grid grid-cols-2 gap-1 rounded-xl bg-background/60 p-1"
         >
           {GENERATION_MODES.map((key) => (
             <button
@@ -285,8 +285,8 @@ export function StudioApp() {
               }}
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
                 mode === key
-                  ? "bg-white text-stone-900 shadow-sm"
-                  : "text-stone-600 hover:text-stone-900"
+                  ? "bg-secondary text-foreground shadow-sm"
+                  : "text-foreground/65 hover:text-foreground"
               }`}
             >
               {MODE_LABELS[key]}
@@ -295,7 +295,7 @@ export function StudioApp() {
         </div>
 
         <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-amber-800/80">
+          <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
             Jewelry photo
           </p>
           <input
@@ -315,8 +315,8 @@ export function StudioApp() {
             onDrop={onDrop}
             className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-8 text-center text-sm transition ${
               dragActive
-                ? "border-amber-500 bg-amber-50 text-amber-900"
-                : "border-stone-300 bg-stone-50 text-stone-600 hover:border-amber-400"
+                ? "border-primary bg-primary/15 text-primary"
+                : "border-primary/30 bg-background/40 text-foreground/70 hover:border-primary"
             }`}
           >
             {file && previewUrl ? (
@@ -327,12 +327,12 @@ export function StudioApp() {
                   alt="Selected"
                   className="mb-2 max-h-28 w-full rounded-lg object-contain"
                 />
-                <span className="text-xs text-stone-700">{file.name}</span>
+                <span className="text-xs text-foreground/80">{file.name}</span>
               </>
             ) : (
               <>
                 Drop or tap to upload
-                <span className="mt-1 block text-xs text-stone-400">
+                <span className="mt-1 block text-xs text-foreground/45">
                   JPG or PNG works best on iPhone
                 </span>
               </>
@@ -397,7 +397,7 @@ export function StudioApp() {
             (credits !== null && credits < 1)
           }
           onClick={() => void generate()}
-          className="rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 py-3 text-sm font-semibold text-white disabled:opacity-40"
+          className="rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40 hover:bg-accent hover:text-foreground"
         >
           {loading
             ? "Generating…"
@@ -407,7 +407,7 @@ export function StudioApp() {
         </button>
 
         {error ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-red-400" role="alert">
             {error}
           </p>
         ) : null}
@@ -416,7 +416,7 @@ export function StudioApp() {
       <section className="flex min-h-[420px] flex-col items-center justify-center gap-4">
         {resultUrl ? (
           <>
-            <div className={`w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]} mx-auto`}>
+            <div className={`w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]} mx-auto`}>
               <button
                 type="button"
                 onClick={() => setLightboxOpen(true)}
@@ -427,7 +427,7 @@ export function StudioApp() {
                 <img
                   src={resultUrl}
                   alt={mode === "background" ? "Background still" : "Model shot"}
-                  className="h-full w-full object-contain bg-stone-50"
+                  className="h-full w-full object-contain bg-background/50"
                 />
               </button>
             </div>
@@ -435,7 +435,7 @@ export function StudioApp() {
               <button
                 type="button"
                 onClick={() => setLightboxOpen(true)}
-                className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                className="rounded-xl border border-primary/25 bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/30"
               >
                 Zoom in
               </button>
@@ -446,7 +446,7 @@ export function StudioApp() {
                     ? `jewel-studio-background-${format}.png`
                     : `jewel-studio-model-${format}.png`
                 }
-                className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
                 label="Download image"
               />
             </div>
@@ -463,7 +463,7 @@ export function StudioApp() {
             />
           </>
         ) : (
-          <p className="max-w-sm text-center text-sm text-stone-500">
+          <p className="max-w-sm text-center text-sm text-foreground/55">
             {mode === "background"
               ? "Your jewelry on a styled background will appear here after generation."
               : "Your AI model shot will appear here after generation."}
@@ -487,7 +487,7 @@ function Field<T extends string>({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-widest text-amber-800/80">
+      <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
         {label}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -498,8 +498,8 @@ function Field<T extends string>({
             onClick={() => onChange(key)}
             className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${
               value === key
-                ? "bg-amber-600 text-white"
-                : "bg-stone-100 text-stone-700 ring-1 ring-stone-200 hover:bg-stone-200"
+                ? "bg-primary text-background"
+                : "bg-background/50 text-foreground/80 ring-1 ring-primary/20 hover:bg-accent/30"
             }`}
           >
             {name}

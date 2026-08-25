@@ -140,16 +140,16 @@ export function LoginForm() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-stone-200 px-4 py-3 text-sm outline-none ring-amber-500 focus:ring-2";
+    "w-full rounded-xl border border-primary/25 bg-background/40 px-4 py-3 text-sm text-foreground outline-none placeholder:text-foreground/40 ring-primary focus:ring-2";
 
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-stone-200 bg-white p-8 shadow-lg">
-      <div className="mb-6 flex gap-2 rounded-xl bg-stone-100 p-1">
+    <div className="mx-auto max-w-md rounded-2xl border border-primary/20 bg-secondary p-8 shadow-lg">
+      <div className="mb-6 flex gap-2 rounded-xl bg-background/50 p-1">
         <button
           type="button"
           onClick={() => switchMode("signup")}
           className={`flex-1 rounded-lg py-2 text-sm font-medium ${
-            mode === "signup" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600"
+            mode === "signup" ? "bg-background text-foreground shadow-sm" : "text-foreground/65"
           }`}
         >
           Sign up
@@ -158,7 +158,7 @@ export function LoginForm() {
           type="button"
           onClick={() => switchMode("login")}
           className={`flex-1 rounded-lg py-2 text-sm font-medium ${
-            mode === "login" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600"
+            mode === "login" ? "bg-background text-foreground shadow-sm" : "text-foreground/65"
           }`}
         >
           Log in
@@ -173,7 +173,7 @@ export function LoginForm() {
             void signup();
           }}
         >
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-foreground/70">
             Create an account with email and password. You get{" "}
             <strong>5 free</strong> generations. Phone is optional.
           </p>
@@ -217,7 +217,7 @@ export function LoginForm() {
           <button
             type="submit"
             disabled={loading || !email || password.length < 8}
-            className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40"
           >
             {loading ? "Creating account…" : "Create account"}
           </button>
@@ -232,7 +232,7 @@ export function LoginForm() {
             void login();
           }}
         >
-          <p className="text-sm text-stone-600">Log in with your email and password.</p>
+          <p className="text-sm text-foreground/70">Log in with your email and password.</p>
           <input
             type="email"
             autoComplete="email"
@@ -254,7 +254,7 @@ export function LoginForm() {
           <button
             type="submit"
             disabled={loading || !loginEmail || !loginPassword}
-            className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40"
           >
             {loading ? "Logging in…" : "Log in"}
           </button>
@@ -264,7 +264,7 @@ export function LoginForm() {
               switchMode("forgot");
               setResetEmail(loginEmail);
             }}
-            className="w-full text-sm text-amber-800 hover:underline"
+            className="w-full text-sm text-primary hover:underline"
           >
             Forgot password?
           </button>
@@ -280,7 +280,7 @@ export function LoginForm() {
             else void resetPasswordSubmit();
           }}
         >
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-foreground/70">
             Enter your email. We&apos;ll send a code so you can set a new password.
           </p>
           <input
@@ -299,7 +299,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading || !resetEmail}
-              className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+              className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40"
             >
               {loading ? "Sending code…" : "Send reset code"}
             </button>
@@ -340,7 +340,7 @@ export function LoginForm() {
                 disabled={
                   loading || resetCode.length < 4 || resetPassword.length < 8
                 }
-                className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+                className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40"
               >
                 {loading ? "Updating…" : "Update password"}
               </button>
@@ -349,7 +349,7 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => switchMode("login")}
-            className="w-full text-sm text-stone-600 hover:underline"
+            className="w-full text-sm text-foreground/70 hover:underline"
           >
             Back to log in
           </button>
@@ -357,11 +357,11 @@ export function LoginForm() {
       ) : null}
 
       {devHint ? (
-        <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{devHint}</p>
+        <p className="mt-4 rounded-lg bg-sky-500/15 px-3 py-2 text-xs text-sky-200">{devHint}</p>
       ) : null}
-      {info ? <p className="mt-4 text-sm text-stone-700">{info}</p> : null}
+      {info ? <p className="mt-4 text-sm text-foreground/80">{info}</p> : null}
       {error ? (
-        <p className="mt-4 text-sm text-red-600" role="alert">
+        <p className="mt-4 text-sm text-red-400" role="alert">
           {error}
         </p>
       ) : null}

@@ -46,13 +46,13 @@ export function CreditsEditor({
         min={0}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-20 rounded border border-stone-200 px-2 py-1 text-sm"
+        className="w-20 rounded border border-primary/25 bg-background/40 px-2 py-1 text-sm text-foreground"
       />
       <button
         type="button"
         disabled={loading}
         onClick={() => void save()}
-        className="rounded bg-amber-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+        className="rounded bg-primary px-2 py-1 text-xs font-semibold text-background disabled:opacity-50"
       >
         {loading ? "…" : "Set"}
       </button>

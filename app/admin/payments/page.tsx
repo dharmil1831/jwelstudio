@@ -5,12 +5,12 @@ export default async function AdminPaymentsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-stone-900">Payments</h1>
-      <p className="mt-1 text-sm text-stone-600">Razorpay orders</p>
+      <h1 className="text-2xl font-semibold text-foreground">Payments</h1>
+      <p className="mt-1 text-sm text-foreground/70">Razorpay orders</p>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-sm">
+      <div className="mt-6 overflow-x-auto rounded-xl border border-primary/20 bg-secondary shadow-sm">
         <table className="w-full min-w-[800px] text-left text-sm">
-          <thead className="border-b border-stone-100 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
+          <thead className="border-b border-primary/15 bg-background/40 text-xs uppercase tracking-wide text-foreground/55">
             <tr>
               <th className="px-4 py-3">User</th>
               <th className="px-4 py-3">Amount</th>
@@ -20,19 +20,19 @@ export default async function AdminPaymentsPage() {
               <th className="px-4 py-3">Date</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100">
+          <tbody className="divide-y divide-primary/10">
             {payments.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-stone-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-foreground/55">
                   No payments yet
                 </td>
               </tr>
             ) : (
               payments.map((p) => (
-                <tr key={p.id} className="text-stone-800">
+                <tr key={p.id} className="text-foreground/90">
                   <td className="px-4 py-3">
                     <p className="font-medium">{p.user.email}</p>
-                    <p className="text-xs text-stone-500">{p.user.phone ?? "—"}</p>
+                    <p className="text-xs text-foreground/55">{p.user.phone ?? "—"}</p>
                   </td>
                   <td className="px-4 py-3">₹{(p.amountPaise / 100).toFixed(0)}</td>
                   <td className="px-4 py-3">+{p.creditsAdded}</td>
@@ -40,17 +40,17 @@ export default async function AdminPaymentsPage() {
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         p.status === "paid"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-stone-100 text-stone-600"
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : "bg-background/50 text-foreground/65"
                       }`}
                     >
                       {p.status}
                     </span>
                   </td>
-                  <td className="max-w-[140px] truncate px-4 py-3 font-mono text-xs text-stone-500">
+                  <td className="max-w-[140px] truncate px-4 py-3 font-mono text-xs text-foreground/55">
                     {p.razorpayOrderId}
                   </td>
-                  <td className="px-4 py-3 text-stone-500">
+                  <td className="px-4 py-3 text-foreground/55">
                     {p.createdAt.toLocaleString("en-IN")}
                   </td>
                 </tr>

@@ -38,7 +38,7 @@ export function DownloadImageButton({
       onClick={(e) => void handleDownload(e)}
       className={
         className ??
-        "rounded-lg bg-white/90 px-3 py-1.5 text-xs font-semibold text-stone-900 shadow hover:bg-white disabled:opacity-50"
+        "rounded-lg bg-primary/90 px-3 py-1.5 text-xs font-semibold text-background shadow hover:bg-primary disabled:opacity-50"
       }
     >
       {downloading ? "…" : label}

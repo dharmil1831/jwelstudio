@@ -6,12 +6,12 @@ export default async function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-stone-900">Users</h1>
-      <p className="mt-1 text-sm text-stone-600">{users.length} accounts</p>
+      <h1 className="text-2xl font-semibold text-foreground">Users</h1>
+      <p className="mt-1 text-sm text-foreground/70">{users.length} accounts</p>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-sm">
+      <div className="mt-6 overflow-x-auto rounded-xl border border-primary/20 bg-secondary shadow-sm">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-stone-100 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
+          <thead className="border-b border-primary/15 bg-background/40 text-xs uppercase tracking-wide text-foreground/55">
             <tr>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Phone</th>
@@ -20,16 +20,16 @@ export default async function AdminUsersPage() {
               <th className="px-4 py-3">Joined</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100">
+          <tbody className="divide-y divide-primary/10">
             {users.map((u) => (
-              <tr key={u.id} className="text-stone-800">
+              <tr key={u.id} className="text-foreground/90">
                 <td className="px-4 py-3 font-medium">{u.email}</td>
                 <td className="px-4 py-3">{u.phone ?? "—"}</td>
                 <td className="px-4 py-3">
                   <CreditsEditor userId={u.id} currentCredits={u.credits} />
                 </td>
                 <td className="px-4 py-3">{u._count.generations}</td>
-                <td className="px-4 py-3 text-stone-500">
+                <td className="px-4 py-3 text-foreground/55">
                   {u.createdAt.toLocaleDateString("en-IN")}
                 </td>
               </tr>

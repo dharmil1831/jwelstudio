@@ -7,13 +7,15 @@ export const metadata = {
 
 export default function GalleryPage() {
   return (
-    <div className="min-h-screen bg-stone-50 px-6 py-16">
+    <div className="min-h-screen bg-background px-6 py-16 text-foreground">
       <div className="mx-auto max-w-5xl">
-        <Link href="/" className="text-sm font-medium text-amber-800">
+        <Link href="/" className="text-sm font-medium text-primary hover:text-accent">
           ← Studio
         </Link>
-        <h1 className="mt-6 text-3xl font-light text-stone-900">Your gallery</h1>
-        <p className="mt-2 text-stone-600">Past model shots from your account.</p>
+        <h1 className="mt-6 font-[family-name:var(--font-display)] text-3xl font-light text-foreground">
+          Your gallery
+        </h1>
+        <p className="mt-2 text-foreground/70">Past model shots from your account.</p>
         <div className="mt-10">
           <GalleryGrid />
         </div>
