@@ -40,7 +40,7 @@ export default async function AdminPaymentsPage() {
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         p.status === "paid"
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "bg-emerald-500/20 text-emerald-300"
                           : "bg-background/50 text-foreground/65"
                       }`}
                     >

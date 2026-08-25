@@ -407,7 +407,7 @@ export function StudioApp() {
         </button>
 
         {error ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-red-400" role="alert">
             {error}
           </p>
         ) : null}
