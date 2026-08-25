@@ -5,7 +5,7 @@ import {
   SIGNUP_COOKIE,
   verifySignedPayload,
 } from "@/lib/auth-utils";
-import { prisma } from "@/lib/prisma";
+import { isPrismaConnectivityError, prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 
 const ONE_MONTH = 60 * 60 * 24 * 30;
@@ -28,15 +28,25 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   );
   if (!payload?.userId) return null;
 
-  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-  if (!user) return null;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (!user) return null;
 
-  return {
-    id: user.id,
-    email: user.email,
-    phone: user.phone,
-    credits: user.credits,
-  };
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      credits: user.credits,
+    };
+  } catch (error) {
+    if (isPrismaConnectivityError(error)) {
+      console.error(
+        "[session] database unreachable — treat as logged out until DB recovers",
+      );
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function setSession(userId: string, email: string): Promise<void> {

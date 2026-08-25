@@ -1,26 +1,27 @@
 @import "tailwindcss";
 
+/* Light purple theme: soft page bg (img2 white/light) + brand purple accents (img1/2) */
 :root {
-  --background: #2e1d35;
-  --foreground: #fcf6f6;
-  --primary: #c3b4fe;
-  --secondary: #533166;
-  --accent: #9166af;
+  --background: #f4eef8;
+  --foreground: #2e1d35;
+  --primary: #9166af;
+  --secondary: #ffffff;
+  --accent: #c3b4fe;
 }
 
 @theme inline {
-  --color-background: #2e1d35;
-  --color-foreground: #fcf6f6;
-  --color-primary: #c3b4fe;
-  --color-secondary: #533166;
-  --color-accent: #9166af;
+  --color-background: #f4eef8;
+  --color-foreground: #2e1d35;
+  --color-primary: #9166af;
+  --color-secondary: #ffffff;
+  --color-accent: #c3b4fe;
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display), ui-serif, Georgia, serif;
 }
 
 body {
-  background-color: #2e1d35;
-  color: #fcf6f6;
+  background-color: #f4eef8;
+  color: #2e1d35;
   font-family: var(--font-sans);
   overflow-x: hidden;
 }

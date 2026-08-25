@@ -71,7 +71,7 @@ export function GalleryGrid() {
   }
 
   if (error) {
-    return <p className="text-center text-sm text-red-400">{error}</p>;
+    return <p className="text-center text-sm text-red-600">{error}</p>;
   }
 
   if (items.length === 0) {
