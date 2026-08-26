@@ -97,18 +97,23 @@ const backgroundVibeCopy: Record<StudioStyle["vibe"], string> = {
 
 const formatCopy: Record<StudioStyle["format"], string> = {
   square:
-    "Compose as a square 1:1 frame. Center the jewelry; leave even margins on all sides.",
+    "Output frame: square 1:1. Fit the full jewelry in frame with even margins. Do NOT crop or cut off any part of the jewelry — zoom out or add margin instead of clipping the product.",
   whatsapp:
-    "Compose as a square 1:1 WhatsApp Business catalog photo. Jewelry centered, clean, easy to read on a phone.",
+    "Output frame: WhatsApp image / catalog square 1:1 (target look 1080×1080). Center the full jewelry piece. Do NOT crop or cut the jewelry — the entire product from the upload must stay fully visible.",
+  whatsapp_status:
+    "Output frame: WhatsApp Status vertical 9:16 (target look 1080×1920). Compose for phone Status. Keep the entire jewelry piece fully visible in the safe center; leave empty margin top/bottom for Status UI. Never crop or clip the jewelry edges.",
   catalog:
-    "Compose as a vertical catalog / e-commerce frame (about 4:5). Product-first crop with the jewelry fully visible.",
+    "Output frame: vertical catalog ~4:5. Product-first; entire jewelry fully visible — no cropping the piece.",
   instagram_post:
-    "Compose as a vertical Instagram feed post (about 4:5). Jewelry is the hero; keep important detail away from edges.",
+    "Output frame: Instagram feed post 4:5 (target look 1080×1350). Jewelry is the hero and must remain fully visible with safe margins from edges. Do NOT crop or cut any part of the jewelry — adjust camera distance instead.",
   instagram_story:
-    "Compose as a vertical Instagram Story / WhatsApp Status (9:16). Place jewelry in the safe center; leave extra space top and bottom for Story UI.",
+    "Output frame: Instagram Story 9:16 (target look 1080×1920). Place jewelry in the safe center; leave margin for Story UI top/bottom. The complete jewelry piece must stay fully visible — never crop or clip it.",
   landscape:
-    "Compose as a wide landscape / banner frame (about 3:2). Jewelry prominent, not cropped at the sides.",
+    "Output frame: wide landscape ~3:2. Jewelry fully visible; do not crop sides of the product.",
 };
+
+const noCropRule =
+  "FRAMING RULE: The selected output format sets the canvas aspect ratio only. Never cut, crop, clip, or hide any part of the uploaded jewelry. Show the complete piece exactly as in the reference; use empty space / background / camera distance to fill the format.";
 
 const finalCheck =
   "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions. Not a similar piece. No extra jewelry added.";
@@ -129,6 +134,7 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     "",
     "Shot & camera:",
     shotCopy[style.shot],
+    noCropRule,
     "Output format:",
     formatCopy[style.format],
     "Scene:",
@@ -141,6 +147,10 @@ export function buildJewelryPrompt(style: StudioStyle): string {
 }
 
 export function buildBackgroundPrompt(style: StudioStyle): string {
+  const colorLine = style.backdropColor
+    ? `Backdrop color: use a clean, even solid fill of exact hex ${style.backdropColor} as the main background color behind the jewelry. Soft lighting that flatters metal and stones.`
+    : null;
+
   return [
     jewelryFidelityRules,
     "Only change the backdrop, surface, lighting, and camera — never the jewelry identity.",
@@ -151,15 +161,19 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
     "",
     "Framing:",
     framingCopy[style.framing],
+    noCropRule,
     "Output format:",
     formatCopy[style.format],
-    "Scene / background:",
+    "Scene / setting:",
     sceneCopy[style.scene],
+    colorLine,
     "Mood:",
     backgroundVibeCopy[style.vibe],
     "",
     finalCheck,
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export type { StudioStyle } from "@/lib/style-options";

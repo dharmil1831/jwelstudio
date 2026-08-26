@@ -1,8 +1,10 @@
 "use client";
 
-import { resizeImageFile } from "@/lib/image-resize";
+import { prepareImageForUpload } from "@/lib/image-resize";
+import { downloadFilename } from "@/lib/download-image";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
 import {
+  BACKDROP_COLOR_PRESETS,
   FRAMING_LABELS,
   FRAMINGS,
   GENERATION_MODES,
@@ -20,6 +22,7 @@ import {
   SUBJECTS,
   VIBE_LABELS,
   VIBES,
+  normalizeBackdropHex,
   type Framing,
   type GenerationMode,
   type OutputFormat,
@@ -56,6 +59,7 @@ export function StudioApp() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultMime, setResultMime] = useState<string | null>(null);
   const [mode, setMode] = useState<GenerationMode>("model");
   const [placement, setPlacement] = useState<Placement>("auto");
   const [subject, setSubject] = useState<Subject>("auto");
@@ -63,7 +67,9 @@ export function StudioApp() {
   const [framing, setFraming] = useState<Framing>("catalog");
   const [scene, setScene] = useState<Scene>("studio");
   const [vibe, setVibe] = useState<Vibe>("luxury");
-  const [format, setFormat] = useState<OutputFormat>("square");
+  const [format, setFormat] = useState<OutputFormat>("whatsapp");
+  const [backdropColor, setBackdropColor] = useState<string | null>(null);
+  const [backdropHexInput, setBackdropHexInput] = useState("#FFFFFF");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -89,6 +95,7 @@ export function StudioApp() {
               setCredits(null);
               setFile(null);
               setResultUrl(null);
+              setResultMime(null);
             }
             if (typeof d.generationConfigured === "boolean") {
               setGenerationReady(d.generationConfigured);
@@ -102,6 +109,7 @@ export function StudioApp() {
           setGenerationReady(null);
           setFile(null);
           setResultUrl(null);
+          setResultMime(null);
         });
     }
 
@@ -147,6 +155,7 @@ export function StudioApp() {
     }
     setFile(next);
     setResultUrl(null);
+    setResultMime(null);
     setError(null);
   }, []);
 
@@ -177,9 +186,10 @@ export function StudioApp() {
     setLoading(true);
     setError(null);
     setResultUrl(null);
+    setResultMime(null);
 
     try {
-      const { base64, mimeType } = await resizeImageFile(file, 1536, 0.92);
+      const { base64, mimeType } = await prepareImageForUpload(file);
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 120_000);
       const res = await fetch("/api/generate", {
@@ -196,6 +206,7 @@ export function StudioApp() {
           scene,
           vibe,
           format,
+          backdropColor: mode === "background" ? backdropColor : undefined,
         }),
         signal: controller.signal,
       });
@@ -203,18 +214,31 @@ export function StudioApp() {
       const data = await readApiJson<{
         error?: string;
         resultUrl?: string;
+        mimeType?: string;
         credits?: number;
       }>(res);
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       if (typeof data.credits === "number") setCredits(data.credits);
       if (data.resultUrl) setResultUrl(data.resultUrl);
+      if (typeof data.mimeType === "string") setResultMime(data.mimeType);
     } catch (err) {
       setError(friendlyClientError(err));
     } finally {
       setLoading(false);
     }
-  }, [file, mode, placement, subject, shot, framing, scene, vibe, format]);
+  }, [
+    file,
+    mode,
+    placement,
+    subject,
+    shot,
+    framing,
+    scene,
+    vibe,
+    format,
+    backdropColor,
+  ]);
 
   if (authenticated === null) {
     return (
@@ -281,6 +305,7 @@ export function StudioApp() {
               onClick={() => {
                 setMode(key);
                 setResultUrl(null);
+                setResultMime(null);
                 setError(null);
               }}
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
@@ -362,12 +387,33 @@ export function StudioApp() {
             />
           </>
         ) : (
-          <Field
-            label="Framing"
-            value={framing}
-            onChange={setFraming}
-            options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
-          />
+          <>
+            <Field
+              label="Framing"
+              value={framing}
+              onChange={setFraming}
+              options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
+            />
+            <BackdropColorField
+              value={backdropColor}
+              hexInput={backdropHexInput}
+              onSelectPreset={(hex) => {
+                setBackdropColor(hex);
+                if (hex) setBackdropHexInput(hex);
+              }}
+              onHexInputChange={setBackdropHexInput}
+              onApplyHex={() => {
+                const next = normalizeBackdropHex(backdropHexInput);
+                if (!next) {
+                  setError("Enter a valid hex color like #110707");
+                  return;
+                }
+                setError(null);
+                setBackdropColor(next);
+                setBackdropHexInput(next);
+              }}
+            />
+          </>
         )}
         <Field
           label="Output format"
@@ -441,11 +487,13 @@ export function StudioApp() {
               </button>
               <DownloadImageButton
                 url={resultUrl}
-                filename={
+                filename={downloadFilename(
+                  resultUrl,
                   mode === "background"
-                    ? `jewel-studio-background-${format}.png`
-                    : `jewel-studio-model-${format}.png`
-                }
+                    ? `jewel-studio-background-${format}`
+                    : `jewel-studio-model-${format}`,
+                  resultMime,
+                )}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
                 label="Download image"
               />
@@ -455,11 +503,13 @@ export function StudioApp() {
               alt={mode === "background" ? "Background still" : "Model shot"}
               open={lightboxOpen}
               onClose={() => setLightboxOpen(false)}
-              filename={
+              filename={downloadFilename(
+                resultUrl,
                 mode === "background"
-                  ? `jewel-studio-background-${format}.png`
-                  : `jewel-studio-model-${format}.png`
-              }
+                  ? `jewel-studio-background-${format}`
+                  : `jewel-studio-model-${format}`,
+                resultMime,
+              )}
             />
           </>
         ) : (
@@ -470,6 +520,102 @@ export function StudioApp() {
           </p>
         )}
       </section>
+    </div>
+  );
+}
+
+function BackdropColorField({
+  value,
+  hexInput,
+  onSelectPreset,
+  onHexInputChange,
+  onApplyHex,
+}: {
+  value: string | null;
+  hexInput: string;
+  onSelectPreset: (hex: string | null) => void;
+  onHexInputChange: (hex: string) => void;
+  onApplyHex: () => void;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+        Background color
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {BACKDROP_COLOR_PRESETS.map((preset) => {
+          const selected =
+            preset.hex === null ? value === null : value === preset.hex;
+          const isLight =
+            preset.hex === "#FFFFFF" ||
+            preset.hex === "#F5F0E8" ||
+            preset.hex === "#F3E4E7";
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              title={preset.label}
+              aria-label={preset.label}
+              aria-pressed={selected}
+              onClick={() => onSelectPreset(preset.hex)}
+              className={`relative h-8 w-8 rounded-full transition ${
+                selected
+                  ? "ring-2 ring-primary ring-offset-2 ring-offset-secondary"
+                  : "ring-1 ring-primary/25 hover:ring-primary/50"
+              }`}
+              style={
+                preset.hex
+                  ? { backgroundColor: preset.hex }
+                  : {
+                      background:
+                        "conic-gradient(from 0deg, #c3b4fe, #7c5cbf, #9166af, #e8e0f0, #c3b4fe)",
+                    }
+              }
+            >
+              {preset.hex === null ? (
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow">
+                  A
+                </span>
+              ) : null}
+              {isLight ? (
+                <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-black/10" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <span
+          className="h-8 w-8 shrink-0 rounded-full ring-1 ring-primary/25"
+          style={{ backgroundColor: normalizeBackdropHex(hexInput) ?? "#CCCCCC" }}
+          aria-hidden
+        />
+        <input
+          type="text"
+          value={hexInput}
+          onChange={(e) => onHexInputChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onApplyHex();
+            }
+          }}
+          placeholder="#110707"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-lg border border-primary/25 bg-background/40 px-3 py-2 font-mono text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
+          aria-label="Custom backdrop hex color"
+        />
+        <button
+          type="button"
+          onClick={onApplyHex}
+          className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-background hover:bg-accent hover:text-foreground"
+        >
+          Apply
+        </button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-foreground/50">
+        Presets or custom hex. Auto keeps the Scene look without a forced solid color.
+      </p>
     </div>
   );
 }

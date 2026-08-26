@@ -3,7 +3,7 @@ import { generateJewelryImage } from "@/lib/generate-image";
 import { buildBackgroundPrompt, buildJewelryPrompt } from "@/lib/prompts";
 import { getSessionUser } from "@/lib/session";
 import { parseStudioStyle } from "@/lib/style-options";
-import { storeGenerationImage } from "@/lib/storage";
+import { storeGenerationImage, extensionForMime } from "@/lib/storage";
 import {
   CREDIT_COST_PER_GENERATION,
   deductCredits,
@@ -125,7 +125,11 @@ export async function POST(req: Request) {
       format: style.format,
     });
     const buffer = Buffer.from(out.imageBase64, "base64");
-    const resultUrl = await storeGenerationImage(user.id, buffer, "png");
+    const resultUrl = await storeGenerationImage(
+      user.id,
+      buffer,
+      extensionForMime(out.mimeType),
+    );
 
     await persistGeneration({
       userId: user.id,

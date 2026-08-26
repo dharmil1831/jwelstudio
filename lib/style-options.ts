@@ -72,11 +72,12 @@ export const VIBES = [
 ] as const;
 
 export const OUTPUT_FORMATS = [
-  "square",
   "whatsapp",
-  "catalog",
+  "whatsapp_status",
   "instagram_post",
   "instagram_story",
+  "square",
+  "catalog",
   "landscape",
 ] as const;
 
@@ -100,7 +101,32 @@ export type StudioStyle = {
   scene: Scene;
   vibe: Vibe;
   format: OutputFormat;
+  /** Solid backdrop hex for Background mode, e.g. #110707. Empty = scene-driven. */
+  backdropColor: string | null;
 };
+
+/** Jewelry-friendly solid backdrop presets (label + hex). */
+export const BACKDROP_COLOR_PRESETS = [
+  { id: "auto", label: "Auto (from scene)", hex: null },
+  { id: "white", label: "White", hex: "#FFFFFF" },
+  { id: "ivory", label: "Ivory", hex: "#F5F0E8" },
+  { id: "black", label: "Black", hex: "#0A0A0A" },
+  { id: "charcoal", label: "Charcoal", hex: "#2B2B2B" },
+  { id: "maroon", label: "Maroon", hex: "#4A0E0E" },
+  { id: "navy", label: "Navy", hex: "#0F1C3F" },
+  { id: "forest", label: "Forest", hex: "#0F2A1F" },
+  { id: "blush", label: "Blush", hex: "#F3E4E7" },
+  { id: "gold", label: "Soft gold", hex: "#C9A227" },
+] as const;
+
+export function normalizeBackdropHex(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.toLowerCase() === "auto") return null;
+  const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  if (!/^#[0-9A-Fa-f]{6}$/.test(withHash)) return null;
+  return withHash.toUpperCase();
+}
 
 export const MODE_LABELS: Record<GenerationMode, string> = {
   model: "Model shot",
@@ -177,17 +203,19 @@ export const VIBE_LABELS: Record<Vibe, string> = {
 };
 
 export const OUTPUT_FORMAT_LABELS: Record<OutputFormat, string> = {
+  whatsapp: "WhatsApp image (1:1 · 1080×1080)",
+  whatsapp_status: "WhatsApp Status (9:16 · 1080×1920)",
+  instagram_post: "Instagram post (4:5 · 1080×1350)",
+  instagram_story: "Instagram Story (9:16 · 1080×1920)",
   square: "Square (1:1)",
-  whatsapp: "WhatsApp catalog (1:1)",
   catalog: "Catalog / e-commerce (4:5)",
-  instagram_post: "Instagram post (4:5)",
-  instagram_story: "Instagram story (9:16)",
   landscape: "Landscape / banner (3:2)",
 };
 
 export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
   square: "1024x1024",
   whatsapp: "1024x1024",
+  whatsapp_status: "1024x1536",
   catalog: "1024x1536",
   instagram_post: "1024x1536",
   instagram_story: "1024x1536",
@@ -198,6 +226,7 @@ export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
 export const OUTPUT_FORMAT_GEMINI_ASPECT: Record<OutputFormat, string> = {
   square: "1:1",
   whatsapp: "1:1",
+  whatsapp_status: "9:16",
   catalog: "4:5",
   instagram_post: "4:5",
   instagram_story: "9:16",
@@ -207,6 +236,7 @@ export const OUTPUT_FORMAT_GEMINI_ASPECT: Record<OutputFormat, string> = {
 export const OUTPUT_FORMAT_ASPECT_CLASS: Record<OutputFormat, string> = {
   square: "aspect-square max-w-xl",
   whatsapp: "aspect-square max-w-xl",
+  whatsapp_status: "aspect-[9/16] max-w-[280px]",
   catalog: "aspect-[4/5] max-w-md",
   instagram_post: "aspect-[4/5] max-w-md",
   instagram_story: "aspect-[9/16] max-w-[280px]",
@@ -234,11 +264,13 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
     scene: SCENES.includes(scene) ? scene : "studio",
     vibe: VIBES.includes(vibe) ? vibe : "luxury",
     format: OUTPUT_FORMATS.includes(format) ? format : "square",
+    backdropColor: null,
   };
 
   if (mode === "background") {
     parsed.placement = "auto";
     parsed.subject = "auto";
+    parsed.backdropColor = normalizeBackdropHex(body.backdropColor);
   }
 
   return parsed;

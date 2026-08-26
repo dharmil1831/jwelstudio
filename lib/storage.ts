@@ -26,6 +26,13 @@ function contentTypeForExt(ext: string): string {
   return "image/jpeg";
 }
 
+export function extensionForMime(mimeType: string | undefined | null): "png" | "jpg" | "webp" {
+  const mime = (mimeType ?? "").toLowerCase();
+  if (mime.includes("png")) return "png";
+  if (mime.includes("webp")) return "webp";
+  return "jpg";
+}
+
 async function storeLocal(
   userId: string,
   buffer: Buffer,
@@ -84,7 +91,7 @@ async function storeImage(
 export async function storeGenerationImage(
   userId: string,
   buffer: Buffer,
-  ext: "png" | "jpg" = "png",
+  ext: "png" | "jpg" | "webp" = "png",
 ): Promise<string> {
   const id = randomId();
   const filename = `${id}.${ext}`;
