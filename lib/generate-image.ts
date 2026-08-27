@@ -24,28 +24,42 @@ function isFallbackWorthy(error: unknown): boolean {
   );
 }
 
-/** Rewrite provider billing/quota errors so users don't confuse them with app credits. */
-export function sanitizeProviderError(error: unknown): Error {
+/** Map provider errors to clear, user-facing messages (keep app credits vs API quota distinct). */
+export function sanitizeProviderError(
+  error: unknown,
+  provider?: ImageProviderId,
+): Error {
   const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+  const name = provider === "openai" ? "OpenAI" : provider === "gemini" ? "Gemini" : "Image provider";
+
   if (
-    /platform\.openai\.com|no credits remaining|insufficient.?quota|billing/i.test(
-      message,
-    ) && /openai|gpt-image|images\.edit/i.test(message)
-  ) {
-    return new Error(
-      "Image generation provider is out of quota. Please try again later or contact support.",
-    );
-  }
-  if (
-    /platform\.openai\.com|no credits remaining|insufficient.?quota/i.test(
+    /no credits remaining|insufficient.?quota|exceeded.+quota|resource.?exhausted|quota.?exceeded|billing details|check your plan/i.test(
       message,
     )
   ) {
     return new Error(
-      "Image generation provider is out of quota. Please try again later or contact support.",
+      `${name} API quota is exhausted or billing is not enabled. Check your ${
+        provider === "gemini" ? "Google AI Studio" : "OpenAI"
+      } plan/credits, then try again.`,
     );
   }
-  return error instanceof Error ? error : new Error(message);
+
+  if (/api key|permission|403|401|invalid/i.test(lower) && /key|auth|permission/i.test(lower)) {
+    return new Error(
+      `${name} API key is invalid or not allowed for image generation. Check the key on Vercel.`,
+    );
+  }
+
+  if (/model.?not.?found|not found|does not exist|not supported/i.test(message)) {
+    return new Error(
+      `${name} model is unavailable. Check GEMINI_IMAGE_MODEL / OPENAI_IMAGE_MODEL on Vercel.`,
+    );
+  }
+
+  // Keep short provider-prefixed detail for debugging (no huge payloads).
+  const short = message.replace(/\s+/g, " ").trim().slice(0, 220);
+  return new Error(`${name}: ${short}`);
 }
 
 async function runOpenAI(
@@ -91,15 +105,19 @@ export async function generateJewelryImage(params: {
       const out = await runOpenAI(imageBase64, mimeType, prompt, format);
       return { ...out, provider: "openai", attempted };
     } catch (e) {
-      throw sanitizeProviderError(e);
+      throw sanitizeProviderError(e, "openai");
     }
   }
 
   if (preference === "gemini") {
     if (!geminiReady) throw new Error("GEMINI_API_KEY is not configured");
     attempted.push("gemini");
-    const out = await runGemini(imageBase64, mimeType, prompt, format);
-    return { ...out, provider: "gemini", attempted };
+    try {
+      const out = await runGemini(imageBase64, mimeType, prompt, format);
+      return { ...out, provider: "gemini", attempted };
+    } catch (e) {
+      throw sanitizeProviderError(e, "gemini");
+    }
   }
 
   // auto: Gemini first (cheaper / current default), OpenAI only as fallback
@@ -130,7 +148,7 @@ export async function generateJewelryImage(params: {
     return { ...out, provider: primary, attempted };
   } catch (primaryError) {
     if (!fallback || !isFallbackWorthy(primaryError)) {
-      throw sanitizeProviderError(primaryError);
+      throw sanitizeProviderError(primaryError, primary);
     }
 
     attempted.push(fallback);
@@ -141,11 +159,7 @@ export async function generateJewelryImage(params: {
           : await runGemini(imageBase64, mimeType, prompt, format);
       return { ...out, provider: fallback, attempted };
     } catch (fallbackError) {
-      throw sanitizeProviderError(
-        new Error(
-          `Image generation failed. Please try again later or contact support.`,
-        ),
-      );
+      throw sanitizeProviderError(fallbackError, fallback);
     }
   }
 }
