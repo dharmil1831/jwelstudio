@@ -47,10 +47,13 @@ export function isGeminiConfigured(): boolean {
   return Boolean(getGeminiApiKey());
 }
 
-/** auto = OpenAI first when available, Gemini fallback; openai/gemini force one provider. */
+/** auto = Gemini first when available, OpenAI fallback; openai/gemini force one provider. */
 export function getImageProviderPreference(): ImageProviderPreference {
   const raw = process.env.IMAGE_PROVIDER?.trim().toLowerCase();
   if (raw === "openai" || raw === "gemini" || raw === "auto") return raw;
+  // Default to gemini-only path when unset so production does not burn OpenAI by accident.
+  if (isGeminiConfigured()) return "gemini";
+  if (isOpenAIConfigured()) return "openai";
   return "auto";
 }
 

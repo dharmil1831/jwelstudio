@@ -40,5 +40,12 @@ export function friendlyClientError(err: unknown): string {
   if (/Unexpected token|is not valid JSON|JSON\.parse/i.test(message)) {
     return "Generation took too long or the photo was too large. Please try a smaller JPG.";
   }
+  if (
+    /platform\.openai\.com|no credits remaining|insufficient.?quota|billing/i.test(
+      message,
+    )
+  ) {
+    return "Image generation is temporarily unavailable. Please try again later or contact support.";
+  }
   return message;
 }

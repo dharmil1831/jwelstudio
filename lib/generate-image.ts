@@ -19,9 +19,33 @@ export type GeneratedJewelryImage = {
 
 function isFallbackWorthy(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /timeout|timed out|abort|429|401|403|500|502|503|504|rate limit|quota|invalid.?api.?key|incorrect.?api.?key|model.?not.?found|does not exist|deprecated|unavailable|overloaded|ECONNRESET|ENOTFOUND|fetch failed|no image data|OPENAI_API_KEY|GEMINI_API_KEY|request failed/i.test(
+  return /timeout|timed out|abort|429|401|403|500|502|503|504|rate limit|quota|billing|no credits remaining|insufficient.?quota|invalid.?api.?key|incorrect.?api.?key|model.?not.?found|does not exist|deprecated|unavailable|overloaded|ECONNRESET|ENOTFOUND|fetch failed|no image data|OPENAI_API_KEY|GEMINI_API_KEY|request failed|platform\.openai\.com/i.test(
     message,
   );
+}
+
+/** Rewrite provider billing/quota errors so users don't confuse them with app credits. */
+export function sanitizeProviderError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    /platform\.openai\.com|no credits remaining|insufficient.?quota|billing/i.test(
+      message,
+    ) && /openai|gpt-image|images\.edit/i.test(message)
+  ) {
+    return new Error(
+      "Image generation provider is out of quota. Please try again later or contact support.",
+    );
+  }
+  if (
+    /platform\.openai\.com|no credits remaining|insufficient.?quota/i.test(
+      message,
+    )
+  ) {
+    return new Error(
+      "Image generation provider is out of quota. Please try again later or contact support.",
+    );
+  }
+  return error instanceof Error ? error : new Error(message);
 }
 
 async function runOpenAI(
@@ -44,7 +68,7 @@ async function runGemini(
 }
 
 /**
- * OpenAI primary with Gemini fallback (IMAGE_PROVIDER=auto).
+ * Gemini primary with OpenAI fallback when IMAGE_PROVIDER=auto.
  * Force one provider with IMAGE_PROVIDER=openai|gemini.
  */
 export async function generateJewelryImage(params: {
@@ -63,8 +87,12 @@ export async function generateJewelryImage(params: {
   if (preference === "openai") {
     if (!openaiReady) throw new Error("OPENAI_API_KEY is not configured");
     attempted.push("openai");
-    const out = await runOpenAI(imageBase64, mimeType, prompt, format);
-    return { ...out, provider: "openai", attempted };
+    try {
+      const out = await runOpenAI(imageBase64, mimeType, prompt, format);
+      return { ...out, provider: "openai", attempted };
+    } catch (e) {
+      throw sanitizeProviderError(e);
+    }
   }
 
   if (preference === "gemini") {
@@ -74,22 +102,22 @@ export async function generateJewelryImage(params: {
     return { ...out, provider: "gemini", attempted };
   }
 
-  // auto
-  const primary: ImageProviderId | null = openaiReady
-    ? "openai"
-    : geminiReady
-      ? "gemini"
+  // auto: Gemini first (cheaper / current default), OpenAI only as fallback
+  const primary: ImageProviderId | null = geminiReady
+    ? "gemini"
+    : openaiReady
+      ? "openai"
       : null;
   const fallback: ImageProviderId | null =
-    primary === "openai" && geminiReady
-      ? "gemini"
-      : primary === "gemini" && openaiReady
-        ? "openai"
+    primary === "gemini" && openaiReady
+      ? "openai"
+      : primary === "openai" && geminiReady
+        ? "gemini"
         : null;
 
   if (!primary) {
     throw new Error(
-      "No image provider configured. Set OPENAI_API_KEY and/or GEMINI_API_KEY.",
+      "No image provider configured. Set GEMINI_API_KEY and/or OPENAI_API_KEY.",
     );
   }
 
@@ -102,7 +130,7 @@ export async function generateJewelryImage(params: {
     return { ...out, provider: primary, attempted };
   } catch (primaryError) {
     if (!fallback || !isFallbackWorthy(primaryError)) {
-      throw primaryError;
+      throw sanitizeProviderError(primaryError);
     }
 
     attempted.push(fallback);
@@ -113,16 +141,10 @@ export async function generateJewelryImage(params: {
           : await runGemini(imageBase64, mimeType, prompt, format);
       return { ...out, provider: fallback, attempted };
     } catch (fallbackError) {
-      const primaryMsg =
-        primaryError instanceof Error
-          ? primaryError.message
-          : "Primary provider failed";
-      const fallbackMsg =
-        fallbackError instanceof Error
-          ? fallbackError.message
-          : "Fallback provider failed";
-      throw new Error(
-        `${primary} failed (${primaryMsg}); ${fallback} fallback failed (${fallbackMsg})`,
+      throw sanitizeProviderError(
+        new Error(
+          `Image generation failed. Please try again later or contact support.`,
+        ),
       );
     }
   }
