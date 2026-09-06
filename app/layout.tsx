@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Newsreader } from "next/font/google";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { hasAdminSession } from "@/lib/admin";
 import { getSessionUser } from "@/lib/session";
@@ -51,7 +52,8 @@ export default async function RootLayout({
     >
       <body className="flex min-h-full flex-col overflow-x-hidden bg-background font-sans text-foreground">
         <SiteHeader initialSession={initialSession} />
-        {children}
+        <div className="flex-1">{children}</div>
+        <SiteFooter />
       </body>
     </html>
   );
