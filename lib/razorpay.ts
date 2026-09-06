@@ -35,11 +35,12 @@ export function getCreditPacks(): CreditPack[] {
       /* fall through */
     }
   }
-  // ~40% gross margin vs OpenAI cost (~₹43/credit): ₹899 / ₹2149 / ₹6499
+  // ~₹30/credit: Silver / Gold / Platinum / Diamond
   return [
-    { id: "starter", label: "Starter", amountPaise: 89900, credits: 20 },
-    { id: "pro", label: "Pro", amountPaise: 214900, credits: 50 },
-    { id: "studio", label: "Studio", amountPaise: 649900, credits: 150 },
+    { id: "silver", label: "Silver", amountPaise: 59900, credits: 20 },
+    { id: "gold", label: "Gold", amountPaise: 149900, credits: 50 },
+    { id: "platinum", label: "Platinum", amountPaise: 299900, credits: 100 },
+    { id: "diamond", label: "Diamond", amountPaise: 599900, credits: 200 },
   ];
 }
 

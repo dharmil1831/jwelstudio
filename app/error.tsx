@@ -16,7 +16,7 @@ export default function ErrorBoundary({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center text-foreground">
-      <h1 className="font-[family-name:var(--font-display)] text-2xl font-light text-foreground">
+      <h1 className="font-[family-name:var(--font-display)] text-2xl font-normal text-foreground">
         Something broke
       </h1>
       <p className="mt-3 max-w-md text-sm text-foreground/70">

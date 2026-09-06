@@ -47,6 +47,7 @@ export async function POST(req: Request) {
       razorpayOrderId: order.id,
       amountPaise: pack.amountPaise,
       creditsAdded: pack.credits,
+      packId: pack.id,
       status: "created",
     },
   });

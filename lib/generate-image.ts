@@ -3,7 +3,7 @@ import {
   isGeminiConfigured,
   isOpenAIConfigured,
 } from "@/lib/env";
-import { generateJewelryWithGemini } from "@/lib/gemini";
+import { generateJewelryWithGemini, type GeminiExtraImage } from "@/lib/gemini";
 import { generateJewelryModelShot } from "@/lib/openai";
 import type { OpenAIImageSize, OutputFormat } from "@/lib/style-options";
 import { OUTPUT_FORMAT_SIZES } from "@/lib/style-options";
@@ -77,28 +77,43 @@ async function runGemini(
   mimeType: string,
   prompt: string,
   format: OutputFormat,
+  extraImages?: GeminiExtraImage[],
 ): Promise<{ imageBase64: string; mimeType: string }> {
-  return generateJewelryWithGemini(imageBase64, mimeType, prompt, format);
+  return generateJewelryWithGemini(
+    imageBase64,
+    mimeType,
+    prompt,
+    format,
+    extraImages,
+  );
 }
 
 /**
  * Gemini primary with OpenAI fallback when IMAGE_PROVIDER=auto.
  * Force one provider with IMAGE_PROVIDER=openai|gemini.
+ * Extra images (logo / selfie / theme) are Gemini-only; OpenAI fallback uses jewelry image alone.
  */
 export async function generateJewelryImage(params: {
   imageBase64: string;
   mimeType: string;
   prompt: string;
   format: OutputFormat;
+  extraImages?: GeminiExtraImage[];
 }): Promise<GeneratedJewelryImage> {
-  const { imageBase64, mimeType, prompt, format } = params;
+  const { imageBase64, mimeType, prompt, format, extraImages } = params;
   const preference = getImageProviderPreference();
   const attempted: ImageProviderId[] = [];
 
   const openaiReady = isOpenAIConfigured();
   const geminiReady = isGeminiConfigured();
+  const hasExtras = Boolean(extraImages?.length);
 
   if (preference === "openai") {
+    if (hasExtras) {
+      throw new Error(
+        "Logo / reference images require Gemini. Set IMAGE_PROVIDER=gemini or auto.",
+      );
+    }
     if (!openaiReady) throw new Error("OPENAI_API_KEY is not configured");
     attempted.push("openai");
     try {
@@ -113,7 +128,13 @@ export async function generateJewelryImage(params: {
     if (!geminiReady) throw new Error("GEMINI_API_KEY is not configured");
     attempted.push("gemini");
     try {
-      const out = await runGemini(imageBase64, mimeType, prompt, format);
+      const out = await runGemini(
+        imageBase64,
+        mimeType,
+        prompt,
+        format,
+        extraImages,
+      );
       return { ...out, provider: "gemini", attempted };
     } catch (e) {
       throw sanitizeProviderError(e, "gemini");
@@ -127,7 +148,7 @@ export async function generateJewelryImage(params: {
       ? "openai"
       : null;
   const fallback: ImageProviderId | null =
-    primary === "gemini" && openaiReady
+    primary === "gemini" && openaiReady && !hasExtras
       ? "openai"
       : primary === "openai" && geminiReady
         ? "gemini"
@@ -139,12 +160,18 @@ export async function generateJewelryImage(params: {
     );
   }
 
+  if (primary === "openai" && hasExtras) {
+    throw new Error(
+      "Logo / reference images require Gemini. Configure GEMINI_API_KEY.",
+    );
+  }
+
   attempted.push(primary);
   try {
     const out =
       primary === "openai"
         ? await runOpenAI(imageBase64, mimeType, prompt, format)
-        : await runGemini(imageBase64, mimeType, prompt, format);
+        : await runGemini(imageBase64, mimeType, prompt, format, extraImages);
     return { ...out, provider: primary, attempted };
   } catch (primaryError) {
     if (!fallback || !isFallbackWorthy(primaryError)) {
@@ -156,7 +183,7 @@ export async function generateJewelryImage(params: {
       const out =
         fallback === "openai"
           ? await runOpenAI(imageBase64, mimeType, prompt, format)
-          : await runGemini(imageBase64, mimeType, prompt, format);
+          : await runGemini(imageBase64, mimeType, prompt, format, extraImages);
       return { ...out, provider: fallback, attempted };
     } catch (fallbackError) {
       throw sanitizeProviderError(fallbackError, fallback);

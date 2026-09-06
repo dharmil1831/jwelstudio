@@ -16,27 +16,48 @@ model User {
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
   credits         Int          @default(5)
+  /// free | silver | gold | platinum | diamond
+  plan            String       @default("free")
   createdAt       DateTime     @default(now())
   generations     Generation[]
   payments        Payment[]
+  themes          Theme[]
 }
 
-model Generation {
+/// Saved style snapshot so user can reuse look with new jewelry (Platinum+).
+model Theme {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mode       String   @default("model")
-  format     String   @default("square")
-  placement  String
-  subject    String
-  shot       String
-  scene      String
-  vibe       String
-  sourceMime String?
-  resultUrl  String
-  thumbUrl   String?
-  status     String   @default("succeeded")
+  name       String
+  /// JSON: mode, placement, subject, shot, framing, scene, vibe, format, backdropColor, customPrompt, usePreviewAsReference
+  styleJson  String
+  previewUrl String?
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Generation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode        String   @default("model")
+  format      String   @default("whatsapp")
+  placement   String
+  subject     String
+  shot        String
+  scene       String
+  vibe        String
+  sourceMime  String?
+  resultUrl   String
+  thumbUrl    String?
+  status      String   @default("succeeded")
+  /// gemini | openai
+  provider    String?
+  shareEnabled Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
 }
@@ -49,6 +70,8 @@ model Payment {
   razorpayPaymentId String?
   amountPaise       Int
   creditsAdded      Int
+  /// silver | gold | platinum | diamond (pack id)
+  packId            String?
   status            String
   createdAt         DateTime @default(now())
 }
@@ -69,11 +92,23 @@ model IdentityLedger {
 model OtpChallenge {
   id        String   @id @default(cuid())
   purpose   String
-  email     String
+  /// email | sms
+  channel   String   @default("email")
+  email     String   @default("")
+  phone     String?
   codeHash  String
   expiresAt DateTime
   attempts  Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([purpose, email])
+  @@index([purpose, phone])
+  @@index([channel, phone, createdAt])
+}
+
+/// Key/value app config (tutorial URL, feature kill switches).
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

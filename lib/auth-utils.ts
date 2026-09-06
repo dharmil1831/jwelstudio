@@ -2,8 +2,9 @@ import { createHash, randomBytes, timingSafeEqual } from "crypto";
 
 const SESSION_COOKIE = "jewel_session";
 const SIGNUP_COOKIE = "jewel_signup";
+const ADMIN_SESSION_COOKIE = "jewel_admin_session";
 
-export { SESSION_COOKIE, SIGNUP_COOKIE };
+export { SESSION_COOKIE, SIGNUP_COOKIE, ADMIN_SESSION_COOKIE };
 
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
@@ -83,6 +84,11 @@ export function verifySignedPayload<T extends Record<string, unknown>>(
 export function createSessionToken(userId: string, email: string): string {
   const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
   return signPayload({ userId, email, exp });
+}
+
+export function createAdminSessionToken(userId: string, email: string): string {
+  const exp = Date.now() + 1000 * 60 * 60 * 24 * 7;
+  return signPayload({ userId, email, role: "super_admin", exp });
 }
 
 export function createSignupProgressToken(email: string): string {

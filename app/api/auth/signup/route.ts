@@ -1,3 +1,4 @@
+import { isSuperAdminEmail } from "@/lib/admin";
 import { normalizeEmail } from "@/lib/auth-utils";
 import {
   assertIdentityAvailable,
@@ -24,6 +25,16 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Provide a valid email address." },
       { status: 400 },
+    );
+  }
+
+  if (isSuperAdminEmail(email)) {
+    return NextResponse.json(
+      {
+        error:
+          "Create the super admin account at /admin/login — not on the studio signup form.",
+      },
+      { status: 403 },
     );
   }
 

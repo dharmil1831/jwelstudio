@@ -1,23 +1,49 @@
 "use client";
 
+import { BrandMarketingPanel, EMPTY_BRAND, type BrandFormState } from "@/components/brand-marketing-panel";
+import { DownloadImageButton } from "@/components/download-image-button";
+import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
+import { ImageLightbox } from "@/components/image-lightbox";
+import { ShareImageButton } from "@/components/share-image-button";
+import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
 import { prepareImageForUpload } from "@/lib/image-resize";
 import { downloadFilename } from "@/lib/download-image";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
+import type { ThemeStyleSnapshot } from "@/lib/themes";
+import {
+  CREDIT_COST_PER_VIDEO,
+  VIDEO_ASPECT_CLASS,
+  VIDEO_ASPECT_HINTS,
+  VIDEO_ASPECT_IDS,
+  VIDEO_ASPECT_LABELS,
+  VIDEO_CAST_HINTS,
+  VIDEO_CAST_IDS,
+  VIDEO_CAST_LABELS,
+  VIDEO_PRESET_IDS,
+  VIDEO_PRESET_LABELS,
+  VIDEO_PURPOSE_IDS,
+  VIDEO_PURPOSE_LABELS,
+  type VideoAspectId,
+  type VideoCastId,
+  type VideoPresetId,
+  type VideoPurposeId,
+} from "@/lib/video-presets";
 import {
   BACKDROP_COLOR_PRESETS,
+  DEFAULT_BACKDROP_HEX,
   FRAMING_LABELS,
   FRAMINGS,
   GENERATION_MODES,
   MODE_LABELS,
   OUTPUT_FORMAT_ASPECT_CLASS,
   OUTPUT_FORMAT_LABELS,
-  OUTPUT_FORMATS,
   PLACEMENT_LABELS,
   PLACEMENTS,
   SCENE_LABELS,
   SCENES,
   SHOT_LABELS,
   SHOTS,
+  STUDIO_OUTPUT_FORMATS,
   SUBJECT_LABELS,
   SUBJECTS,
   VIBE_LABELS,
@@ -32,11 +58,18 @@ import {
   type Subject,
   type Vibe,
 } from "@/lib/style-options";
+import {
+  LOOK_PRESET_HINTS,
+  LOOK_PRESET_IDS,
+  LOOK_PRESET_LABELS,
+  parseLookPreset,
+  type LookPresetId,
+} from "@/lib/look-presets";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { DownloadImageButton } from "@/components/download-image-button";
-import { ImageLightbox } from "@/components/image-lightbox";
+
+type StudioTab = GenerationMode | "video";
 
 function isAcceptedImage(file: File): boolean {
   if (file.type.startsWith("image/")) return true;
@@ -56,20 +89,37 @@ export function StudioApp() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [generationReady, setGenerationReady] = useState<boolean | null>(null);
+  const [canCustomPrompt, setCanCustomPrompt] = useState(false);
+  const [canBrand, setCanBrand] = useState(false);
+  const [canThemes, setCanThemes] = useState(false);
+  const [canSelfie, setCanSelfie] = useState(false);
+  const [canVideo, setCanVideo] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [brand, setBrand] = useState<BrandFormState>(EMPTY_BRAND);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultMime, setResultMime] = useState<string | null>(null);
+  const [generationId, setGenerationId] = useState<string | null>(null);
+  const [tab, setTab] = useState<StudioTab>("model");
   const [mode, setMode] = useState<GenerationMode>("model");
   const [placement, setPlacement] = useState<Placement>("auto");
   const [subject, setSubject] = useState<Subject>("auto");
+  const [lookPreset, setLookPreset] = useState<LookPresetId>("auto");
   const [shot, setShot] = useState<Shot>("editorial");
   const [framing, setFraming] = useState<Framing>("catalog");
   const [scene, setScene] = useState<Scene>("studio");
   const [vibe, setVibe] = useState<Vibe>("luxury");
   const [format, setFormat] = useState<OutputFormat>("whatsapp");
-  const [backdropColor, setBackdropColor] = useState<string | null>(null);
-  const [backdropHexInput, setBackdropHexInput] = useState("#FFFFFF");
+  const [backdropColor, setBackdropColor] = useState<string>(DEFAULT_BACKDROP_HEX);
+  const [backdropHexInput, setBackdropHexInput] = useState(DEFAULT_BACKDROP_HEX);
+  const [videoPreset, setVideoPreset] = useState<VideoPresetId>("slow_orbit");
+  const [videoAspect, setVideoAspect] = useState<VideoAspectId>("vertical");
+  const [videoPurpose, setVideoPurpose] = useState<VideoPurposeId>("promotional");
+  const [videoCast, setVideoCast] = useState<VideoCastId>("product");
+  const [appliedThemeId, setAppliedThemeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -86,16 +136,35 @@ export function StudioApp() {
             authenticated?: boolean;
             credits?: number;
             generationConfigured?: boolean;
+            features?: {
+              customPrompt?: boolean;
+              brandOverlay?: boolean;
+              themes?: boolean;
+              selfieTryOn?: boolean;
+              videoGeneration?: boolean;
+            };
           }) => {
             if (cancelled) return;
             setAuthenticated(Boolean(d.authenticated));
+            setCanCustomPrompt(Boolean(d.features?.customPrompt));
+            setCanBrand(Boolean(d.features?.brandOverlay));
+            setCanThemes(Boolean(d.features?.themes));
+            setCanSelfie(Boolean(d.features?.selfieTryOn));
+            setCanVideo(Boolean(d.features?.videoGeneration));
             if (d.authenticated && typeof d.credits === "number") {
               setCredits(d.credits);
             } else {
               setCredits(null);
+              setCanCustomPrompt(false);
+              setCanBrand(false);
+              setCanThemes(false);
+              setCanSelfie(false);
+              setCanVideo(false);
               setFile(null);
+              setSelfieFile(null);
               setResultUrl(null);
               setResultMime(null);
+              setGenerationId(null);
             }
             if (typeof d.generationConfigured === "boolean") {
               setGenerationReady(d.generationConfigured);
@@ -106,8 +175,14 @@ export function StudioApp() {
           if (cancelled) return;
           setAuthenticated(false);
           setCredits(null);
+          setCanCustomPrompt(false);
+          setCanBrand(false);
+          setCanThemes(false);
+          setCanSelfie(false);
+          setCanVideo(false);
           setGenerationReady(null);
           setFile(null);
+          setSelfieFile(null);
           setResultUrl(null);
           setResultMime(null);
         });
@@ -148,6 +223,24 @@ export function StudioApp() {
     };
   }, [file]);
 
+  useEffect(() => {
+    if (!selfieFile) {
+      setSelfiePreviewUrl(null);
+      return;
+    }
+    let u: string | null = null;
+    try {
+      u = URL.createObjectURL(selfieFile);
+      setSelfiePreviewUrl(u);
+    } catch {
+      setSelfiePreviewUrl(null);
+      return;
+    }
+    return () => {
+      if (u) URL.revokeObjectURL(u);
+    };
+  }, [selfieFile]);
+
   const applyFile = useCallback((next: File | null) => {
     if (next && !isAcceptedImage(next)) {
       setError("Please choose a JPG, PNG, or WebP image.");
@@ -156,6 +249,15 @@ export function StudioApp() {
     setFile(next);
     setResultUrl(null);
     setResultMime(null);
+    setError(null);
+  }, []);
+
+  const applySelfie = useCallback((next: File | null) => {
+    if (next && !isAcceptedImage(next)) {
+      setError("Please choose a JPG, PNG, or WebP selfie.");
+      return;
+    }
+    setSelfieFile(next);
     setError(null);
   }, []);
 
@@ -171,6 +273,18 @@ export function StudioApp() {
     [applyFile],
   );
 
+  const onSelfiePick = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      applySelfie(e.target.files?.[0] ?? null);
+      try {
+        e.target.value = "";
+      } catch {
+        /* ignore */
+      }
+    },
+    [applySelfie],
+  );
+
   const onDrop = useCallback(
     (e: React.DragEvent<HTMLLabelElement>) => {
       e.preventDefault();
@@ -181,15 +295,121 @@ export function StudioApp() {
     [applyFile],
   );
 
+  const applyTheme = useCallback((theme: ThemeListItem, style: ThemeStyleSnapshot) => {
+    setAppliedThemeId(theme.id);
+    setTab(style.mode);
+    setMode(style.mode);
+    setPlacement(style.placement);
+    setSubject(style.subject);
+    setLookPreset(parseLookPreset(style.lookPreset));
+    setShot(style.shot);
+    setFraming(style.framing);
+    setScene(style.scene);
+    setVibe(style.vibe);
+    setFormat(style.format);
+    if (style.backdropColor) {
+      setBackdropColor(style.backdropColor);
+      setBackdropHexInput(style.backdropColor);
+    }
+    setCustomPrompt(style.customPrompt ?? "");
+    setResultUrl(null);
+    setResultMime(null);
+    setError(null);
+  }, []);
+
+  const themeSnapshot = useCallback((): ThemeStyleSnapshot => {
+    return {
+      mode,
+      placement,
+      subject,
+      shot,
+      framing,
+      scene,
+      vibe,
+      format,
+      backdropColor: mode === "background" ? backdropColor : null,
+      lookPreset: mode === "model" || tab === "video" ? lookPreset : null,
+      customPrompt: customPrompt.trim() || null,
+      usePreviewAsReference: true,
+    };
+  }, [
+    mode,
+    placement,
+    subject,
+    shot,
+    framing,
+    scene,
+    vibe,
+    format,
+    backdropColor,
+    lookPreset,
+    customPrompt,
+    tab,
+  ]);
+
+  const saveCurrentResultAsTheme = useCallback(async () => {
+    if (!resultUrl || resultMime?.startsWith("video/")) return;
+    if (!canThemes) {
+      setError("Saved looks unlock on Platinum and above.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const autoName = `Look ${new Date().toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+      const res = await fetch("/api/themes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: autoName,
+          previewUrl: resultUrl,
+          style: { ...themeSnapshot(), usePreviewAsReference: true },
+        }),
+      });
+      const data = await readApiJson<{
+        error?: string;
+        theme?: ThemeListItem;
+      }>(res);
+      if (!res.ok) throw new Error(data.error ?? "Could not save look");
+      if (data.theme) {
+        const { parseThemeStyleJson } = await import("@/lib/themes");
+        const style = parseThemeStyleJson(data.theme.styleJson);
+        if (style) applyTheme(data.theme, style);
+      }
+      setError(null);
+      window.alert(
+        "Look saved! Now upload a NEW jewelry photo on the left, then press Generate — same style, new jewelry.",
+      );
+    } catch (err) {
+      setError(friendlyClientError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [resultUrl, resultMime, canThemes, themeSnapshot, applyTheme]);
+
   const generate = useCallback(async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
     setResultUrl(null);
     setResultMime(null);
+    setGenerationId(null);
 
     try {
       const { base64, mimeType } = await prepareImageForUpload(file);
+      let selfieBase64: string | undefined;
+      let selfieMimeType: string | undefined;
+      if (selfieFile && mode === "model" && canSelfie) {
+        const selfie = await prepareImageForUpload(selfieFile);
+        selfieBase64 = selfie.base64;
+        selfieMimeType = selfie.mimeType;
+      }
+
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 120_000);
       const res = await fetch("/api/generate", {
@@ -206,7 +426,20 @@ export function StudioApp() {
           scene,
           vibe,
           format,
+          lookPreset: mode === "model" ? lookPreset : undefined,
           backdropColor: mode === "background" ? backdropColor : undefined,
+          customPrompt: customPrompt.trim() || undefined,
+          brandName: brand.brandName || undefined,
+          marketingLine: brand.marketingLine || undefined,
+          grams: brand.grams || undefined,
+          festivalId: brand.festivalId,
+          watermark: brand.watermark,
+          logoPlacement: brand.logoPlacement,
+          logoBase64: brand.logoBase64 || undefined,
+          logoMimeType: brand.logoMimeType || undefined,
+          selfieBase64,
+          selfieMimeType,
+          themeId: appliedThemeId || undefined,
         }),
         signal: controller.signal,
       });
@@ -214,14 +447,20 @@ export function StudioApp() {
       const data = await readApiJson<{
         error?: string;
         resultUrl?: string;
+        generationId?: string;
         mimeType?: string;
         credits?: number;
+        themeUsed?: boolean;
+        themeWarning?: string;
       }>(res);
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       if (typeof data.credits === "number") setCredits(data.credits);
       if (data.resultUrl) setResultUrl(data.resultUrl);
+      if (typeof data.generationId === "string") setGenerationId(data.generationId);
       if (typeof data.mimeType === "string") setResultMime(data.mimeType);
+      if (data.themeWarning) setError(data.themeWarning);
+      else if (data.themeUsed) setError(null);
     } catch (err) {
       setError(friendlyClientError(err));
     } finally {
@@ -229,6 +468,8 @@ export function StudioApp() {
     }
   }, [
     file,
+    selfieFile,
+    canSelfie,
     mode,
     placement,
     subject,
@@ -237,8 +478,76 @@ export function StudioApp() {
     scene,
     vibe,
     format,
+    lookPreset,
     backdropColor,
+    customPrompt,
+    brand,
+    appliedThemeId,
   ]);
+
+  const generateVideo = useCallback(async () => {
+    if (!file) return;
+    setLoading(true);
+    setError(null);
+    setResultUrl(null);
+    setResultMime(null);
+    setGenerationId(null);
+
+    try {
+      const { base64, mimeType } = await prepareImageForUpload(file);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 260_000);
+      const res = await fetch("/api/generate-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: base64,
+          mimeType,
+          preset: videoPreset,
+          aspect: videoAspect,
+          purpose: videoPurpose,
+          cast: videoCast,
+          subject: videoCast === "model" ? subject : undefined,
+          lookPreset: videoCast === "model" ? lookPreset : undefined,
+          customPrompt: customPrompt.trim() || undefined,
+        }),
+        signal: controller.signal,
+      });
+      window.clearTimeout(timeout);
+      const data = await readApiJson<{
+        error?: string;
+        resultUrl?: string;
+        generationId?: string;
+        mimeType?: string;
+        credits?: number;
+      }>(res);
+
+      if (!res.ok) throw new Error(data.error ?? "Video failed");
+      if (typeof data.credits === "number") setCredits(data.credits);
+      if (data.resultUrl) setResultUrl(data.resultUrl);
+      if (typeof data.generationId === "string") setGenerationId(data.generationId);
+      if (typeof data.mimeType === "string") setResultMime(data.mimeType);
+    } catch (err) {
+      setError(friendlyClientError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [file, videoPreset, videoAspect, videoPurpose, videoCast, subject, lookPreset, customPrompt]);
+
+  const selectTab = useCallback((next: StudioTab) => {
+    setTab(next);
+    if (next === "video") {
+      setResultUrl(null);
+      setResultMime(null);
+      setError(null);
+      return;
+    }
+    setMode(next);
+    setResultUrl(null);
+    setResultMime(null);
+    setError(null);
+    if (next !== "model") setSelfieFile(null);
+  }, []);
 
   if (authenticated === null) {
     return (
@@ -294,22 +603,17 @@ export function StudioApp() {
         <div
           role="tablist"
           aria-label="Generation mode"
-          className="grid grid-cols-2 gap-1 rounded-xl bg-background/60 p-1"
+          className="grid grid-cols-3 gap-1 rounded-xl bg-background/60 p-1"
         >
           {GENERATION_MODES.map((key) => (
             <button
               key={key}
               type="button"
               role="tab"
-              aria-selected={mode === key}
-              onClick={() => {
-                setMode(key);
-                setResultUrl(null);
-                setResultMime(null);
-                setError(null);
-              }}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                mode === key
+              aria-selected={tab === key}
+              onClick={() => selectTab(key)}
+              className={`rounded-lg px-2 py-2 text-xs font-semibold transition sm:text-sm ${
+                tab === key
                   ? "bg-secondary text-foreground shadow-sm"
                   : "text-foreground/65 hover:text-foreground"
               }`}
@@ -317,6 +621,28 @@ export function StudioApp() {
               {MODE_LABELS[key]}
             </button>
           ))}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "video"}
+            onClick={() => {
+              if (!canVideo) {
+                setError("Video unlocks on Diamond. See Pricing.");
+                return;
+              }
+              selectTab("video");
+            }}
+            className={`rounded-lg px-2 py-2 text-xs font-semibold transition sm:text-sm ${
+              tab === "video"
+                ? "bg-secondary text-foreground shadow-sm"
+                : canVideo
+                  ? "text-foreground/65 hover:text-foreground"
+                  : "text-foreground/35"
+            }`}
+            title={canVideo ? "AI video" : "Diamond plan"}
+          >
+            Video
+          </button>
         </div>
 
         <div>
@@ -365,26 +691,310 @@ export function StudioApp() {
           </label>
         </div>
 
-        {mode === "model" ? (
+        {tab === "model" ? (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+              Your photo / selfie
+            </p>
+            {canSelfie ? (
+              <>
+                <input
+                  id="selfie-upload"
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  className="sr-only"
+                  onChange={onSelfiePick}
+                />
+                <label
+                  htmlFor="selfie-upload"
+                  className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-background/40 px-4 py-4 text-center text-sm text-foreground/70 hover:border-primary"
+                >
+                  {selfieFile && selfiePreviewUrl ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={selfiePreviewUrl}
+                        alt="Selfie"
+                        className="mb-2 max-h-20 w-full rounded-lg object-contain"
+                      />
+                      <span className="text-xs">{selfieFile.name}</span>
+                      <button
+                        type="button"
+                        className="mt-2 text-[11px] text-primary underline"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelfieFile(null);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Optional: upload selfie for try-on
+                      <span className="mt-1 block text-xs text-foreground/45">
+                        Platinum+ · face identity preserved
+                      </span>
+                    </>
+                  )}
+                </label>
+              </>
+            ) : (
+              <p className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
+                Selfie try-on unlocks on{" "}
+                <Link href="/pricing" className="font-medium text-primary underline">
+                  Platinum and above
+                </Link>
+                .
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {tab !== "video" ? (
+          <ThemesPanel
+            locked={!canThemes}
+            enabled={canThemes}
+            currentStyle={themeSnapshot()}
+            previewUrl={resultUrl && !resultMime?.startsWith("video/") ? resultUrl : null}
+            appliedThemeId={appliedThemeId}
+            onApply={applyTheme}
+            onClear={() => setAppliedThemeId(null)}
+          />
+        ) : null}
+
+        {tab !== "video" ? (
+          <BrandMarketingPanel
+            value={brand}
+            onChange={setBrand}
+            locked={!canBrand}
+          />
+        ) : null}
+
+        {tab === "video" ? (
+          <div className="space-y-4">
+            {!canVideo ? (
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
+                Video unlocks on{" "}
+                <Link href="/pricing" className="font-medium text-primary underline">
+                  Diamond
+                </Link>
+                .
+              </p>
+            ) : (
+              <>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                    Ratio
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {VIDEO_ASPECT_IDS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setVideoAspect(id)}
+                        className={`rounded-lg px-3 py-2 text-left text-xs font-medium ${
+                          videoAspect === id
+                            ? "bg-primary text-background"
+                            : "bg-background/50 text-foreground/70 hover:bg-primary/20"
+                        }`}
+                      >
+                        <span className="block">{VIDEO_ASPECT_LABELS[id]}</span>
+                        <span
+                          className={`mt-0.5 block text-[10px] font-normal ${
+                            videoAspect === id
+                              ? "text-background/80"
+                              : "text-foreground/45"
+                          }`}
+                        >
+                          {VIDEO_ASPECT_HINTS[id]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                    Show jewelry as
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {VIDEO_CAST_IDS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setVideoCast(id)}
+                        className={`rounded-lg px-3 py-2 text-left text-xs font-medium ${
+                          videoCast === id
+                            ? "bg-primary text-background"
+                            : "bg-background/50 text-foreground/70 hover:bg-primary/20"
+                        }`}
+                      >
+                        <span className="block">{VIDEO_CAST_LABELS[id]}</span>
+                        <span
+                          className={`mt-0.5 block text-[10px] font-normal ${
+                            videoCast === id
+                              ? "text-background/80"
+                              : "text-foreground/45"
+                          }`}
+                        >
+                          {VIDEO_CAST_HINTS[id]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {videoCast === "model" ? (
+                    <div className="mt-3 space-y-3">
+                      <Field
+                        label="Model type"
+                        value={subject}
+                        onChange={setSubject}
+                        options={SUBJECTS.map(
+                          (k) => [k, SUBJECT_LABELS[k]] as const,
+                        )}
+                      />
+                      <Field
+                        label="Campaign look"
+                        value={lookPreset}
+                        onChange={setLookPreset}
+                        options={LOOK_PRESET_IDS.map(
+                          (k) => [k, LOOK_PRESET_LABELS[k]] as const,
+                        )}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                    Video type
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {VIDEO_PURPOSE_IDS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setVideoPurpose(id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                          videoPurpose === id
+                            ? "bg-primary text-background"
+                            : "bg-background/50 text-foreground/70 hover:bg-primary/20"
+                        }`}
+                      >
+                        {VIDEO_PURPOSE_LABELS[id]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                    Camera / motion
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {VIDEO_PRESET_IDS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setVideoPreset(id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                          videoPreset === id
+                            ? "bg-primary text-background"
+                            : "bg-background/50 text-foreground/70 hover:bg-primary/20"
+                        }`}
+                      >
+                        {VIDEO_PRESET_LABELS[id]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            <p className="text-[11px] text-foreground/50">
+              Costs {CREDIT_COST_PER_VIDEO} credits · may take a few minutes
+            </p>
+          </div>
+        ) : canCustomPrompt ? (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+              Custom prompt
+            </p>
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value.slice(0, 2000))}
+              rows={3}
+              placeholder="Describe the look in your own words. When filled, style chips below are ignored."
+              className="mt-2 w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
+            />
+            <p className="mt-1 text-[11px] text-foreground/50">
+              Gold+ feature. Leave empty to use the options below.
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
+            Custom prompt unlocks on{" "}
+            <Link href="/pricing" className="font-medium text-primary underline">
+              Gold and above
+            </Link>
+            .
+          </p>
+        )}
+
+        {tab === "video" ? null : mode === "model" ? (
           <>
             <Field
               label="Where to show jewelry"
               value={placement}
               onChange={setPlacement}
+              disabled={Boolean(customPrompt.trim())}
               options={PLACEMENTS.map((k) => [k, PLACEMENT_LABELS[k]] as const)}
             />
-            <Field
-              label="Model type"
-              value={subject}
-              onChange={setSubject}
-              options={SUBJECTS.map((k) => [k, SUBJECT_LABELS[k]] as const)}
-            />
-            <Field
-              label="Shot type"
-              value={shot}
-              onChange={setShot}
-              options={SHOTS.map((k) => [k, SHOT_LABELS[k]] as const)}
-            />
+            {selfieFile ? (
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
+                Selfie uploaded — model type / campaign look / shot are hidden.
+                Your photo is the model; only jewelry placement &amp; format matter.
+              </p>
+            ) : appliedThemeId ? (
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
+                Theme applied — model / look / scene options are taken from the saved look.
+                Upload new jewelry and Generate to swap the piece.
+              </p>
+            ) : (
+              <>
+                <Field
+                  label="Model type"
+                  value={subject}
+                  onChange={setSubject}
+                  options={SUBJECTS.map((k) => [k, SUBJECT_LABELS[k]] as const)}
+                />
+                <Field
+                  label="Campaign look"
+                  value={lookPreset}
+                  onChange={setLookPreset}
+                  options={LOOK_PRESET_IDS.map(
+                    (k) => [k, LOOK_PRESET_LABELS[k]] as const,
+                  )}
+                />
+                {lookPreset !== "auto" ? (
+                  <p className="text-[11px] text-foreground/55">
+                    {LOOK_PRESET_HINTS[lookPreset]}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-foreground/55">
+                    Auto picks a look from your scene, mood &amp; shot — still keeps
+                    your jewelry exact.
+                  </p>
+                )}
+                <Field
+                  label="Shot type"
+                  value={shot}
+                  onChange={setShot}
+                  disabled={Boolean(customPrompt.trim())}
+                  options={SHOTS.map((k) => [k, SHOT_LABELS[k]] as const)}
+                />
+              </>
+            )}
           </>
         ) : (
           <>
@@ -392,47 +1002,66 @@ export function StudioApp() {
               label="Framing"
               value={framing}
               onChange={setFraming}
+              disabled={Boolean(customPrompt.trim())}
               options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
             />
-            <BackdropColorField
-              value={backdropColor}
-              hexInput={backdropHexInput}
-              onSelectPreset={(hex) => {
-                setBackdropColor(hex);
-                if (hex) setBackdropHexInput(hex);
-              }}
-              onHexInputChange={setBackdropHexInput}
-              onApplyHex={() => {
-                const next = normalizeBackdropHex(backdropHexInput);
-                if (!next) {
-                  setError("Enter a valid hex color like #110707");
-                  return;
-                }
-                setError(null);
-                setBackdropColor(next);
-                setBackdropHexInput(next);
-              }}
-            />
+            <div
+              className={
+                customPrompt.trim() ? "pointer-events-none opacity-40" : undefined
+              }
+            >
+              <BackdropColorField
+                value={backdropColor}
+                hexInput={backdropHexInput}
+                onSelectPreset={(hex) => {
+                  setBackdropColor(hex);
+                  setBackdropHexInput(hex);
+                }}
+                onHexInputChange={setBackdropHexInput}
+                onApplyHex={() => {
+                  const next = normalizeBackdropHex(backdropHexInput);
+                  if (!next) {
+                    setError("Enter a valid hex color like #110707");
+                    return;
+                  }
+                  setError(null);
+                  setBackdropColor(next);
+                  setBackdropHexInput(next);
+                }}
+              />
+            </div>
           </>
         )}
-        <Field
-          label="Output format"
-          value={format}
-          onChange={setFormat}
-          options={OUTPUT_FORMATS.map((k) => [k, OUTPUT_FORMAT_LABELS[k]] as const)}
-        />
-        <Field
-          label="Scene"
-          value={scene}
-          onChange={setScene}
-          options={SCENES.map((k) => [k, SCENE_LABELS[k]] as const)}
-        />
-        <Field
-          label="Mood"
-          value={vibe}
-          onChange={setVibe}
-          options={VIBES.map((k) => [k, VIBE_LABELS[k]] as const)}
-        />
+        {tab !== "video" ? (
+          <>
+            <Field
+              label="Output format"
+              value={format}
+              onChange={setFormat}
+              options={STUDIO_OUTPUT_FORMATS.map(
+                (k) => [k, OUTPUT_FORMAT_LABELS[k]] as const,
+              )}
+            />
+            {!selfieFile && !appliedThemeId ? (
+              <>
+                <Field
+                  label="Scene"
+                  value={scene}
+                  onChange={setScene}
+                  disabled={Boolean(customPrompt.trim())}
+                  options={SCENES.map((k) => [k, SCENE_LABELS[k]] as const)}
+                />
+                <Field
+                  label="Mood"
+                  value={vibe}
+                  onChange={setVibe}
+                  disabled={Boolean(customPrompt.trim())}
+                  options={VIBES.map((k) => [k, VIBE_LABELS[k]] as const)}
+                />
+              </>
+            ) : null}
+          </>
+        ) : null}
 
         <button
           type="button"
@@ -440,17 +1069,33 @@ export function StudioApp() {
             !file ||
             loading ||
             generationReady === false ||
-            (credits !== null && credits < 1)
+            (tab === "video"
+              ? !canVideo ||
+                (credits !== null && credits < CREDIT_COST_PER_VIDEO)
+              : credits !== null && credits < 1)
           }
-          onClick={() => void generate()}
+          onClick={() =>
+            void (tab === "video" ? generateVideo() : generate())
+          }
           className="rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40 hover:bg-accent hover:text-foreground"
         >
           {loading
-            ? "Generating…"
-            : mode === "background"
-              ? "Generate background"
-              : "Generate model shot"}
+            ? tab === "video"
+              ? "Generating video…"
+              : "Generating…"
+            : tab === "video"
+              ? `Generate video (${CREDIT_COST_PER_VIDEO} credits)`
+              : appliedThemeId
+                ? "Generate with applied theme"
+                : mode === "background"
+                  ? "Generate background"
+                  : "Generate model shot"}
         </button>
+        {tab !== "video" && appliedThemeId ? (
+          <p className="text-center text-[11px] text-foreground/55">
+            Theme applied — new jewelry will reuse that look.
+          </p>
+        ) : null}
 
         {error ? (
           <p className="text-sm text-red-600" role="alert">
@@ -460,33 +1105,114 @@ export function StudioApp() {
       </aside>
 
       <section className="flex min-h-[420px] flex-col items-center justify-center gap-4">
-        {resultUrl ? (
+        {loading ? (
+          <GenerationPreviewPlaceholder
+            aspectClass={
+              tab === "video"
+                ? VIDEO_ASPECT_CLASS[videoAspect]
+                : OUTPUT_FORMAT_ASPECT_CLASS[format]
+            }
+            label={
+              tab === "video"
+                ? "Creating your jewelry video…"
+                : mode === "background"
+                  ? "Creating your background still…"
+                  : "Creating your model shot…"
+            }
+          />
+        ) : resultUrl ? (
           <>
-            <div className={`w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]} mx-auto`}>
-              <button
-                type="button"
-                onClick={() => setLightboxOpen(true)}
-                className="block h-full w-full cursor-zoom-in"
-                aria-label="View full size"
+            {resultMime?.startsWith("video/") || tab === "video" ? (
+              <div
+                className={`mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${VIDEO_ASPECT_CLASS[videoAspect]}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <video
                   src={resultUrl}
-                  alt={mode === "background" ? "Background still" : "Model shot"}
-                  className="h-full w-full object-contain bg-background/50"
+                  controls
+                  playsInline
+                  className="h-full w-full bg-background/50 object-contain"
                 />
-              </button>
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setLightboxOpen(true)}
-                className="rounded-xl border border-primary/25 bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/30"
+              </div>
+            ) : (
+              <div
+                className={`mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]}`}
               >
-                Zoom in
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="block h-full w-full cursor-zoom-in"
+                  aria-label="View full size"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resultUrl}
+                    alt={
+                      mode === "background" ? "Background still" : "Model shot"
+                    }
+                    className="h-full w-full bg-background/50 object-contain"
+                  />
+                </button>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {!(resultMime?.startsWith("video/") || tab === "video") ? (
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="rounded-xl border border-primary/25 bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/30"
+                >
+                  Zoom in
+                </button>
+              ) : null}
+              {canThemes &&
+              !(resultMime?.startsWith("video/") || tab === "video") &&
+              resultUrl ? (
+                <button
+                  type="button"
+                  onClick={() => void saveCurrentResultAsTheme()}
+                  className="rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25"
+                >
+                  Save as look
+                </button>
+              ) : null}
               <DownloadImageButton
                 url={resultUrl}
+                filename={downloadFilename(
+                  resultUrl,
+                  tab === "video" || resultMime?.startsWith("video/")
+                    ? `jewel-studio-video-${videoPurpose}-${videoAspect}`
+                    : mode === "background"
+                      ? `jewel-studio-background-${format}`
+                      : `jewel-studio-model-${format}`,
+                  resultMime,
+                )}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
+                label={
+                  resultMime?.startsWith("video/") || tab === "video"
+                    ? "Download video"
+                    : "Download image"
+                }
+              />
+              {!(resultMime?.startsWith("video/") || tab === "video") ? (
+                <ShareImageButton
+                  generationId={generationId}
+                  imageUrl={resultUrl}
+                />
+              ) : null}
+            </div>
+            {canThemes &&
+            !(resultMime?.startsWith("video/") || tab === "video") ? (
+              <p className="max-w-md text-center text-[11px] text-foreground/55">
+                Tip: click <strong className="font-medium text-foreground/70">Save as look</strong>, then
+                upload different jewelry and Generate to reuse this style.
+              </p>
+            ) : null}
+            {!(resultMime?.startsWith("video/") || tab === "video") ? (
+              <ImageLightbox
+                url={resultUrl}
+                alt={mode === "background" ? "Background still" : "Model shot"}
+                open={lightboxOpen}
+                onClose={() => setLightboxOpen(false)}
                 filename={downloadFilename(
                   resultUrl,
                   mode === "background"
@@ -494,29 +1220,16 @@ export function StudioApp() {
                     : `jewel-studio-model-${format}`,
                   resultMime,
                 )}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
-                label="Download image"
               />
-            </div>
-            <ImageLightbox
-              url={resultUrl}
-              alt={mode === "background" ? "Background still" : "Model shot"}
-              open={lightboxOpen}
-              onClose={() => setLightboxOpen(false)}
-              filename={downloadFilename(
-                resultUrl,
-                mode === "background"
-                  ? `jewel-studio-background-${format}`
-                  : `jewel-studio-model-${format}`,
-                resultMime,
-              )}
-            />
+            ) : null}
           </>
         ) : (
           <p className="max-w-sm text-center text-sm text-foreground/55">
-            {mode === "background"
-              ? "Your jewelry on a styled background will appear here after generation."
-              : "Your AI model shot will appear here after generation."}
+            {tab === "video"
+              ? "Your jewelry video will appear here after generation. Pick ratio, type, and motion first."
+              : mode === "background"
+                ? "Your jewelry on a styled background will appear here after generation."
+                : "Your AI model shot will appear here after generation."}
           </p>
         )}
       </section>
@@ -531,9 +1244,9 @@ function BackdropColorField({
   onHexInputChange,
   onApplyHex,
 }: {
-  value: string | null;
+  value: string;
   hexInput: string;
-  onSelectPreset: (hex: string | null) => void;
+  onSelectPreset: (hex: string) => void;
   onHexInputChange: (hex: string) => void;
   onApplyHex: () => void;
 }) {
@@ -544,8 +1257,7 @@ function BackdropColorField({
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {BACKDROP_COLOR_PRESETS.map((preset) => {
-          const selected =
-            preset.hex === null ? value === null : value === preset.hex;
+          const selected = value === preset.hex;
           const isLight =
             preset.hex === "#FFFFFF" ||
             preset.hex === "#F5F0E8" ||
@@ -563,20 +1275,8 @@ function BackdropColorField({
                   ? "ring-2 ring-primary ring-offset-2 ring-offset-secondary"
                   : "ring-1 ring-primary/25 hover:ring-primary/50"
               }`}
-              style={
-                preset.hex
-                  ? { backgroundColor: preset.hex }
-                  : {
-                      background:
-                        "conic-gradient(from 0deg, #c3b4fe, #7c5cbf, #9166af, #e8e0f0, #c3b4fe)",
-                    }
-              }
+              style={{ backgroundColor: preset.hex }}
             >
-              {preset.hex === null ? (
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow">
-                  A
-                </span>
-              ) : null}
               {isLight ? (
                 <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-black/10" />
               ) : null}
@@ -600,7 +1300,7 @@ function BackdropColorField({
               onApplyHex();
             }
           }}
-          placeholder="#110707"
+          placeholder="#FFFFFF"
           spellCheck={false}
           className="min-w-0 flex-1 rounded-lg border border-primary/25 bg-background/40 px-3 py-2 font-mono text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
           aria-label="Custom backdrop hex color"
@@ -614,7 +1314,7 @@ function BackdropColorField({
         </button>
       </div>
       <p className="mt-1.5 text-[11px] text-foreground/50">
-        Presets or custom hex. Auto keeps the Scene look without a forced solid color.
+        Choose a preset or enter a custom hex color for the solid backdrop.
       </p>
     </div>
   );
@@ -625,14 +1325,16 @@ function Field<T extends string>({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   label: string;
   value: T;
   onChange: (v: T) => void;
   options: readonly (readonly [T, string])[];
+  disabled?: boolean;
 }) {
   return (
-    <div>
+    <div className={disabled ? "opacity-40" : undefined}>
       <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
         {label}
       </p>
@@ -641,8 +1343,9 @@ function Field<T extends string>({
           <button
             key={key}
             type="button"
+            disabled={disabled}
             onClick={() => onChange(key)}
-            className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${
+            className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition disabled:cursor-not-allowed ${
               value === key
                 ? "bg-primary text-background"
                 : "bg-background/50 text-foreground/80 ring-1 ring-primary/20 hover:bg-accent/30"

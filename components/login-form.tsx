@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type Mode = "signup" | "login" | "forgot";
+type Mode = "signup" | "login" | "forgot" | "phone";
 
 export function LoginForm() {
   const router = useRouter();
@@ -14,11 +14,15 @@ export function LoginForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [resetEmail, setResetEmail] = useState("");
+  const [resetTarget, setResetTarget] = useState("");
+  const [resetChannel, setResetChannel] = useState<"email" | "sms">("email");
   const [resetCode, setResetCode] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetSent, setResetSent] = useState(false);
+  const [phoneLogin, setPhoneLogin] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -30,10 +34,48 @@ export function LoginForm() {
     setInfo(null);
     setDevHint(null);
     try {
+      const looksPhone = !target.includes("@");
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: target, purpose: "reset" }),
+        body: JSON.stringify(
+          looksPhone
+            ? { phone: target, purpose: "reset", channel: "sms" }
+            : { email: target, purpose: "reset", channel: "email" },
+        ),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        message?: string;
+        devCode?: string;
+        channel?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Could not send code");
+      setResetChannel(data.channel === "sms" ? "sms" : "email");
+      setResetSent(true);
+      setInfo(data.message ?? "Code sent.");
+      if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send code");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function requestPhoneLoginOtp() {
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    setDevHint(null);
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: phoneLogin,
+          purpose: "login",
+          channel: "sms",
+        }),
       });
       const data = (await res.json()) as {
         error?: string;
@@ -41,8 +83,8 @@ export function LoginForm() {
         devCode?: string;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not send code");
-      setResetSent(true);
-      setInfo(data.message ?? "Code sent.");
+      setPhoneOtpSent(true);
+      setInfo(data.message ?? "Code sent by SMS.");
       if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send code");
@@ -103,6 +145,27 @@ export function LoginForm() {
     }
   }
 
+  async function phoneLoginSubmit() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/phone-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneLogin, code: phoneCode }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Login failed");
+      window.dispatchEvent(new Event("jewel-auth-changed"));
+      router.push("/#studio");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function resetPasswordSubmit() {
     setLoading(true);
     setError(null);
@@ -111,20 +174,28 @@ export function LoginForm() {
       if (resetPassword !== resetConfirm) {
         throw new Error("Passwords do not match.");
       }
+      const payload =
+        resetChannel === "sms"
+          ? {
+              phone: resetTarget,
+              code: resetCode,
+              password: resetPassword,
+            }
+          : {
+              email: resetTarget,
+              code: resetCode,
+              password: resetPassword,
+            };
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: resetEmail,
-          code: resetCode,
-          password: resetPassword,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = (await res.json()) as { error?: string; message?: string };
       if (!res.ok) throw new Error(data.error ?? "Could not reset password");
       setInfo(data.message ?? "Password updated. You can log in now.");
       setMode("login");
-      setLoginEmail(resetEmail);
+      if (resetChannel === "email") setLoginEmail(resetTarget);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not reset password");
     } finally {
@@ -144,25 +215,27 @@ export function LoginForm() {
 
   return (
     <div className="mx-auto max-w-md rounded-2xl border border-primary/20 bg-secondary p-8 shadow-lg">
-      <div className="mb-6 flex gap-2 rounded-xl bg-background/50 p-1">
-        <button
-          type="button"
-          onClick={() => switchMode("signup")}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium ${
-            mode === "signup" ? "bg-background text-foreground shadow-sm" : "text-foreground/65"
-          }`}
-        >
-          Sign up
-        </button>
-        <button
-          type="button"
-          onClick={() => switchMode("login")}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium ${
-            mode === "login" ? "bg-background text-foreground shadow-sm" : "text-foreground/65"
-          }`}
-        >
-          Log in
-        </button>
+      <div className="mb-6 flex flex-wrap gap-2 rounded-xl bg-background/50 p-1">
+        {(
+          [
+            ["signup", "Sign up"],
+            ["login", "Log in"],
+            ["phone", "Phone OTP"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => switchMode(id)}
+            className={`flex-1 rounded-lg py-2 text-sm font-medium ${
+              mode === id
+                ? "bg-background text-foreground shadow-sm"
+                : "text-foreground/65"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {mode === "signup" ? (
@@ -175,7 +248,8 @@ export function LoginForm() {
         >
           <p className="text-sm text-foreground/70">
             Create an account with email and password. You get{" "}
-            <strong>5 free</strong> generations. Phone is optional.
+            <strong>5 free</strong> generations. Phone is optional (used for SMS
+            login / reset).
           </p>
           <input
             type="email"
@@ -209,7 +283,7 @@ export function LoginForm() {
           <input
             type="tel"
             autoComplete="tel"
-            placeholder="Mobile number (optional)"
+            placeholder="Mobile number (optional, 10 digits)"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className={inputClass}
@@ -232,7 +306,9 @@ export function LoginForm() {
             void login();
           }}
         >
-          <p className="text-sm text-foreground/70">Log in with your email and password.</p>
+          <p className="text-sm text-foreground/70">
+            Log in with your email and password.
+          </p>
           <input
             type="email"
             autoComplete="email"
@@ -262,7 +338,8 @@ export function LoginForm() {
             type="button"
             onClick={() => {
               switchMode("forgot");
-              setResetEmail(loginEmail);
+              setResetTarget(loginEmail);
+              setResetSent(false);
             }}
             className="w-full text-sm text-primary hover:underline"
           >
@@ -271,25 +348,89 @@ export function LoginForm() {
         </form>
       ) : null}
 
+      {mode === "phone" ? (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!phoneOtpSent) void requestPhoneLoginOtp();
+            else void phoneLoginSubmit();
+          }}
+        >
+          <p className="text-sm text-foreground/70">
+            Log in with your registered Indian mobile number via SMS OTP (MSG91).
+          </p>
+          <input
+            type="tel"
+            autoComplete="tel"
+            placeholder="10-digit mobile number"
+            value={phoneLogin}
+            onChange={(e) => {
+              setPhoneLogin(e.target.value);
+              setPhoneOtpSent(false);
+            }}
+            required
+            className={inputClass}
+          />
+          {!phoneOtpSent ? (
+            <button
+              type="submit"
+              disabled={loading || phoneLogin.replace(/\D/g, "").length < 10}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40"
+            >
+              {loading ? "Sending…" : "Send SMS code"}
+            </button>
+          ) : (
+            <>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit SMS code"
+                value={phoneCode}
+                onChange={(e) => setPhoneCode(e.target.value)}
+                required
+                className={inputClass}
+              />
+              <button
+                type="submit"
+                disabled={loading || phoneCode.length < 4}
+                className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40"
+              >
+                {loading ? "Verifying…" : "Log in with OTP"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void requestPhoneLoginOtp()}
+                className="w-full text-sm text-primary hover:underline"
+              >
+                Resend code
+              </button>
+            </>
+          )}
+        </form>
+      ) : null}
+
       {mode === "forgot" ? (
         <form
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!resetSent) void requestResetOtp(resetEmail);
+            if (!resetSent) void requestResetOtp(resetTarget);
             else void resetPasswordSubmit();
           }}
         >
           <p className="text-sm text-foreground/70">
-            Enter your email. We&apos;ll send a code so you can set a new password.
+            Enter your email <strong>or</strong> registered mobile number. We&apos;ll
+            send a code to reset your password.
           </p>
           <input
-            type="email"
-            autoComplete="email"
-            placeholder="Email address"
-            value={resetEmail}
+            type="text"
+            autoComplete="username"
+            placeholder="Email or 10-digit mobile"
+            value={resetTarget}
             onChange={(e) => {
-              setResetEmail(e.target.value);
+              setResetTarget(e.target.value);
               setResetSent(false);
             }}
             required
@@ -298,7 +439,7 @@ export function LoginForm() {
           {!resetSent ? (
             <button
               type="submit"
-              disabled={loading || !resetEmail}
+              disabled={loading || !resetTarget}
               className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40"
             >
               {loading ? "Sending code…" : "Send reset code"}
@@ -309,7 +450,11 @@ export function LoginForm() {
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                placeholder="6-digit code from email"
+                placeholder={
+                  resetChannel === "sms"
+                    ? "6-digit code from SMS"
+                    : "6-digit code from email"
+                }
                 value={resetCode}
                 onChange={(e) => setResetCode(e.target.value)}
                 required
@@ -357,7 +502,9 @@ export function LoginForm() {
       ) : null}
 
       {devHint ? (
-        <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{devHint}</p>
+        <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+          {devHint}
+        </p>
       ) : null}
       {info ? <p className="mt-4 text-sm text-foreground/80">{info}</p> : null}
       {error ? (

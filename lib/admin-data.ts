@@ -44,6 +44,7 @@ export async function listAdminUsers(limit = 100) {
       email: true,
       phone: true,
       credits: true,
+      plan: true,
       emailVerifiedAt: true,
       phoneVerifiedAt: true,
       createdAt: true,

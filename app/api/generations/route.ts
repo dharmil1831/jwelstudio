@@ -21,11 +21,15 @@ export async function GET() {
       shot: true,
       scene: true,
       vibe: true,
+      shareEnabled: true,
       createdAt: true,
     },
   });
 
-  const extras = new Map<string, { mode: string; format: string }>();
+  const extras = new Map<
+    string,
+    { mode: string; format: string }
+  >();
   if (rows.length > 0) {
     try {
       const withExtras = await prisma.generation.findMany({
@@ -58,6 +62,7 @@ export async function GET() {
       ...row,
       mode: extras.get(row.id)?.mode ?? "model",
       format: extras.get(row.id)?.format ?? "square",
+      createdAt: row.createdAt.toISOString(),
     })),
   });
 }

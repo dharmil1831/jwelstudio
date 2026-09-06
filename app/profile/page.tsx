@@ -14,7 +14,7 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-screen bg-background px-6 py-12 text-foreground">
       <div className="mx-auto max-w-lg">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-light text-foreground">
+        <h1 className="font-[family-name:var(--font-display)] text-3xl font-normal text-foreground">
           Your profile
         </h1>
         <p className="mt-2 text-foreground/70">Account details and credits.</p>

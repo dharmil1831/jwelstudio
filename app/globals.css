@@ -15,8 +15,8 @@
   --color-primary: #7c5cbf;
   --color-secondary: #ffffff;
   --color-accent: #a78bfa;
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-sans: var(--font-sans-family), "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-family), "Newsreader", ui-serif, Georgia, serif;
 }
 
 body {
@@ -25,3 +25,257 @@ body {
   font-family: var(--font-sans);
   overflow-x: hidden;
 }
+
+/* Generation preview — animated plum canvas (not a flat white box) */
+.gen-preview-base {
+  background: linear-gradient(
+    145deg,
+    #3d2a55 0%,
+    #5c3f8a 35%,
+    #7c5cbf 70%,
+    #4a3470 100%
+  );
+  animation: gen-base-shift 6s ease-in-out infinite alternate;
+}
+
+.gen-preview-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(28px);
+  opacity: 0.75;
+  will-change: transform;
+}
+
+.gen-preview-blob-a {
+  width: 55%;
+  height: 45%;
+  top: -10%;
+  left: -5%;
+  background: #a78bfa;
+  animation: gen-blob-a 5s ease-in-out infinite;
+}
+
+.gen-preview-blob-b {
+  width: 50%;
+  height: 50%;
+  right: -15%;
+  bottom: -10%;
+  background: #c4b0f0;
+  animation: gen-blob-b 6.5s ease-in-out infinite;
+}
+
+.gen-preview-blob-c {
+  width: 40%;
+  height: 35%;
+  left: 30%;
+  top: 35%;
+  background: #7c5cbf;
+  opacity: 0.55;
+  animation: gen-blob-c 4.5s ease-in-out infinite;
+}
+
+.gen-preview-waves {
+  background:
+    repeating-linear-gradient(
+      -12deg,
+      transparent 0,
+      transparent 14px,
+      rgb(255 255 255 / 0.06) 14px,
+      rgb(255 255 255 / 0.06) 15px
+    );
+  animation: gen-wave-drift 8s linear infinite;
+  opacity: 0.9;
+}
+
+.gen-preview-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  animation: gen-grid-pan 10s linear infinite;
+  mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, #000 20%, transparent 75%);
+}
+
+.gen-preview-shimmer {
+  background: linear-gradient(
+    115deg,
+    transparent 25%,
+    rgb(255 255 255 / 0.22) 45%,
+    rgb(196 176 240 / 0.35) 50%,
+    rgb(255 255 255 / 0.18) 55%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: gen-shimmer 2.2s ease-in-out infinite;
+}
+
+.gen-preview-spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 10px 2px rgb(255 255 255 / 0.7);
+  animation: gen-spark 2.8s ease-in-out infinite;
+}
+
+.gen-preview-spark-1 {
+  top: 18%;
+  left: 22%;
+  animation-delay: 0s;
+}
+
+.gen-preview-spark-2 {
+  top: 28%;
+  right: 18%;
+  width: 4px;
+  height: 4px;
+  animation-delay: 0.7s;
+}
+
+.gen-preview-spark-3 {
+  bottom: 24%;
+  left: 30%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 1.3s;
+}
+
+.gen-preview-spark-4 {
+  bottom: 32%;
+  right: 28%;
+  animation-delay: 1.9s;
+}
+
+.gen-preview-rings {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.gen-preview-rings span {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgb(255 255 255 / 0.35);
+  animation: gen-ring 2s ease-out infinite;
+}
+
+.gen-preview-rings span:nth-child(2) {
+  animation-delay: 0.65s;
+}
+
+.gen-preview-rings span:nth-child(3) {
+  animation-delay: 1.3s;
+}
+
+@keyframes gen-base-shift {
+  0% {
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  100% {
+    filter: hue-rotate(18deg) brightness(1.08);
+  }
+}
+
+@keyframes gen-blob-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(18%, 22%) scale(1.15);
+  }
+}
+
+@keyframes gen-blob-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-20%, -15%) scale(1.2);
+  }
+}
+
+@keyframes gen-blob-c {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate(10%, -18%) scale(1.25);
+  }
+}
+
+@keyframes gen-wave-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-40px);
+  }
+}
+
+@keyframes gen-grid-pan {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 28px 28px;
+  }
+}
+
+@keyframes gen-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes gen-spark {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  70% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes gen-ring {
+  0% {
+    transform: scale(0.45);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gen-preview-base,
+  .gen-preview-blob,
+  .gen-preview-waves,
+  .gen-preview-grid,
+  .gen-preview-shimmer,
+  .gen-preview-spark,
+  .gen-preview-rings span {
+    animation: none;
+  }
+
+  .gen-preview-blob {
+    opacity: 0.5;
+  }
+}
+

@@ -1,9 +1,24 @@
 import { isGenerationConfigured } from "@/lib/env";
+import { canUseFeature } from "@/lib/entitlements";
+import {
+  brandHasContent,
+  parseBrandOptions,
+} from "@/lib/brand-options";
+import { getAppSettings } from "@/lib/app-settings";
 import { generateJewelryImage } from "@/lib/generate-image";
-import { buildBackgroundPrompt, buildJewelryPrompt } from "@/lib/prompts";
+import {
+  buildBackgroundPrompt,
+  buildJewelryPrompt,
+  buildThemeSwapPrompt,
+  withBrandPrompt,
+  withSelfieTryOnPrompt,
+  withThemeReferencePrompt,
+} from "@/lib/prompts";
 import { getSessionUser } from "@/lib/session";
 import { parseStudioStyle } from "@/lib/style-options";
 import { storeGenerationImage, extensionForMime } from "@/lib/storage";
+import { fetchThemePreviewAsExtra } from "@/lib/theme-preview";
+import type { GeminiExtraImage } from "@/lib/gemini";
 import {
   CREDIT_COST_PER_GENERATION,
   deductCredits,
@@ -11,6 +26,23 @@ import {
 } from "@/lib/users";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+
+function parseExtraImage(
+  json: Record<string, unknown>,
+  b64Key: string,
+  mimeKey: string,
+  maxLen = 6_000_000,
+): { data: string; mimeType: string } | null {
+  const data = json[b64Key];
+  if (typeof data !== "string" || !data.length) return null;
+  if (data.length > maxLen) return null;
+  const mime =
+    typeof json[mimeKey] === "string" && json[mimeKey]
+      ? String(json[mimeKey])
+      : "image/jpeg";
+  if (!/^image\/(jpeg|jpg|png|webp)$/i.test(mime)) return null;
+  return { data, mimeType: mime };
+}
 
 export const maxDuration = 60;
 
@@ -25,16 +57,20 @@ async function persistGeneration(data: {
   vibe: string;
   sourceMime: string;
   resultUrl: string;
-}) {
+  provider?: string;
+}): Promise<string> {
   try {
-    await prisma.generation.create({
+    const row = await prisma.generation.create({
       data: { ...data, status: "succeeded" },
     });
+    return row.id;
   } catch (e) {
     const message = e instanceof Error ? e.message : "";
-    if (!/Unknown argument `(mode|format)`/.test(message)) throw e;
+    if (!/Unknown argument `(mode|format|provider|shareEnabled)`/.test(message)) {
+      throw e;
+    }
 
-    const { mode, format, ...rest } = data;
+    const { mode, format, provider: _provider, ...rest } = data;
     const row = await prisma.generation.create({
       data: { ...rest, status: "succeeded" },
     });
@@ -43,6 +79,7 @@ async function persistGeneration(data: {
       SET "mode" = ${mode}, "format" = ${format}
       WHERE id = ${row.id}
     `;
+    return row.id;
   }
 }
 
@@ -104,10 +141,106 @@ export async function POST(req: Request) {
   }
 
   const style = parseStudioStyle(json);
-  const prompt =
-    style.mode === "background"
-      ? buildBackgroundPrompt(style)
-      : buildJewelryPrompt(style);
+  const brand = parseBrandOptions(json);
+  const settings = await getAppSettings();
+
+  if (style.customPrompt && !canUseFeature(user.plan, "customPrompt")) {
+    return NextResponse.json(
+      {
+        error:
+          "Custom prompt is available on Gold, Platinum, and Diamond plans. Upgrade on Pricing.",
+      },
+      { status: 403 },
+    );
+  }
+
+  if (
+    brandHasContent(brand) &&
+    (!canUseFeature(user.plan, "brandOverlay") || !settings.featureBrandEnabled)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Brand / festival options are available on Gold, Platinum, and Diamond plans.",
+      },
+      { status: 403 },
+    );
+  }
+
+  const selfie = parseExtraImage(json, "selfieBase64", "selfieMimeType");
+  if (selfie) {
+    if (
+      style.mode !== "model" ||
+      !canUseFeature(user.plan, "selfieTryOn") ||
+      !settings.featureSelfieEnabled
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Selfie / own-model try-on is available on Platinum and Diamond (Model shot only).",
+        },
+        { status: 403 },
+      );
+    }
+  }
+
+  const themeId =
+    typeof json.themeId === "string" ? json.themeId.trim().slice(0, 64) : "";
+
+  const themeRef =
+    themeId && canUseFeature(user.plan, "themes")
+      ? await fetchThemePreviewAsExtra(user.id, themeId)
+      : null;
+
+  let prompt: string;
+  if (themeRef && style.mode === "model") {
+    prompt = buildThemeSwapPrompt(style);
+    if (style.customPrompt) {
+      prompt = [
+        prompt,
+        "",
+        "User creative direction (only if it does not break jewelry fidelity or the theme look):",
+        style.customPrompt,
+      ].join(" ");
+    }
+  } else {
+    prompt =
+      style.mode === "background"
+        ? buildBackgroundPrompt(style)
+        : buildJewelryPrompt(style);
+  }
+  prompt = withBrandPrompt(prompt, brandHasContent(brand) ? brand : null);
+  if (selfie) {
+    prompt = withSelfieTryOnPrompt(prompt);
+  }
+  if (themeRef && style.mode !== "model") {
+    prompt = withThemeReferencePrompt(prompt);
+  }
+
+  const extraImages: GeminiExtraImage[] = [];
+  if (themeRef) {
+    extraImages.push({
+      data: themeRef.data,
+      mimeType: themeRef.mimeType,
+      label:
+        "IMAGE — STYLE REFERENCE (previous generation). Match pose, model, wardrobe, lighting, background. Do NOT copy jewelry from this image:",
+    });
+  }
+  if (selfie) {
+    extraImages.push({
+      data: selfie.data,
+      mimeType: selfie.mimeType,
+      label:
+        "IMAGE — SELFIE / OWN MODEL (this is the real person to portray; preserve their face identity):",
+    });
+  }
+  if (brand.logoBase64 && brand.logoMimeType) {
+    extraImages.push({
+      data: brand.logoBase64,
+      mimeType: brand.logoMimeType,
+      label: "IMAGE — BRAND LOGO (use only if watermark/brand overlay is requested):",
+    });
+  }
 
   const deducted = await deductCredits(user.id, CREDIT_COST_PER_GENERATION);
   if (!deducted.ok) {
@@ -123,6 +256,7 @@ export async function POST(req: Request) {
       mimeType,
       prompt,
       format: style.format,
+      extraImages: extraImages.length ? extraImages : undefined,
     });
     const buffer = Buffer.from(out.imageBase64, "base64");
     const resultUrl = await storeGenerationImage(
@@ -131,7 +265,7 @@ export async function POST(req: Request) {
       extensionForMime(out.mimeType),
     );
 
-    await persistGeneration({
+    const generationId = await persistGeneration({
       userId: user.id,
       mode: style.mode,
       format: style.format,
@@ -142,14 +276,21 @@ export async function POST(req: Request) {
       vibe: style.vibe,
       sourceMime: mimeType,
       resultUrl,
+      provider: out.provider,
     });
 
     return NextResponse.json({
       resultUrl,
+      generationId,
       mimeType: out.mimeType,
       credits: deducted.credits,
       provider: out.provider,
       attemptedProviders: out.attempted,
+      themeUsed: Boolean(themeRef),
+      themeWarning:
+        themeId && !themeRef
+          ? "Theme was selected but its preview image could not be loaded. Generate used style chips only."
+          : undefined,
     });
   } catch (e) {
     const credits = await refundCredits(user.id, CREDIT_COST_PER_GENERATION);

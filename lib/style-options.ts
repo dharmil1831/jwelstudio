@@ -27,6 +27,16 @@ export const SUBJECTS = [
   "couple",
   "diverse",
   "south_asian",
+  "north_indian",
+  "south_indian",
+  "east_indian",
+  "west_indian",
+  "korean",
+  "chinese",
+  "british",
+  "european",
+  "african",
+  "arabian",
   "western",
   "hands_only",
   "editorial_faceless",
@@ -59,6 +69,9 @@ export const SCENES = [
   "outdoor_garden",
   "dark_luxe",
   "marble_interior",
+  "beach",
+  "day_outdoor",
+  "night_city",
 ] as const;
 
 export const VIBES = [
@@ -71,6 +84,7 @@ export const VIBES = [
   "minimalist_luxe",
 ] as const;
 
+/** All formats accepted by API (legacy + social). */
 export const OUTPUT_FORMATS = [
   "whatsapp",
   "whatsapp_status",
@@ -79,6 +93,14 @@ export const OUTPUT_FORMATS = [
   "square",
   "catalog",
   "landscape",
+] as const;
+
+/** Formats shown in the studio UI (platform names only). */
+export const STUDIO_OUTPUT_FORMATS = [
+  "whatsapp",
+  "whatsapp_status",
+  "instagram_post",
+  "instagram_story",
 ] as const;
 
 export type OpenAIImageSize = "1024x1024" | "1536x1024" | "1024x1536";
@@ -101,13 +123,16 @@ export type StudioStyle = {
   scene: Scene;
   vibe: Vibe;
   format: OutputFormat;
-  /** Solid backdrop hex for Background mode, e.g. #110707. Empty = scene-driven. */
+  /** Solid backdrop hex for Background mode, e.g. #FFFFFF. */
   backdropColor: string | null;
+  /** Campaign look (wardrobe/set). Null/auto merges with other options. */
+  lookPreset: string | null;
+  /** When set (Gold+), chip-driven style lines are skipped in the prompt. */
+  customPrompt: string | null;
 };
 
-/** Jewelry-friendly solid backdrop presets (label + hex). */
+/** Jewelry-friendly solid backdrop presets (no Auto — default White). */
 export const BACKDROP_COLOR_PRESETS = [
-  { id: "auto", label: "Auto (from scene)", hex: null },
   { id: "white", label: "White", hex: "#FFFFFF" },
   { id: "ivory", label: "Ivory", hex: "#F5F0E8" },
   { id: "black", label: "Black", hex: "#0A0A0A" },
@@ -118,6 +143,8 @@ export const BACKDROP_COLOR_PRESETS = [
   { id: "blush", label: "Blush", hex: "#F3E4E7" },
   { id: "gold", label: "Soft gold", hex: "#C9A227" },
 ] as const;
+
+export const DEFAULT_BACKDROP_HEX = "#FFFFFF";
 
 export function normalizeBackdropHex(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -158,6 +185,16 @@ export const SUBJECT_LABELS: Record<Subject, string> = {
   couple: "Couple",
   diverse: "Diverse casting",
   south_asian: "South Asian",
+  north_indian: "North Indian",
+  south_indian: "South Indian",
+  east_indian: "East Indian",
+  west_indian: "West Indian",
+  korean: "Korean",
+  chinese: "Chinese",
+  british: "British",
+  european: "European",
+  african: "African",
+  arabian: "Arabian / Middle Eastern",
   western: "Western",
   hands_only: "Hands / detail only",
   editorial_faceless: "Faceless editorial",
@@ -190,6 +227,9 @@ export const SCENE_LABELS: Record<Scene, string> = {
   outdoor_garden: "Outdoor garden",
   dark_luxe: "Dark luxe",
   marble_interior: "Marble interior",
+  beach: "Beach",
+  day_outdoor: "Day outdoor",
+  night_city: "Night city",
 };
 
 export const VIBE_LABELS: Record<Vibe, string> = {
@@ -203,13 +243,13 @@ export const VIBE_LABELS: Record<Vibe, string> = {
 };
 
 export const OUTPUT_FORMAT_LABELS: Record<OutputFormat, string> = {
-  whatsapp: "WhatsApp image (1:1 · 1080×1080)",
-  whatsapp_status: "WhatsApp Status (9:16 · 1080×1920)",
-  instagram_post: "Instagram post (4:5 · 1080×1350)",
-  instagram_story: "Instagram Story (9:16 · 1080×1920)",
-  square: "Square (1:1)",
-  catalog: "Catalog / e-commerce (4:5)",
-  landscape: "Landscape / banner (3:2)",
+  whatsapp: "WhatsApp image",
+  whatsapp_status: "WhatsApp Status",
+  instagram_post: "Instagram post",
+  instagram_story: "Instagram Story",
+  square: "Square",
+  catalog: "Catalog / e-commerce",
+  landscape: "Landscape / banner",
 };
 
 export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
@@ -255,6 +295,13 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
   const vibe = body.vibe as Vibe;
   const format = body.format as OutputFormat;
 
+  const lookRaw =
+    typeof body.lookPreset === "string"
+      ? body.lookPreset.trim()
+      : typeof body.look === "string"
+        ? body.look.trim()
+        : null;
+
   const parsed: StudioStyle = {
     mode,
     placement: PLACEMENTS.includes(placement) ? placement : "auto",
@@ -263,14 +310,24 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
     framing: FRAMINGS.includes(framing) ? framing : "catalog",
     scene: SCENES.includes(scene) ? scene : "studio",
     vibe: VIBES.includes(vibe) ? vibe : "luxury",
-    format: OUTPUT_FORMATS.includes(format) ? format : "square",
+    format: OUTPUT_FORMATS.includes(format) ? format : "whatsapp",
     backdropColor: null,
+    lookPreset: lookRaw && lookRaw.length > 0 ? lookRaw : "auto",
+    customPrompt: null,
   };
+
+  const customRaw = body.customPrompt;
+  if (typeof customRaw === "string") {
+    const trimmed = customRaw.trim().slice(0, 2000);
+    parsed.customPrompt = trimmed.length > 0 ? trimmed : null;
+  }
 
   if (mode === "background") {
     parsed.placement = "auto";
     parsed.subject = "auto";
-    parsed.backdropColor = normalizeBackdropHex(body.backdropColor);
+    parsed.lookPreset = null;
+    parsed.backdropColor =
+      normalizeBackdropHex(body.backdropColor) ?? DEFAULT_BACKDROP_HEX;
   }
 
   return parsed;

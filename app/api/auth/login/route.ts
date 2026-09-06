@@ -1,3 +1,5 @@
+import { isSuperAdminEmail } from "@/lib/admin";
+import { normalizeEmail } from "@/lib/auth-utils";
 import { setSession } from "@/lib/session";
 import { verifyUserPassword } from "@/lib/users";
 import { NextResponse } from "next/server";
@@ -20,6 +22,16 @@ export async function POST(req: Request) {
     );
   }
 
+  if (isSuperAdminEmail(email)) {
+    return NextResponse.json(
+      {
+        error:
+          "Super admin must sign in at /admin/login — studio login cannot open the admin panel.",
+      },
+      { status: 403 },
+    );
+  }
+
   try {
     const user = await verifyUserPassword(email, password);
     if (!user) {
@@ -29,7 +41,7 @@ export async function POST(req: Request) {
       );
     }
 
-    await setSession(user.id, user.email);
+    await setSession(user.id, normalizeEmail(user.email));
 
     return NextResponse.json({
       ok: true,

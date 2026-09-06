@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/payments", label: "Payments" },
   { href: "/admin/generations", label: "Generations" },
+  { href: "/admin/settings", label: "Settings" },
 ] as const;
 
 export function AdminShell({
@@ -18,13 +20,27 @@ export function AdminShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function logout() {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/admin-logout", { method: "POST" });
+      window.dispatchEvent(new Event("jewel-auth-changed"));
+      router.push("/admin/login");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
       <div className="mx-auto flex max-w-7xl gap-8 px-6 py-8">
         <aside className="w-52 shrink-0">
           <p className="text-xs font-semibold uppercase tracking-widest text-foreground/55">
-            Admin
+            Super admin
           </p>
           <p className="mt-1 truncate text-sm text-foreground/80">{email}</p>
           <nav className="mt-6 flex flex-col gap-1">
@@ -48,9 +64,17 @@ export function AdminShell({
               );
             })}
           </nav>
+          <button
+            type="button"
+            disabled={loggingOut}
+            onClick={() => void logout()}
+            className="mt-8 block text-left text-sm text-red-700 hover:underline disabled:opacity-50"
+          >
+            {loggingOut ? "Signing out…" : "Admin sign out"}
+          </button>
           <Link
             href="/"
-            className="mt-8 inline-block text-sm text-primary hover:text-accent"
+            className="mt-3 inline-block text-sm text-primary hover:text-accent"
           >
             ← Back to studio
           </Link>

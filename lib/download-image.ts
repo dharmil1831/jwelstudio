@@ -13,6 +13,8 @@ export function extensionFromMime(mimeType: string | undefined | null): string {
   const mime = (mimeType ?? "").toLowerCase();
   if (mime.includes("png")) return "png";
   if (mime.includes("webp")) return "webp";
+  if (mime.includes("mp4")) return "mp4";
+  if (mime.includes("webm")) return "webm";
   if (mime.includes("jpeg") || mime.includes("jpg")) return "jpg";
   return "jpg";
 }
@@ -28,10 +30,10 @@ export function downloadFilename(
   mimeHint?: string | null,
 ): string {
   const fromUrl = filenameFromUrl(url, "");
-  if (fromUrl && /\.(png|jpe?g|webp)$/i.test(fromUrl)) {
+  if (fromUrl && /\.(png|jpe?g|webp|mp4|webm)$/i.test(fromUrl)) {
     return fromUrl;
   }
-  const base = preferredBase.replace(/\.(png|jpe?g|webp)$/i, "");
+  const base = preferredBase.replace(/\.(png|jpe?g|webp|mp4|webm)$/i, "");
   const ext = extensionFromMime(mimeHint) || "jpg";
   return `${base}.${ext}`;
 }
@@ -42,7 +44,7 @@ export async function downloadImage(url: string, filename: string): Promise<void
   const blob = await res.blob();
 
   let finalName = filename;
-  if (!/\.(png|jpe?g|webp)$/i.test(finalName)) {
+  if (!/\.(png|jpe?g|webp|mp4|webm)$/i.test(finalName)) {
     finalName = `${finalName.replace(/\.$/, "")}.${extensionFromBlob(blob)}`;
   } else {
     // Fix wrong .png when server actually returned JPEG (common with Gemini).

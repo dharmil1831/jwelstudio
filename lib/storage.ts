@@ -23,6 +23,8 @@ function publicBaseUrl(): string {
 function contentTypeForExt(ext: string): string {
   if (ext === "png") return "image/png";
   if (ext === "webp") return "image/webp";
+  if (ext === "mp4") return "video/mp4";
+  if (ext === "webm") return "video/webm";
   return "image/jpeg";
 }
 
@@ -92,6 +94,17 @@ export async function storeGenerationImage(
   userId: string,
   buffer: Buffer,
   ext: "png" | "jpg" | "webp" = "png",
+): Promise<string> {
+  const id = randomId();
+  const filename = `${id}.${ext}`;
+  return storeImage(userId, buffer, filename, contentTypeForExt(ext));
+}
+
+/** Store generated video (mp4/webm). */
+export async function storeGenerationVideo(
+  userId: string,
+  buffer: Buffer,
+  ext: "mp4" | "webm" = "mp4",
 ): Promise<string> {
   const id = randomId();
   const filename = `${id}.${ext}`;

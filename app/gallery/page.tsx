@@ -12,7 +12,7 @@ export default function GalleryPage() {
         <Link href="/" className="text-sm font-medium text-primary hover:text-accent">
           ← Studio
         </Link>
-        <h1 className="mt-6 font-[family-name:var(--font-display)] text-3xl font-light text-foreground">
+        <h1 className="mt-6 font-[family-name:var(--font-display)] text-3xl font-normal text-foreground">
           Your gallery
         </h1>
         <p className="mt-2 text-foreground/70">Past model shots from your account.</p>

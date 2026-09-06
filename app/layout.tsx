@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, DM_Sans } from "next/font/google";
+import { Manrope, Newsreader } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
-import { isAdminEmail } from "@/lib/admin";
+import { hasAdminSession } from "@/lib/admin";
 import { getSessionUser } from "@/lib/session";
 import "./globals.css";
 
-const display = Cormorant_Garamond({
-  variable: "--font-display",
+const display = Newsreader({
+  variable: "--font-display-family",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const sans = DM_Sans({
-  variable: "--font-sans",
+const sans = Manrope({
+  variable: "--font-sans-family",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -34,14 +34,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getSessionUser();
+  const isAdmin = await hasAdminSession();
   const initialSession = user
     ? {
         authenticated: true as const,
         user: { email: user.email, phone: user.phone },
         credits: user.credits,
-        isAdmin: isAdminEmail(user.email),
+        isAdmin,
       }
-    : { authenticated: false as const };
+    : { authenticated: false as const, isAdmin };
 
   return (
     <html

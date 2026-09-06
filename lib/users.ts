@@ -1,4 +1,5 @@
 import { normalizeEmail, normalizePhone } from "@/lib/auth-utils";
+import { normalizePlanId, type PlanId } from "@/lib/entitlements";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
@@ -10,12 +11,29 @@ export type PublicUser = {
   email: string;
   phone: string | null;
   credits: number;
+  plan: PlanId;
 };
+
+function toPublic(u: {
+  id: string;
+  email: string;
+  phone: string | null;
+  credits: number;
+  plan?: string | null;
+}): PublicUser {
+  return {
+    id: u.id,
+    email: u.email,
+    phone: u.phone,
+    credits: u.credits,
+    plan: normalizePlanId(u.plan),
+  };
+}
 
 export async function getUserById(userId: string): Promise<PublicUser | null> {
   const u = await prisma.user.findUnique({ where: { id: userId } });
   if (!u) return null;
-  return { id: u.id, email: u.email, phone: u.phone, credits: u.credits };
+  return toPublic(u);
 }
 
 export async function getUserByEmailOrPhone(
@@ -42,7 +60,7 @@ export async function getUserByEmailOrPhone(
       : null;
 
   if (!u) return null;
-  return { id: u.id, email: u.email, phone: u.phone, credits: u.credits };
+  return toPublic(u);
 }
 
 export async function createUser(
@@ -78,7 +96,7 @@ export async function verifyUserPassword(
   const ok = await verifyPassword(password, u.passwordHash);
   if (!ok) return null;
 
-  return { id: u.id, email: u.email, phone: u.phone, credits: u.credits };
+  return toPublic(u);
 }
 
 export async function updateUserPassword(
@@ -95,6 +113,29 @@ export async function updateUserPassword(
     data: { passwordHash },
   });
   return true;
+}
+
+export async function updateUserPasswordByPhone(
+  phone: string,
+  password: string,
+): Promise<boolean> {
+  const u = await prisma.user.findUnique({
+    where: { phone: normalizePhone(phone) },
+  });
+  if (!u) return false;
+  const passwordHash = await hashPassword(password);
+  await prisma.user.update({
+    where: { id: u.id },
+    data: { passwordHash, phoneVerifiedAt: new Date() },
+  });
+  return true;
+}
+
+export async function markPhoneVerified(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { phoneVerifiedAt: new Date() },
+  });
 }
 
 export async function deductCredits(

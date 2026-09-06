@@ -47,6 +47,17 @@ export function isGeminiConfigured(): boolean {
   return Boolean(getGeminiApiKey());
 }
 
+/** Veo / Gemini video model. Override with GEMINI_VIDEO_MODEL. */
+export function getGeminiVideoModel(): string {
+  return (
+    process.env.GEMINI_VIDEO_MODEL?.trim() || "veo-3.1-fast-generate-preview"
+  );
+}
+
+export function isVideoGenerationConfigured(): boolean {
+  return isGeminiConfigured();
+}
+
 /** auto = Gemini first when available, OpenAI fallback; openai/gemini force one provider. */
 export function getImageProviderPreference(): ImageProviderPreference {
   const raw = process.env.IMAGE_PROVIDER?.trim().toLowerCase();

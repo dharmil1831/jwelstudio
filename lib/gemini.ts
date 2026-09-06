@@ -8,11 +8,19 @@ type GeminiPart = {
   inline_data?: { mime_type?: string; data?: string };
 };
 
+export type GeminiExtraImage = {
+  data: string;
+  mimeType: string;
+  /** Shown to the model before this image so roles stay clear. */
+  label?: string;
+};
+
 export async function generateJewelryWithGemini(
   imageBase64: string,
   mimeType: string,
   prompt: string,
   format: OutputFormat = "square",
+  extraImages?: GeminiExtraImage[],
 ): Promise<{ imageBase64: string; mimeType: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -22,6 +30,31 @@ export async function generateJewelryWithGemini(
   const model = getGeminiImageModel();
   const aspectRatio = OUTPUT_FORMAT_GEMINI_ASPECT[format] ?? "1:1";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
+  const parts: Array<Record<string, unknown>> = [
+    { text: prompt },
+    {
+      text: "IMAGE — NEW JEWELRY PRODUCT (use ONLY this jewelry design; do not redesign or invent pieces):",
+    },
+    {
+      inlineData: {
+        mimeType: mimeType || "image/jpeg",
+        data: imageBase64,
+      },
+    },
+  ];
+  for (const extra of extraImages ?? []) {
+    if (!extra.data) continue;
+    if (extra.label) {
+      parts.push({ text: extra.label });
+    }
+    parts.push({
+      inlineData: {
+        mimeType: extra.mimeType || "image/png",
+        data: extra.data,
+      },
+    });
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90_000);
@@ -38,15 +71,7 @@ export async function generateJewelryWithGemini(
         contents: [
           {
             role: "user",
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: mimeType || "image/jpeg",
-                  data: imageBase64,
-                },
-              },
-            ],
+            parts,
           },
         ],
         generationConfig: {
@@ -80,8 +105,8 @@ export async function generateJewelryWithGemini(
       );
     }
 
-    const parts = json.candidates?.[0]?.content?.parts ?? [];
-    for (const part of parts) {
+    const outParts = json.candidates?.[0]?.content?.parts ?? [];
+    for (const part of outParts) {
       const data = part.inlineData?.data ?? part.inline_data?.data;
       if (!data) continue;
       const outMime =

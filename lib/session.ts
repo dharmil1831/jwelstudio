@@ -1,10 +1,12 @@
 import {
+  ADMIN_SESSION_COOKIE,
   createSessionToken,
   createSignupProgressToken,
   SESSION_COOKIE,
   SIGNUP_COOKIE,
   verifySignedPayload,
 } from "@/lib/auth-utils";
+import { normalizePlanId, type PlanId } from "@/lib/entitlements";
 import { isPrismaConnectivityError, prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 
@@ -16,6 +18,7 @@ export type SessionUser = {
   email: string;
   phone: string | null;
   credits: number;
+  plan: PlanId;
 };
 
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -37,6 +40,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       email: user.email,
       phone: user.phone,
       credits: user.credits,
+      plan: normalizePlanId(user.plan),
     };
   } catch (error) {
     if (isPrismaConnectivityError(error)) {
@@ -64,6 +68,7 @@ export async function clearSession(): Promise<void> {
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
   jar.delete(SIGNUP_COOKIE);
+  jar.delete(ADMIN_SESSION_COOKIE);
 }
 
 export async function setSignupProgress(email: string): Promise<void> {

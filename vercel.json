@@ -2,6 +2,9 @@
   "functions": {
     "app/api/generate/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/generate-video/route.ts": {
+      "maxDuration": 300
     }
   }
 }

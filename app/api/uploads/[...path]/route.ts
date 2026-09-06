@@ -21,7 +21,11 @@ export async function GET(
         ? "image/png"
         : ext === "webp"
           ? "image/webp"
-          : "image/jpeg";
+          : ext === "mp4"
+            ? "video/mp4"
+            : ext === "webm"
+              ? "video/webm"
+              : "image/jpeg";
     return new NextResponse(buf, {
       headers: {
         "Content-Type": type,

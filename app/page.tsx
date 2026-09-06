@@ -12,7 +12,7 @@ export default function Home() {
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto max-w-6xl px-6 pb-20 pt-10">
         <section className="mx-auto max-w-2xl text-center">
-          <h1 className="font-[family-name:var(--font-display)] text-4xl font-light leading-tight text-foreground sm:text-5xl">
+          <h1 className="font-[family-name:var(--font-display)] text-4xl font-normal leading-tight text-foreground sm:text-5xl">
             Model-ready jewelry visuals in minutes
           </h1>
           <p className="mt-4 text-lg text-foreground/70">
