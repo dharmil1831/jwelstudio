@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -104,7 +105,7 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
                       router.refresh();
                     })
                     .catch((e: unknown) => {
-                      setError(e instanceof Error ? e.message : "Payment verify failed");
+                      setError(toUserFacingError(e, "Payment verify failed"));
                       setLoading(false);
                     });
                 },
@@ -114,7 +115,7 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
               });
               rzp.open();
             } catch (e) {
-              setError(e instanceof Error ? e.message : "Checkout failed");
+              setError(toUserFacingError(e, "Checkout failed"));
               setLoading(false);
             }
           })();

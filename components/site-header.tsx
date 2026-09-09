@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -82,9 +83,18 @@ export function SiteHeader({
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
         <Link
           href="/"
-          className="mr-auto shrink-0 font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-foreground hover:text-primary sm:text-xl"
+          className="mr-auto flex min-w-0 shrink items-center hover:opacity-90"
+          aria-label="Jwelpixel home"
         >
-          Jwelpixel
+          <Image
+            src="/brand/jwelpixel-logo-v6.png"
+            unoptimized
+            alt="Jwelpixel — AI model shots & videos for jewelry"
+            width={2000}
+            height={425}
+            priority
+            className="h-12 w-auto max-w-[min(60vw,240px)] object-contain object-left sm:h-14 sm:max-w-[290px]"
+          />
         </Link>
 
         <nav className="flex shrink-0 items-center gap-3 text-sm text-foreground/70">

@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
@@ -67,7 +68,7 @@ export function GalleryGrid() {
       .then((rows) => {
         if (rows) setItems(rows);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
+      .catch((e) => setError(toUserFacingError(e, "Failed to load")))
       .finally(() => setLoading(false));
   }, []);
 

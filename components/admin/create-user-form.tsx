@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from "@/lib/entitlements";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -40,7 +41,7 @@ export function CreateUserForm() {
       setOpen(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Create failed");
+      setError(toUserFacingError(e, "Create failed"));
     } finally {
       setLoading(false);
     }

@@ -24,14 +24,16 @@ function isFallbackWorthy(error: unknown): boolean {
   );
 }
 
-/** Map provider errors to clear, user-facing messages (keep app credits vs API quota distinct). */
+/** Map provider errors to safe user-facing messages (no infra/provider leak). */
 export function sanitizeProviderError(
   error: unknown,
   provider?: ImageProviderId,
 ): Error {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
-  const name = provider === "openai" ? "OpenAI" : provider === "gemini" ? "Gemini" : "Image provider";
+
+  // Log technical detail server-side only.
+  console.error("[image-provider]", provider ?? "unknown", message.slice(0, 500));
 
   if (
     /no credits remaining|insufficient.?quota|exceeded.+quota|resource.?exhausted|quota.?exceeded|billing details|check your plan/i.test(
@@ -39,27 +41,31 @@ export function sanitizeProviderError(
     )
   ) {
     return new Error(
-      `${name} API quota is exhausted or billing is not enabled. Check your ${
-        provider === "gemini" ? "Google AI Studio" : "OpenAI"
-      } plan/credits, then try again.`,
+      "Could not generate right now. Please try again in a moment.",
     );
   }
 
   if (/api key|permission|403|401|invalid/i.test(lower) && /key|auth|permission/i.test(lower)) {
     return new Error(
-      `${name} API key is invalid or not allowed for image generation. Check the key on Vercel.`,
+      "Could not generate right now. Please try again in a moment.",
     );
   }
 
   if (/model.?not.?found|not found|does not exist|not supported/i.test(message)) {
     return new Error(
-      `${name} model is unavailable. Check GEMINI_IMAGE_MODEL / OPENAI_IMAGE_MODEL on Vercel.`,
+      "Could not generate right now. Please try again in a moment.",
     );
   }
 
-  // Keep short provider-prefixed detail for debugging (no huge payloads).
-  const short = message.replace(/\s+/g, " ").trim().slice(0, 220);
-  return new Error(`${name}: ${short}`);
+  if (/timeout|timed out|abort/i.test(message)) {
+    return new Error(
+      "Generation timed out. Please try again with a smaller JPG photo.",
+    );
+  }
+
+  return new Error(
+    "Could not generate right now. Please try again in a moment.",
+  );
 }
 
 async function runOpenAI(

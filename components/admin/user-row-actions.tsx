@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from "@/lib/entitlements";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -52,7 +53,7 @@ export function UserRowActions({
       setEditing(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed");
+      setError(toUserFacingError(e, "Update failed"));
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export function UserRowActions({
       if (!res.ok) throw new Error(data.error ?? "Delete failed");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      setError(toUserFacingError(e, "Delete failed"));
     } finally {
       setLoading(false);
     }

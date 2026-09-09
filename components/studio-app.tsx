@@ -9,6 +9,7 @@ import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
 import { prepareImageForUpload } from "@/lib/image-resize";
 import { downloadFilename } from "@/lib/download-image";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
+import { toUserFacingError } from "@/lib/user-facing-error";
 import type { ThemeStyleSnapshot } from "@/lib/themes";
 import {
   CREDIT_COST_PER_VIDEO,
@@ -459,7 +460,7 @@ export function StudioApp() {
       if (data.resultUrl) setResultUrl(data.resultUrl);
       if (typeof data.generationId === "string") setGenerationId(data.generationId);
       if (typeof data.mimeType === "string") setResultMime(data.mimeType);
-      if (data.themeWarning) setError(data.themeWarning);
+      if (data.themeWarning) setError(toUserFacingError(data.themeWarning));
       else if (data.themeUsed) setError(null);
     } catch (err) {
       setError(friendlyClientError(err));
@@ -596,7 +597,7 @@ export function StudioApp() {
 
         {generationReady === false ? (
           <p className="rounded-lg bg-primary/15 px-3 py-2 text-xs text-primary">
-            Server missing image generation keys (OPENAI_API_KEY and/or GEMINI_API_KEY).
+            Generation is temporarily unavailable. Please try again later.
           </p>
         ) : null}
 

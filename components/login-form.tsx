@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -56,7 +57,7 @@ export function LoginForm() {
       setInfo(data.message ?? "Code sent.");
       if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send code");
+      setError(toUserFacingError(e, "Could not send code"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +88,7 @@ export function LoginForm() {
       setInfo(data.message ?? "Code sent by SMS.");
       if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send code");
+      setError(toUserFacingError(e, "Could not send code"));
     } finally {
       setLoading(false);
     }
@@ -115,7 +116,7 @@ export function LoginForm() {
       router.push("/#studio");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create account");
+      setError(toUserFacingError(e, "Could not create account"));
     } finally {
       setLoading(false);
     }
@@ -139,7 +140,7 @@ export function LoginForm() {
       router.push("/#studio");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Login failed");
+      setError(toUserFacingError(e, "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -160,7 +161,7 @@ export function LoginForm() {
       router.push("/#studio");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Login failed");
+      setError(toUserFacingError(e, "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -197,7 +198,7 @@ export function LoginForm() {
       setMode("login");
       if (resetChannel === "email") setLoginEmail(resetTarget);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not reset password");
+      setError(toUserFacingError(e, "Could not reset password"));
     } finally {
       setLoading(false);
     }

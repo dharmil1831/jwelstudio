@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import {
   normalizeThemeStyle,
   parseThemeStyleJson,
@@ -92,7 +93,7 @@ export function ThemesPanel({
         setLimit(typeof data.limit === "number" ? data.limit : 0);
       })
       .catch((e) =>
-        setError(e instanceof Error ? e.message : "Failed to load themes"),
+        setError(toUserFacingError(e, "Failed to load themes")),
       );
 
     void fetch("/api/generations")
@@ -165,7 +166,7 @@ export function ThemesPanel({
         "Saved! Next: upload a NEW jewelry photo above, then press Generate.",
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save");
+      setError(toUserFacingError(e, "Could not save"));
     } finally {
       setBusy(false);
     }
@@ -181,7 +182,7 @@ export function ThemesPanel({
       if (appliedThemeId === id) onClear?.();
       reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete");
+      setError(toUserFacingError(e, "Could not delete"));
     } finally {
       setBusy(false);
     }

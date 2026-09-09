@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { toUserFacingError } from "@/lib/user-facing-error";
 
 export default function ErrorBoundary({
   error,
@@ -20,7 +21,7 @@ export default function ErrorBoundary({
         Something broke
       </h1>
       <p className="mt-3 max-w-md text-sm text-foreground/70">
-        {error.message || "An unexpected error occurred."}
+        {toUserFacingError(error, "An unexpected error occurred.")}
       </p>
       <div className="mt-8 flex gap-4">
         <button

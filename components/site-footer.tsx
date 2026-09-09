@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const LINKS = [
@@ -15,10 +16,17 @@ export function SiteFooter() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-sm">
-            <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight text-foreground">
-              Jwelpixel
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-foreground/60">
+            <Link href="/" aria-label="Jwelpixel home" className="inline-flex">
+              <Image
+                src="/brand/jwelpixel-logo-v6.png"
+                unoptimized
+                alt="Jwelpixel — AI model shots & videos for jewelry"
+                width={2000}
+                height={425}
+                className="h-12 w-auto object-contain object-left"
+              />
+            </Link>
+            <p className="mt-3 text-sm leading-relaxed text-foreground/60">
               AI model shots and videos for jewelry brands — upload a piece,
               pick a look, generate campaign-ready visuals.
             </p>

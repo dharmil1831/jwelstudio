@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { useState } from "react";
 
 type ShareImageButtonProps = {
@@ -49,7 +50,7 @@ export function ShareImageButton({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Could not share");
+      window.alert(toUserFacingError(e, "Could not share"));
     } finally {
       setBusy(false);
     }
@@ -65,7 +66,7 @@ export function ShareImageButton({
         );
         window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : "Could not share");
+        window.alert(toUserFacingError(e, "Could not share"));
       } finally {
         setBusy(false);
       }

@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -33,7 +34,7 @@ export function CreditsEditor({
       if (!res.ok) throw new Error(data.error ?? "Update failed");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed");
+      setError(toUserFacingError(e, "Update failed"));
     } finally {
       setLoading(false);
     }

@@ -18,6 +18,7 @@ import {
   VIDEO_ASPECT_RATIO,
 } from "@/lib/video-presets";
 import { deductCredits, refundCredits } from "@/lib/users";
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 300;
@@ -171,11 +172,11 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     const credits = await refundCredits(user.id, CREDIT_COST_PER_VIDEO);
-    const raw = e instanceof Error ? e.message : "Video generation failed";
-    const error =
-      /timeout|timed out|deadline|FUNCTION_INVOCATION_TIMEOUT/i.test(raw)
-        ? "Video took too long. Please try again with a smaller photo."
-        : raw;
+    console.error("[generate-video]", e instanceof Error ? e.message : e);
+    const error = toUserFacingError(
+      e,
+      "Could not generate right now. Please try again in a moment.",
+    );
     return NextResponse.json({ error, credits }, { status: 502 });
   }
 }

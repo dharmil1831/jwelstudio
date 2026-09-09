@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -29,7 +30,7 @@ export function AdminSettingsForm() {
         if (!r.ok) throw new Error(data.error ?? "Failed to load");
         setSettings(data.settings ?? null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed"))
+      .catch((e) => setError(toUserFacingError(e, "Failed")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -50,7 +51,7 @@ export function AdminSettingsForm() {
       setSaved(true);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(toUserFacingError(e, "Save failed"));
     } finally {
       setSaving(false);
     }

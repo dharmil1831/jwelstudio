@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserFacingError } from "@/lib/user-facing-error";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -36,7 +37,7 @@ export function AdminLoginForm() {
       router.push("/admin");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Request failed");
+      setError(toUserFacingError(e, "Request failed"));
     } finally {
       setLoading(false);
     }
