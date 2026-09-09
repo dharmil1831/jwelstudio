@@ -16,7 +16,7 @@ export function SiteFooter() {
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-sm">
             <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight text-foreground">
-              Jewel Studio
+              Jwelpixel
             </p>
             <p className="mt-2 text-sm leading-relaxed text-foreground/60">
               AI model shots and videos for jewelry brands — upload a piece,
@@ -41,7 +41,7 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-2 border-t border-primary/10 pt-6 text-xs text-foreground/50 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {year} Jewel Studio. All rights reserved.</p>
+          <p>© {year} Jwelpixel. All rights reserved.</p>
           <p>Jewelry visuals powered by AI — for business use by account holders.</p>
         </div>
       </div>

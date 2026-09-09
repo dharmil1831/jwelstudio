@@ -79,6 +79,8 @@ export type LogoPlacement =
   | "corner_tr"
   | "corner_tl"
   | "bottom_center"
+  | "center"
+  | "jewelry_center"
   | "subtle";
 
 export const LOGO_PLACEMENTS: LogoPlacement[] = [
@@ -87,6 +89,8 @@ export const LOGO_PLACEMENTS: LogoPlacement[] = [
   "corner_tr",
   "corner_tl",
   "bottom_center",
+  "center",
+  "jewelry_center",
   "subtle",
 ];
 
@@ -96,6 +100,8 @@ export const LOGO_PLACEMENT_LABELS: Record<LogoPlacement, string> = {
   corner_tr: "Top right",
   corner_tl: "Top left",
   bottom_center: "Bottom center",
+  center: "Center of image",
+  jewelry_center: "Center on jewelry",
   subtle: "Subtle / small",
 };
 
@@ -187,6 +193,28 @@ export function brandHasContent(brand: BrandOptions): boolean {
   );
 }
 
+function logoPlacementInstruction(placement: LogoPlacement): string {
+  switch (placement) {
+    case "jewelry_center":
+      return "Place the logo in the visual center of the jewelry product area — small, centered on/near the piece, without hiding stones, clasps, or critical design detail (slightly translucent if needed).";
+    case "center":
+      return "Place the logo in the exact center of the overall image frame.";
+    case "bottom_center":
+      return "Place the logo along the bottom edge, horizontally centered.";
+    case "subtle":
+      return "Place a very small subtle logo in a low-contrast corner.";
+    case "corner_bl":
+      return "Place the logo in the bottom-left corner of the frame.";
+    case "corner_tl":
+      return "Place the logo in the top-left corner of the frame.";
+    case "corner_tr":
+      return "Place the logo in the top-right corner of the frame.";
+    case "corner_br":
+    default:
+      return "Place the logo in the bottom-right corner of the frame.";
+  }
+}
+
 export function buildBrandPromptLines(brand: BrandOptions): string {
   const lines: string[] = [];
   const fest = festivalById(brand.festivalId);
@@ -194,31 +222,32 @@ export function buildBrandPromptLines(brand: BrandOptions): string {
 
   if (brand.brandName) {
     lines.push(
-      `Brand: tastefully include the brand name "${brand.brandName}" as small marketing text or signage in the composition without covering or altering the jewelry.`,
+      `REQUIRED on-image text: render the brand name "${brand.brandName}" as clear, readable marketing text or a small sign/plaque in the frame (not as unreadable blur). Do not alter the jewelry.`,
     );
   }
   if (brand.marketingLine) {
     lines.push(
-      `Marketing line (optional small banner/caption in frame, never on the jewelry itself): "${brand.marketingLine}".`,
+      `REQUIRED on-image text: render this marketing / festival banner EXACTLY as written — "${brand.marketingLine}" — as a clear caption, banner, or card in the frame (readable letters, never on the metal itself).`,
     );
   }
   if (brand.grams) {
     lines.push(
-      `Product detail note for authenticity context: jewelry weight about ${brand.grams} — do not invent incorrect hallmarks on the metal.`,
+      `REQUIRED on-image product label: show the weight text exactly as "${brand.grams}" (e.g. a small grams badge or caption). Do not invent hallmarks engraved into the metal.`,
     );
   }
 
   if (brand.watermark || brand.logoBase64) {
-    const place = LOGO_PLACEMENT_LABELS[brand.logoPlacement];
     lines.push(
       brand.logoBase64
-        ? `A second image is the brand logo. Place a small discreet watermark/logo in the ${place} of the frame. Never cover, crop, or alter the jewelry. Keep logo opacity tasteful.`
-        : `Add a small discreet text watermark${brand.brandName ? ` for "${brand.brandName}"` : ""} in the ${place}. Never cover the jewelry.`,
+        ? `A labeled brand-logo image is provided. REQUIRED: composite that logo into the final photo. ${logoPlacementInstruction(brand.logoPlacement)} Keep jewelry design unchanged.`
+        : `REQUIRED: add a small text watermark${brand.brandName ? ` reading "${brand.brandName}"` : ""}. ${logoPlacementInstruction(brand.logoPlacement)} Never redesign the jewelry.`,
     );
   }
 
   if (lines.length === 0) return "";
-  return ["Brand / marketing (secondary to jewelry fidelity):", ...lines].join(
-    " ",
-  );
+  return [
+    "BRAND / MARKETING OVERLAY (REQUIRED — these override any earlier “clean photo / no text” framing notes; jewelry fidelity still wins for the product itself):",
+    ...lines,
+    "All requested brand text and logo must be visible and legible in the final image.",
+  ].join(" ");
 }

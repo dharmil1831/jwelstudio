@@ -89,6 +89,7 @@ export async function generateJewelryVideoWithGemini(params: {
     throw new Error("Video API did not return an operation name.");
   }
 
+
   const deadline = Date.now() + 240_000;
   let last: VeoOperation = startJson;
 

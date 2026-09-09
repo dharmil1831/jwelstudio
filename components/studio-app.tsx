@@ -1042,6 +1042,10 @@ export function StudioApp() {
                 (k) => [k, OUTPUT_FORMAT_LABELS[k]] as const,
               )}
             />
+            <p className="text-[11px] leading-relaxed text-foreground/55">
+              Targets Instagram / WhatsApp sizes. Download exports exact pixels
+              (e.g. post 1080×1350, story 1080×1920, chat 1080×1080).
+            </p>
             {!selfieFile && !appliedThemeId ? (
               <>
                 <Field
@@ -1180,12 +1184,17 @@ export function StudioApp() {
                 filename={downloadFilename(
                   resultUrl,
                   tab === "video" || resultMime?.startsWith("video/")
-                    ? `jewel-studio-video-${videoPurpose}-${videoAspect}`
+                    ? `jwelpixel-video-${videoPurpose}-${videoAspect}`
                     : mode === "background"
-                      ? `jewel-studio-background-${format}`
-                      : `jewel-studio-model-${format}`,
+                      ? `jwelpixel-background-${format}`
+                      : `jwelpixel-model-${format}`,
                   resultMime,
                 )}
+                exportFormat={
+                  resultMime?.startsWith("video/") || tab === "video"
+                    ? undefined
+                    : format
+                }
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
                 label={
                   resultMime?.startsWith("video/") || tab === "video"
@@ -1216,8 +1225,8 @@ export function StudioApp() {
                 filename={downloadFilename(
                   resultUrl,
                   mode === "background"
-                    ? `jewel-studio-background-${format}`
-                    : `jewel-studio-model-${format}`,
+                    ? `jwelpixel-background-${format}`
+                    : `jwelpixel-model-${format}`,
                   resultMime,
                 )}
               />

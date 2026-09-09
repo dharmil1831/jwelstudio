@@ -9,6 +9,7 @@ const jewelryFidelityRules = [
   "CRITICAL JEWELRY FIDELITY RULES (must obey — highest priority):",
   "The uploaded image is the ONLY product reference. The jewelry in the output must be a pixel-faithful recreation of that exact piece.",
   "Preserve exact design silhouette, metal color/temperature, polish vs matte finish, gemstone count, shapes, colors, cuts, settings, bezels, prongs, engravings, clasp/backing, chain/link pattern, proportions, and relative sizes.",
+  "PROPORTIONS LOCK: Never stretch, squash, elongate, widen, warp, or perspective-distort the jewelry. Keep the same aspect ratio and relative dimensions as the upload — if the canvas is taller/wider, zoom out or add background margin; do not reshape the product to fill the frame.",
   "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add extra sparkle, change stone hue, or invent new jewelry.",
   "Do NOT invent matching earrings, rings, bracelets, or set pieces that are not clearly present in the uploaded reference. Show only what is in the reference photo.",
   "If any style, scene, mood, casting, or camera instruction conflicts with jewelry accuracy, jewelry accuracy always wins.",
@@ -121,29 +122,29 @@ const backgroundVibeCopy: Record<StudioStyle["vibe"], string> = {
 
 const formatCopy: Record<StudioStyle["format"], string> = {
   square:
-    "Output frame: square 1:1. Fit the full jewelry in frame with even margins. Do NOT crop or cut off any part of the jewelry — zoom out or add margin instead of clipping the product.",
+    "Output frame: square 1:1. Fit the full jewelry in frame with even margins. Do NOT crop, stretch, or cut off any part of the jewelry — zoom out or add margin instead of clipping or warping the product.",
   whatsapp:
-    "Output frame: square 1:1 (target 1080×1080). Center the full jewelry piece. Do NOT crop or cut the jewelry — the entire product from the upload must stay fully visible. Do NOT add any text, logo, watermark, social-media branding, or UI overlay — output a clean photograph only.",
+    "Output frame: square 1:1 (target 1080×1080). Center the full jewelry piece without stretching it. Do NOT crop or cut the jewelry — the entire product from the upload must stay fully visible. Do not add Instagram/WhatsApp UI chrome. Brand text/logo only if brand overlay instructions request them.",
   whatsapp_status:
-    "Output frame: vertical 9:16 (target 1080×1920). Keep the entire jewelry piece fully visible in the safe center; leave empty margin top and bottom. Never crop or clip the jewelry edges. Do NOT add any text, logo, watermark, social-media branding, or UI overlay — output a clean photograph only.",
+    "Output frame: vertical 9:16 (target 1080×1920). Keep the entire jewelry piece fully visible in the safe center without stretching; leave empty margin top and bottom. Never crop or clip the jewelry edges. Do not add Instagram/WhatsApp UI chrome. Brand text/logo only if brand overlay instructions request them.",
   catalog:
-    "Output frame: vertical catalog ~4:5. Product-first; entire jewelry fully visible — no cropping the piece.",
+    "Output frame: vertical catalog ~4:5. Product-first; entire jewelry fully visible — no cropping or stretching the piece.",
   instagram_post:
-    "Output frame: vertical 4:5 (target 1080×1350). Jewelry is the hero and must remain fully visible with safe margins from edges. Do NOT crop or cut any part of the jewelry — adjust camera distance instead. Do NOT add any text, logo, watermark, social-media branding, or UI overlay — output a clean photograph only.",
+    "Output frame: vertical 4:5 (target 1080×1350). Jewelry is the hero and must remain fully visible with safe margins — never stretch to fill. Do NOT crop or cut any part of the jewelry — adjust camera distance instead. Do not add Instagram/WhatsApp UI chrome. Brand text/logo only if brand overlay instructions request them.",
   instagram_story:
-    "Output frame: vertical 9:16 (target 1080×1920). Place jewelry in the safe center; leave margin top and bottom. The complete jewelry piece must stay fully visible — never crop or clip it. Do NOT add any text, logo, watermark, social-media branding, or UI overlay — output a clean photograph only.",
+    "Output frame: vertical 9:16 (target 1080×1920). Place jewelry in the safe center without stretching; leave margin top and bottom. The complete jewelry piece must stay fully visible — never crop or clip it. Do not add Instagram/WhatsApp UI chrome. Brand text/logo only if brand overlay instructions request them.",
   landscape:
-    "Output frame: wide landscape ~3:2. Jewelry fully visible; do not crop sides of the product.",
+    "Output frame: wide landscape 16:9 (target ~1211×681 WhatsApp Business cover / banners). Jewelry fully visible without stretching; do not crop sides of the product. Brand text/logo only if brand overlay instructions request them.",
 };
 
 const polishedSkinRule =
   "SKIN FINISH: Use polished, editorial beauty skin — even, refined, campaign-retouched look that flatters metal and gemstone highlights. Avoid raw, blotchy, overly textured, or documentary skin that steals attention from the jewelry. Keep anatomy natural and believable.";
 
 const noCropRule =
-  "FRAMING RULE: The selected output format sets the canvas aspect ratio only. Never cut, crop, clip, or hide any part of the uploaded jewelry. Show the complete piece exactly as in the reference; use empty space / background / camera distance to fill the format.";
+  "FRAMING RULE: The selected output format sets the canvas aspect ratio only. Never cut, crop, clip, stretch, squash, or hide any part of the uploaded jewelry. Show the complete piece with correct proportions exactly as in the reference; use empty space / background / camera distance to fill the format — never reshape the product.";
 
 const finalCheck =
-  "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions. Not a similar piece. No extra jewelry added.";
+  "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions (no stretch/warp). Not a similar piece. No extra jewelry added.";
 
 function lookLineForStyle(style: StudioStyle): string | null {
   const look = parseLookPreset(style.lookPreset ?? "auto");
@@ -283,7 +284,8 @@ export function withBrandPrompt(
   if (!brand) return basePrompt;
   const lines = buildBrandPromptLines(brand);
   if (!lines) return basePrompt;
-  return `${basePrompt} ${lines}`;
+  // Brand block last so it overrides earlier “clean photo” framing defaults.
+  return `${basePrompt}\n\n${lines}`;
 }
 
 /** Append selfie / own-model try-on instructions (Platinum+). */

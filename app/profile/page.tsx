@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ProfileActions } from "@/components/profile-actions";
 
 export const metadata = {
-  title: "Profile — Jewel Studio",
+  title: "Profile — Jwelpixel",
 };
 
 export default async function ProfilePage() {

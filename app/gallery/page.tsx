@@ -2,7 +2,7 @@ import { GalleryGrid } from "@/components/gallery-grid";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Gallery — Jewel Studio",
+  title: "Gallery — Jwelpixel",
 };
 
 export default function GalleryPage() {

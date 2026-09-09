@@ -33,8 +33,8 @@ export function ShareImageButton({
     setCopied(false);
     try {
       const shareUrl = (await ensureShareUrl()) ?? imageUrl;
-      const title = "Jewel Studio creation";
-      const text = "Check out this jewelry look from Jewel Studio";
+      const title = "Jwelpixel creation";
+      const text = "Check out this jewelry look from Jwelpixel";
 
       if (typeof navigator !== "undefined" && navigator.share) {
         try {
@@ -61,7 +61,7 @@ export function ShareImageButton({
       try {
         const shareUrl = (await ensureShareUrl()) ?? imageUrl;
         const text = encodeURIComponent(
-          `Check out this jewelry look from Jewel Studio: ${shareUrl}`,
+          `Check out this jewelry look from Jwelpixel: ${shareUrl}`,
         );
         window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
       } catch (e) {

@@ -78,6 +78,8 @@ export async function generateJewelryWithGemini(
           responseModalities: ["TEXT", "IMAGE"],
           imageConfig: {
             aspectRatio,
+            // 2K ≈ social-ready; closer to 1080px targets than default 1K
+            imageSize: "2K",
           },
         },
       }),

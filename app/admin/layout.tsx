@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Admin — Jewel Studio",
+  title: "Admin — Jwelpixel",
 };
 
 export default function AdminRootLayout({

@@ -9,7 +9,7 @@ import { getSessionUser } from "@/lib/session";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Pricing — Jewel Studio",
+  title: "Pricing — Jwelpixel",
 };
 
 export default async function PricingPage({

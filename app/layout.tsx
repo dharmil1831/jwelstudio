@@ -19,12 +19,12 @@ const sans = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Jewel Studio — AI model shots for jewelry",
+  title: "Jwelpixel — AI model shots for jewelry",
   description:
     "Upload jewelry, pick your style, and generate model shots. 5 free generations for new accounts.",
   appleWebApp: {
     capable: true,
-    title: "Jewel Studio",
+    title: "Jwelpixel",
     statusBarStyle: "default",
   },
 };

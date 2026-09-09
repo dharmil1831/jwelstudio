@@ -90,7 +90,7 @@ const OPTIONS = [
 ] as const;
 
 export const metadata = {
-  title: "Font preview — Jewel Studio",
+  title: "Font preview — Jwelpixel",
 };
 
 export default function FontPreviewPage() {
@@ -151,7 +151,7 @@ export default function FontPreviewPage() {
                   <p
                     className={`mt-1 text-2xl font-semibold tracking-tight ${opt.display.className}`}
                   >
-                    Jewel Studio
+                    Jwelpixel
                   </p>
                 </div>
 

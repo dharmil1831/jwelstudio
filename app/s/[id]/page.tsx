@@ -11,11 +11,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     where: { id, shareEnabled: true, status: "succeeded" },
     select: { resultUrl: true, mode: true },
   });
-  if (!row) return { title: "Shared image — Jewel Studio" };
+  if (!row) return { title: "Shared image — Jwelpixel" };
   const title =
     row.mode === "background"
-      ? "Jewelry background — Jewel Studio"
-      : "Jewelry model shot — Jewel Studio";
+      ? "Jewelry background — Jwelpixel"
+      : "Jewelry model shot — Jwelpixel";
   return {
     title,
     openGraph: {
@@ -47,7 +47,7 @@ export default async function SharedGenerationPage({ params }: Props) {
     <div className="min-h-screen bg-background px-6 py-12 text-foreground">
       <div className="mx-auto flex max-w-lg flex-col items-center gap-6">
         <Link href="/" className="text-sm font-medium text-primary hover:text-accent">
-          Jewel Studio
+          Jwelpixel
         </Link>
         <h1 className="font-[family-name:var(--font-display)] text-2xl font-normal">
           Shared creation
@@ -61,7 +61,7 @@ export default async function SharedGenerationPage({ params }: Props) {
           />
         </div>
         <p className="text-center text-sm text-foreground/60">
-          Made with Jewel Studio ·{" "}
+          Made with Jwelpixel ·{" "}
           {row.createdAt.toLocaleDateString("en-IN", {
             day: "numeric",
             month: "short",

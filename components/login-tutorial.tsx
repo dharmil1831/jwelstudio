@@ -32,7 +32,7 @@ export function LoginTutorial({
     <div className="overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-sm">
       <div className="border-b border-primary/15 px-4 py-3">
         <p className="text-sm font-medium text-foreground">
-          How to use Jewel Studio
+          How to use Jwelpixel
         </p>
         <p className="text-xs text-foreground/55">
           Features overview — not a login tutorial
@@ -49,7 +49,7 @@ export function LoginTutorial({
           />
         ) : embedUrl ? (
           <iframe
-            title="Jewel Studio app tutorial"
+            title="Jwelpixel app tutorial"
             src={embedUrl}
             className="h-full w-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

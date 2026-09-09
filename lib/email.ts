@@ -12,8 +12,8 @@ export async function sendEmailOtp(email: string, code: string, purpose: "signup
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const subject =
     purpose === "reset"
-      ? "Reset your Jewel Studio password"
-      : "Your Jewel Studio verification code";
+      ? "Reset your Jwelpixel password"
+      : "Your Jwelpixel verification code";
   const text =
     purpose === "reset"
       ? `Your password reset code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`
@@ -28,7 +28,7 @@ export async function sendEmailOtp(email: string, code: string, purpose: "signup
   }
 
   const from =
-    process.env.RESEND_FROM?.trim() || "Jewel Studio <onboarding@resend.dev>";
+    process.env.RESEND_FROM?.trim() || "Jwelpixel <onboarding@resend.dev>";
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

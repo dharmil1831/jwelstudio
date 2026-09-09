@@ -79,7 +79,7 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
                 key: data.keyId,
                 amount: data.amount,
                 currency: data.currency,
-                name: "Jewel Studio",
+                name: "Jwelpixel",
                 description: `${data.pack?.credits ?? ""} generation credits`,
                 order_id: data.orderId,
                 prefill: data.prefill,

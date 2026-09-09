@@ -126,6 +126,7 @@ export async function POST(req: Request) {
     );
   }
 
+
   try {
     const out = await generateJewelryVideoWithGemini({
       imageBase64,
@@ -154,6 +155,7 @@ export async function POST(req: Request) {
         status: "succeeded",
       },
     });
+
 
     return NextResponse.json({
       resultUrl,

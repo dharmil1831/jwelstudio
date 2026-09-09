@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Admin login — Jewel Studio",
+  title: "Admin login — Jwelpixel",
 };
 
 export default async function AdminLoginPage() {

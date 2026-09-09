@@ -84,7 +84,7 @@ export function SiteHeader({
           href="/"
           className="mr-auto shrink-0 font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-foreground hover:text-primary sm:text-xl"
         >
-          Jewel Studio
+          Jwelpixel
         </Link>
 
         <nav className="flex shrink-0 items-center gap-3 text-sm text-foreground/70">

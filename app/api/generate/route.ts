@@ -238,7 +238,8 @@ export async function POST(req: Request) {
     extraImages.push({
       data: brand.logoBase64,
       mimeType: brand.logoMimeType,
-      label: "IMAGE — BRAND LOGO (use only if watermark/brand overlay is requested):",
+      label:
+        "IMAGE — BRAND LOGO (REQUIRED overlay when watermark/logo is enabled — place per logo-placement instructions; do not redesign jewelry):",
     });
   }
 

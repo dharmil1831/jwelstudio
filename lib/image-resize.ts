@@ -63,23 +63,25 @@ export async function prepareImageForUpload(
     throw new Error(UNREADABLE_IMAGE);
   }
 
-  // Quality-first: only shrink enough to fit the payload — no aggressive compress ladder.
-  const edges = [2048, 1920, 1600, 1536, 1280, 1024];
-  const quality = 0.95;
+  // Quality-first, then compress harder if still over payload limit (demo-safe).
+  const edges = [2048, 1920, 1600, 1536, 1280, 1024, 900, 768];
+  const qualities = [0.92, 0.85, 0.78, 0.7];
   let lastError: Error | null = null;
   let lastResult: { base64: string; mimeType: string } | null = null;
 
   try {
     for (const maxEdge of edges) {
-      try {
-        const canvas = drawScaled(decoded, maxEdge);
-        const result = await canvasToJpeg(canvas, quality);
-        lastResult = result;
-        if (result.base64.length <= maxBase64Chars) {
-          return result;
+      for (const quality of qualities) {
+        try {
+          const canvas = drawScaled(decoded, maxEdge);
+          const result = await canvasToJpeg(canvas, quality);
+          lastResult = result;
+          if (result.base64.length <= maxBase64Chars) {
+            return result;
+          }
+        } catch (e) {
+          lastError = e instanceof Error ? e : new Error(UNREADABLE_IMAGE);
         }
-      } catch (e) {
-        lastError = e instanceof Error ? e : new Error(UNREADABLE_IMAGE);
       }
     }
   } finally {

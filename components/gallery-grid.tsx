@@ -144,7 +144,7 @@ export function GalleryGrid() {
                 <div className="flex flex-wrap items-center gap-1">
                   <DownloadImageButton
                     url={item.resultUrl}
-                    filename={`jewel-studio-${item.id}`}
+                    filename={`jwelpixel-${item.id}`}
                     label="Save"
                     className="shrink-0 rounded-md bg-background/50 px-2 py-1 text-[10px] font-semibold text-foreground hover:bg-accent/40"
                   />
@@ -168,7 +168,7 @@ export function GalleryGrid() {
         open={lightboxItem !== null}
         onClose={() => setLightboxItem(null)}
         filename={
-          lightboxItem ? `jewel-studio-${lightboxItem.id}` : undefined
+          lightboxItem ? `jwelpixel-${lightboxItem.id}` : undefined
         }
       />
     </>

@@ -243,13 +243,27 @@ export const VIBE_LABELS: Record<Vibe, string> = {
 };
 
 export const OUTPUT_FORMAT_LABELS: Record<OutputFormat, string> = {
-  whatsapp: "WhatsApp image",
-  whatsapp_status: "WhatsApp Status",
-  instagram_post: "Instagram post",
-  instagram_story: "Instagram Story",
-  square: "Square",
-  catalog: "Catalog / e-commerce",
-  landscape: "Landscape / banner",
+  whatsapp: "WhatsApp / chat (1080×1080)",
+  whatsapp_status: "WhatsApp Status (1080×1920)",
+  instagram_post: "Instagram post 4:5 (1080×1350)",
+  instagram_story: "Instagram Story / Reels (1080×1920)",
+  square: "Square catalog (1080×1080)",
+  catalog: "Catalog portrait (1080×1350)",
+  landscape: "Cover / landscape (1211×681)",
+};
+
+/** Exact export pixels for social platforms (download / share). */
+export const OUTPUT_FORMAT_EXPORT_PX: Record<
+  OutputFormat,
+  { width: number; height: number }
+> = {
+  whatsapp: { width: 1080, height: 1080 },
+  whatsapp_status: { width: 1080, height: 1920 },
+  instagram_post: { width: 1080, height: 1350 },
+  instagram_story: { width: 1080, height: 1920 },
+  square: { width: 1080, height: 1080 },
+  catalog: { width: 1080, height: 1350 },
+  landscape: { width: 1211, height: 681 },
 };
 
 export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
@@ -270,7 +284,7 @@ export const OUTPUT_FORMAT_GEMINI_ASPECT: Record<OutputFormat, string> = {
   catalog: "4:5",
   instagram_post: "4:5",
   instagram_story: "9:16",
-  landscape: "3:2",
+  landscape: "16:9",
 };
 
 export const OUTPUT_FORMAT_ASPECT_CLASS: Record<OutputFormat, string> = {
@@ -280,7 +294,7 @@ export const OUTPUT_FORMAT_ASPECT_CLASS: Record<OutputFormat, string> = {
   catalog: "aspect-[4/5] max-w-md",
   instagram_post: "aspect-[4/5] max-w-md",
   instagram_story: "aspect-[9/16] max-w-[280px]",
-  landscape: "aspect-[3/2] max-w-2xl",
+  landscape: "aspect-video max-w-2xl",
 };
 
 export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {

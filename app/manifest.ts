@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Jewel Studio",
-    short_name: "JewelStudio",
+    name: "Jwelpixel",
+    short_name: "Jwelpixel",
     description: "AI model shots for jewelry — upload, style, generate.",
     start_url: "/",
     display: "standalone",

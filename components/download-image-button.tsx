@@ -8,6 +8,8 @@ type DownloadImageButtonProps = {
   filename?: string;
   className?: string;
   label?: string;
+  /** When set, download is resized to exact social pixel size for that format. */
+  exportFormat?: import("@/lib/style-options").OutputFormat;
 };
 
 export function DownloadImageButton({
@@ -15,6 +17,7 @@ export function DownloadImageButton({
   filename,
   className,
   label = "Download",
+  exportFormat,
 }: DownloadImageButtonProps) {
   const [downloading, setDownloading] = useState(false);
 
@@ -23,7 +26,11 @@ export function DownloadImageButton({
     e.stopPropagation();
     setDownloading(true);
     try {
-      await downloadImage(url, filename ?? filenameFromUrl(url));
+      await downloadImage(
+        url,
+        filename ?? filenameFromUrl(url),
+        exportFormat,
+      );
     } catch {
       window.alert("Could not download image. Please try again.");
     } finally {

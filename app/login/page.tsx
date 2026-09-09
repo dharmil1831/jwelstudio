@@ -4,7 +4,7 @@ import { getAppSettings, youtubeEmbedUrl } from "@/lib/app-settings";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Log in — Jewel Studio",
+  title: "Log in — Jwelpixel",
 };
 
 export default async function LoginPage() {
@@ -18,7 +18,7 @@ export default async function LoginPage() {
           ← Back home
         </Link>
         <h1 className="mt-8 font-[family-name:var(--font-display)] text-3xl font-normal text-foreground">
-          Welcome to Jewel Studio
+          Welcome to Jwelpixel
         </h1>
         <p className="mt-2 text-foreground/70">
           See how the app works, then sign up or log in.

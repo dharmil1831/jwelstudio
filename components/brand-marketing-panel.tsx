@@ -107,6 +107,9 @@ export function BrandMarketingPanel({
             }
             className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
+          <p className="text-[10px] text-foreground/45">
+            Brand name, marketing line, and grams are rendered as readable text on the generated image.
+          </p>
           <input
             type="text"
             placeholder="Grams / weight (e.g. 8.2g)"
