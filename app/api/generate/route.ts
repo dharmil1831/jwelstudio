@@ -12,12 +12,16 @@ import {
   buildThemeSwapPrompt,
   withBrandPrompt,
   withSelfieTryOnPrompt,
+  withSharedBackgroundLockPrompt,
   withThemeReferencePrompt,
 } from "@/lib/prompts";
 import { getSessionUser } from "@/lib/session";
 import { parseStudioStyle } from "@/lib/style-options";
 import { storeGenerationImage, extensionForMime } from "@/lib/storage";
-import { fetchThemePreviewAsExtra } from "@/lib/theme-preview";
+import {
+  fetchOwnedGenerationImage,
+  fetchThemePreviewAsExtra,
+} from "@/lib/theme-preview";
 import type { GeminiExtraImage } from "@/lib/gemini";
 import {
   CREDIT_COST_PER_GENERATION,
@@ -193,6 +197,24 @@ export async function POST(req: Request) {
       ? await fetchThemePreviewAsExtra(user.id, themeId)
       : null;
 
+  const backgroundLockId =
+    typeof json.backgroundLockGenerationId === "string"
+      ? json.backgroundLockGenerationId.trim().slice(0, 64)
+      : "";
+  const backgroundLock =
+    backgroundLockId && style.mode === "background"
+      ? await fetchOwnedGenerationImage(user.id, backgroundLockId)
+      : null;
+  if (backgroundLockId && style.mode === "background" && !backgroundLock) {
+    return NextResponse.json(
+      {
+        error:
+          "Could not load the shared batch background. Generate the set again.",
+      },
+      { status: 400 },
+    );
+  }
+
   let prompt: string;
   if (themeRef && style.mode === "model") {
     prompt = buildThemeSwapPrompt(style);
@@ -217,8 +239,19 @@ export async function POST(req: Request) {
   if (themeRef && style.mode !== "model") {
     prompt = withThemeReferencePrompt(prompt);
   }
+  if (backgroundLock) {
+    prompt = withSharedBackgroundLockPrompt(prompt);
+  }
 
   const extraImages: GeminiExtraImage[] = [];
+  if (backgroundLock) {
+    extraImages.push({
+      data: backgroundLock.data,
+      mimeType: backgroundLock.mimeType,
+      label:
+        "IMAGE — BACKGROUND LOCK (master catalog photo). Copy ONLY the empty background, surface, and lighting. Ignore the jewelry in this photo — do not copy any fragment, clasp, or partial piece from it. Show the full new jewelry instead:",
+    });
+  }
   if (themeRef) {
     extraImages.push({
       data: themeRef.data,
@@ -240,7 +273,7 @@ export async function POST(req: Request) {
       data: brand.logoBase64,
       mimeType: brand.logoMimeType,
       label:
-        "IMAGE — BRAND LOGO (REQUIRED overlay when watermark/logo is enabled — place per logo-placement instructions; do not redesign jewelry):",
+        "IMAGE — BRAND LOGO reference only. Do NOT draw this logo, any text, phone number, or grams badge into the photograph. The logo is placed later on the marketing poster.",
     });
   }
 

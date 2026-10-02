@@ -78,7 +78,7 @@ export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {
   promotional:
     "Video type: promotional jewelry ad. Bold product-hero framing, premium lighting, clear call-to-attention on the piece. Suitable for paid ads.",
   marketing:
-    "Video type: social marketing clip. Fast, scroll-stopping jewelry campaign energy for Instagram Reels / Facebook / YouTube — still elegant, never gimmicky.",
+    "Video type: social marketing clip. Slow, elegant campaign for Reels or Shorts. The jewelry design stays frozen; only the camera or a gentle pose may move.",
   product_shoot:
     "Video type: studio product shoot. Catalog-clean, even lighting, commercial e-commerce feel. Follow the CAST instruction for whether a model is present.",
   editorial:
@@ -119,23 +119,23 @@ export const VIDEO_PRESET_LABELS: Record<VideoPresetId, string> = {
 
 export const VIDEO_PRESET_PROMPTS: Record<VideoPresetId, string> = {
   slow_orbit:
-    "Camera motion: the exact jewelry slowly orbits on a clean premium backdrop. Smooth orbit, jewelry stays sharp and identical to the photo.",
+    "MOTION: Only the camera moves — a slow orbit around the jewelry. The jewelry itself is rigid. Every frame keeps the identical design, stone count, metal, and proportions from the first frame and the uploaded photo. Do not reshape, swap, or add pieces while the camera moves.",
   necklace_sway:
-    "Camera motion: the exact necklace or pendant gently sways as if worn, subtle fabric motion, soft studio light.",
+    "MOTION: The jewelry design does not sway or deform. Only clothing or a tiny natural settle may move. Chain links, pendants, and stones stay the same count and shape in every frame as in the uploaded photo. Do not turn a necklace into a different design.",
   ring_turntable:
-    "Camera motion: the exact ring rotates slowly on a turntable, macro luxury feel, metal and stones sharp.",
+    "MOTION: If and only if the upload is a ring, the camera slowly circles it. Prongs, stone count, band, and setting stay identical in every frame. If the upload is not a ring, do not invent a ring — orbit the actual uploaded piece instead.",
   festive_sparkle:
-    "Camera motion: gentle camera push-in as the exact jewelry catches soft sparkle highlights. Do not redesign the piece.",
+    "MOTION: Light may catch the existing stones. Do not add sparkle, glitter, extra stones, or a new design. The jewelry geometry is frozen to the upload for the whole clip.",
   soft_zoom:
-    "Camera motion: slow soft zoom toward the exact jewelry on a clean backdrop. Pixel-faithful product.",
+    "MOTION: Slow camera zoom toward the jewelry. The piece does not move or change. The last frame must show the same jewelry as the first frame and the uploaded photo.",
   hero_push:
-    "Camera motion: confident cinematic push-in toward the jewelry, campaign-hero energy, jewelry locked to the reference.",
+    "MOTION: Camera push-in only. Jewelry stays locked to the reference: same pieces, same count, same metal, same stones, every frame.",
   macro_glide:
-    "Camera motion: slow macro glide across metalwork and stones of the exact uploaded piece; craftsmanship in focus.",
+    "MOTION: Camera glides across the existing metal and stones. Do not invent new engraving, stones, or links that are not in the upload. Details stay consistent from frame to frame.",
   worn_turn:
-    "Camera motion: if a model is present, they slowly turn so the worn jewelry catches light; if product-only, the piece turns on a stand. Jewelry identity locked.",
+    "MOTION: If a model is present, they turn very slowly. The jewelry stays fixed on the body and must match the upload exactly throughout the turn — it must not slide into a different necklace, earring, or setting. If there is no model, only the camera moves.",
   portrait_move:
-    "Camera motion: if a model is present, subtle head/shoulder movement in a beauty portrait so the jewelry stays sharp; if product-only, a gentle camera drift around the piece.",
+    "MOTION: Tiny camera or shoulder movement only. Jewelry design is locked. Do not morph earrings, chains, or stones between frames.",
 };
 
 export function parseVideoAspect(raw: unknown): VideoAspectId {
@@ -198,38 +198,43 @@ export function buildVideoPrompt(opts: {
       ? resolvedLookVideoLine({
           look: parseLookPreset(opts.lookPreset ?? "auto"),
           subject: opts.subject,
-          vibe: opts.purpose === "festive" ? "festive" : opts.purpose === "editorial" ? "luxury" : "luxury",
+          vibe: opts.purpose === "festive" ? "festive" : "luxury",
           scene: opts.purpose === "lifestyle" ? "outdoor_garden" : "studio",
         })
       : null;
 
+  const lock = [
+    "JEWELRY LOCK — non-negotiable, every frame:",
+    "Use the uploaded photo as a hard reference, not inspiration.",
+    "Copy the jewelry exactly: same pieces, same number of stones, same metal color, same clasp, same symmetry, same proportions.",
+    "Do not add, remove, resize, restyle, or replace any part of the jewelry.",
+    "Do not invent a matching set. If a piece is not clearly in the upload, it must not appear.",
+    "Frame 1 and the last frame must show the same jewelry as the upload. No morphing between frames.",
+    "If motion, wardrobe, mood, or the user note conflicts with this lock, ignore that conflict and keep the jewelry exact.",
+  ].join(" ");
+
   return [
-    "CRITICAL JEWELRY FIDELITY (highest priority):",
-    "The uploaded image is the ONLY product reference. The jewelry in the video must be a pixel-faithful recreation of EXACTLY that piece — same design, metal, stones, proportions, count.",
-    "Do NOT add extra jewelry that is not in the uploaded photo. If the photo shows earrings and a necklace, show ONLY earrings and a necklace — no tikka, no bracelet, no ring, no nose ring, no maang tikka unless they are clearly visible in the uploaded reference.",
-    "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add sparkle, or invent matching set pieces.",
-    "If any style, mood, or casting instruction conflicts with jewelry accuracy, jewelry accuracy ALWAYS wins.",
-    "",
+    lock,
     ...castLines,
-    look,
+    look ? `${look} Wardrobe and set only. This look must not add jewelry.` : "",
     VIDEO_PURPOSE_PROMPTS[opts.purpose],
     VIDEO_PRESET_PROMPTS[opts.preset],
     frame,
-    "Keep motion smooth and tasteful. Short 6–10 second clip feel. Jewelry is the hero. Smooth motion, natural skin tones, cinematic lighting.",
+    "Motion stays slow so the jewelry design does not change. Natural skin if a model is present. No text, logo, or watermark.",
     opts.customPrompt
-      ? `\nUser creative direction (follow unless it conflicts with jewelry fidelity or casting wardrobe — never add extra jewelry): ${opts.customPrompt}`
+      ? `User note (never use this to change or add jewelry): ${opts.customPrompt}`
       : "",
-    "",
-    "FINAL CHECK: The jewelry in EVERY frame must match the uploaded product image exactly — same pieces, same count, same stones, same metal, same proportions. Not a similar piece. Absolutely no extra jewelry added.",
+    lock,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join("\n");
 }
 
-/**
- * Veo image-to-video rejects `dont_allow` (400 INVALID_ARGUMENT).
- * Use `allow_adult` for all casts; product/no-person intent stays in the prompt.
- */
+/** What the video model must not do. Sent separately so it is not buried in the main prompt. */
+export const VIDEO_JEWELRY_NEGATIVE_PROMPT =
+  "redesigned jewelry, different jewelry, extra jewelry, added stones, removed stones, changed metal color, new clasp, morphing jewelry, melting metal, warped stones, different stone count, invented ring, invented necklace, invented earrings, maang tikka, bangles, nose ring, matching set not in the photo, glitter overlay, watermark, text, logo, subtitles";
+
+/** Veo image-to-video rejects dont_allow. Product-only intent stays in the prompt. */
 export function veoPersonGeneration(_cast: VideoCastId): "allow_adult" {
   return "allow_adult";
 }

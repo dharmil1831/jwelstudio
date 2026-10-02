@@ -11,7 +11,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto max-w-6xl px-6 pb-20 pt-10">
-        <section className="mx-auto max-w-2xl text-center">
+        <section className="mx-auto hidden max-w-2xl text-center lg:block">
           <h1 className="font-[family-name:var(--font-display)] text-4xl font-normal leading-tight text-foreground sm:text-5xl">
             Model-ready jewelry visuals in minutes
           </h1>
@@ -21,7 +21,7 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-4">
+        <section className="mx-auto mt-12 hidden max-w-4xl gap-4 sm:grid-cols-4 lg:grid">
           {STEPS.map((s) => (
             <div
               key={s.n}
@@ -34,7 +34,7 @@ export default function Home() {
           ))}
         </section>
 
-        <section id="studio" className="scroll-mt-20 mt-16">
+        <section id="studio" className="scroll-mt-20 mt-0 lg:mt-16">
           <StudioApp />
         </section>
       </main>

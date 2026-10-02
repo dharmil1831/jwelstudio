@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Jwelpixel</string>
+    <string name="title_activity_main">Jwelpixel</string>
+    <string name="package_name">com.jwelpixel.app</string>
+    <string name="custom_url_scheme">com.jwelpixel.app</string>
+</resources>

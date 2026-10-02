@@ -47,6 +47,10 @@ export function isGeminiConfigured(): boolean {
   return Boolean(getGeminiApiKey());
 }
 
+export function getGoogleCalendarApiKey(): string | undefined {
+  return normalizeKey(process.env.GOOGLE_CALENDAR_API_KEY);
+}
+
 /** Veo / Gemini video model. Override with GEMINI_VIDEO_MODEL. */
 export function getGeminiVideoModel(): string {
   return (

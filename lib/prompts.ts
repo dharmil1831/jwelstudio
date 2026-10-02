@@ -12,6 +12,7 @@ const jewelryFidelityRules = [
   "PROPORTIONS LOCK: Never stretch, squash, elongate, widen, warp, or perspective-distort the jewelry. Keep the same aspect ratio and relative dimensions as the upload — if the canvas is taller/wider, zoom out or add background margin; do not reshape the product to fill the frame.",
   "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add extra sparkle, change stone hue, or invent new jewelry.",
   "Do NOT invent matching earrings, rings, bracelets, or set pieces that are not clearly present in the uploaded reference. Show only what is in the reference photo.",
+  "COMPLETE PIECE: Show every part of the jewelry that is visible in the upload — top, middle, and bottom, including long hanging rows, side pieces, earrings beside a necklace, and the lower pendant. Do not stop at the upper or first section. Do not leave a detached fragment, hook, or partial piece floating away from the product.",
   "If any style, scene, mood, casting, or camera instruction conflicts with jewelry accuracy, jewelry accuracy always wins.",
 ].join(" ");
 
@@ -78,7 +79,7 @@ const shotCopy: Record<StudioStyle["shot"], string> = {
 
 const framingCopy: Record<Framing, string> = {
   catalog:
-    "Clean catalog e-commerce product photo: jewelry centered, sharp, evenly lit, commercial crop.",
+    "Clean catalog e-commerce product photo: jewelry centered, sharp, evenly lit. Show the complete piece; do not use a tight commercial crop that cuts off the lower half or side pieces.",
   hero: "Luxury hero still: jewelry as the campaign centerpiece; keep metal and stones true to the reference (no invented glow patterns).",
   macro:
     "Macro product detail: close crop on craftsmanship, stones, and metalwork; jewelry fills the frame and matches the reference exactly.",
@@ -218,7 +219,25 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     .join(" ");
 }
 
+function jewelryShadowLine(
+  shadow: StudioStyle["jewelryShadow"],
+): string | null {
+  switch (shadow) {
+    case "off":
+      return "Shadow: no cast shadow under or beside the jewelry — flat, even lighting for a clean e-commerce cutout look.";
+    case "hard":
+      return "Shadow: add a HARD, crisp directional cast shadow on the surface (Photoroom Hard style) — clear edge, higher contrast, single light direction. Do not invent a second light source.";
+    case "floating":
+      return "Shadow: FLOATING product look (Photoroom Floating style) — jewelry slightly lifted above the surface; soft oval shadow separated below the piece, not touching the jewelry silhouette.";
+    case "soft":
+    default:
+      return "Shadow: soft diffused CONTACT shadow under the jewelry (Photoroom Soft style) — gentle, realistic falloff on the surface where the piece rests.";
+  }
+}
+
 export function buildBackgroundPrompt(style: StudioStyle): string {
+  const shadowLine = jewelryShadowLine(style.jewelryShadow);
+
   if (style.customPrompt) {
     return [
       jewelryFidelityRules,
@@ -233,6 +252,7 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
       style.backdropColor
         ? `Backdrop color: use a clean, even solid fill of exact hex ${style.backdropColor} as the main background color behind the jewelry.`
         : null,
+      shadowLine,
       "",
       noCropRule,
       "Output format:",
@@ -246,7 +266,7 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
 
   const colorLine = style.backdropColor
     ? `Backdrop color: use a clean, even solid fill of exact hex ${style.backdropColor} as the main background color behind the jewelry. Soft lighting that flatters metal and stones.`
-    : null;
+    : "Backdrop: use the scene / setting mood below — do not force a flat solid white unless the scene is studio white.";
 
   return [
     jewelryFidelityRules,
@@ -264,6 +284,7 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
     "Scene / setting:",
     sceneCopy[style.scene],
     colorLine,
+    shadowLine,
     "Mood:",
     backgroundVibeCopy[style.vibe],
     "",
@@ -322,6 +343,26 @@ export function buildThemeSwapPrompt(style: StudioStyle): string {
     formatCopy[style.format],
     "",
     finalCheck,
+  ].join(" ");
+}
+
+/**
+ * Batch: later SKUs must reuse the first result's backdrop exactly.
+ * Jewelry still comes only from the new product upload.
+ */
+export function withSharedBackgroundLockPrompt(basePrompt: string): string {
+  return [
+    basePrompt,
+    "",
+    "SHARED BACKGROUND LOCK (batch catalog):",
+    "A labeled BACKGROUND LOCK image is the master photo for this set.",
+    "Copy ONLY that image's empty background: same surface, color, texture, lighting direction, and softness.",
+    "Do not invent a new scene, table, color, or lighting setup.",
+    "Do not copy the lock image's jewelry, and do not copy its crop. If matching that photo's camera distance would cut off the new piece, zoom out and add margin.",
+    "Place the FULL new jewelry product into that background. Show every part visible in the new upload from top to bottom, including dangling rows, side earrings, and the lower pendant.",
+    "Do not keep only the upper or first section. Do not leave a stray fragment, clasp, or partial piece floating above or beside the jewelry.",
+    "Cast shadow should match the lock image's shadow style, under the complete piece.",
+    "If any earlier scene, mood, scale, or crop line conflicts with showing the full new jewelry, the full jewelry wins. The lock image wins only for the empty background.",
   ].join(" ");
 }
 

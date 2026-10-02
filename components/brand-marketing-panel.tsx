@@ -6,13 +6,17 @@ import {
   LOGO_PLACEMENTS,
   type LogoPlacement,
 } from "@/lib/brand-options";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 export type BrandFormState = {
   brandName: string;
   marketingLine: string;
   grams: string;
+  headline: string;
+  phone: string;
+  highlights: string;
   festivalId: string;
+  festivalLabel: string;
   watermark: boolean;
   logoPlacement: LogoPlacement;
   logoBase64: string | null;
@@ -23,7 +27,11 @@ export const EMPTY_BRAND: BrandFormState = {
   brandName: "",
   marketingLine: "",
   grams: "",
+  headline: "",
+  phone: "",
+  highlights: "",
   festivalId: "none",
+  festivalLabel: "",
   watermark: false,
   logoPlacement: "corner_br",
   logoBase64: null,
@@ -34,13 +42,38 @@ export function BrandMarketingPanel({
   value,
   onChange,
   locked,
+  initialOpen = false,
 }: {
   value: BrandFormState;
   onChange: (next: BrandFormState) => void;
   locked?: boolean;
+  initialOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const festivals = useMemo(() => getUpcomingFestivals(7), []);
+  const [open, setOpen] = useState(initialOpen);
+  const [festivals, setFestivals] = useState<
+    { id: string; label: string; date: string | null; country: string | null }[]
+  >(() =>
+    getUpcomingFestivals(7).map((f) => ({
+      id: f.id,
+      label: f.label,
+      date: null,
+      country: f.id === "none" ? null : "Jewelry calendar",
+    })),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/festivals")
+      .then((r) => r.json())
+      .then((data: { festivals?: typeof festivals }) => {
+        if (cancelled || !Array.isArray(data.festivals) || data.festivals.length === 0) return;
+        setFestivals(data.festivals);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onLogoFile(file: File | null) {
     if (!file) {
@@ -88,6 +121,15 @@ export function BrandMarketingPanel({
         <div className="space-y-3 border-t border-primary/15 px-3 py-3">
           <input
             type="text"
+            placeholder="Headline (e.g. Pure gold necklace set)"
+            value={value.headline}
+            onChange={(e) =>
+              onChange({ ...value, headline: e.target.value.slice(0, 80) })
+            }
+            className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
+          />
+          <input
+            type="text"
             placeholder="Brand name"
             value={value.brandName}
             onChange={(e) =>
@@ -108,8 +150,26 @@ export function BrandMarketingPanel({
             className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           <p className="text-[10px] text-foreground/45">
-            Brand name, marketing line, and grams are rendered as readable text on the generated image.
+            Brand name, line, and grams stay exact on a marketing poster. They are not painted onto the jewelry.
           </p>
+          <input
+            type="text"
+            placeholder="Phone for the poster"
+            value={value.phone}
+            onChange={(e) =>
+              onChange({ ...value, phone: e.target.value.slice(0, 40) })
+            }
+            className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
+          />
+          <textarea
+            placeholder={"Poster points, one per line\n22K pure gold\nHallmarked"}
+            value={value.highlights}
+            onChange={(e) =>
+              onChange({ ...value, highlights: e.target.value.slice(0, 240) })
+            }
+            rows={3}
+            className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
+          />
           <input
             type="text"
             placeholder="Grams / weight (e.g. 8.2g)"
@@ -121,19 +181,13 @@ export function BrandMarketingPanel({
           />
           <div>
             <p className="text-[11px] text-foreground/55">Festival</p>
-            <select
-              value={value.festivalId}
-              onChange={(e) =>
-                onChange({ ...value, festivalId: e.target.value })
+            <FestivalPicker
+              festivals={festivals}
+              selectedId={value.festivalId}
+              onSelect={(id, label) =>
+                onChange({ ...value, festivalId: id, festivalLabel: label })
               }
-              className="mt-1 w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm"
-            >
-              {festivals.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <label className="flex items-center gap-2 text-sm text-foreground/80">
             <input
@@ -168,7 +222,7 @@ export function BrandMarketingPanel({
             <p className="mb-1 text-[11px] text-foreground/55">Brand logo (optional)</p>
             {value.logoBase64 ? (
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-primary/25 bg-background/60">
+                <div className="flex h-20 w-28 items-center justify-center overflow-hidden rounded-lg border border-primary/25 bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`data:${value.logoMimeType ?? "image/png"};base64,${value.logoBase64}`}
@@ -203,6 +257,172 @@ export function BrandMarketingPanel({
               </label>
             )}
           </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type FestivalRow = {
+  id: string;
+  label: string;
+  date: string | null;
+  country: string | null;
+};
+
+function FestivalPicker({
+  festivals,
+  selectedId,
+  onSelect,
+}: {
+  festivals: FestivalRow[];
+  selectedId: string;
+  onSelect: (id: string, label: string) => void;
+}) {
+  const today = new Date();
+  const [cursor, setCursor] = useState(
+    () => new Date(today.getFullYear(), today.getMonth(), 1),
+  );
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const title = cursor.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array.from({ length: firstWeekday }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  const inMonth = festivals.filter((f) => f.date?.startsWith(monthKey));
+  const undated = festivals.filter((f) => f.id !== "none" && !f.date);
+  const selected = festivals.find((f) => f.id === selectedId);
+
+  function onDay(day: number) {
+    const iso = `${monthKey}-${String(day).padStart(2, "0")}`;
+    const hits = inMonth.filter((f) => f.date === iso);
+    setOpenDay(day);
+    if (hits.length === 1) onSelect(hits[0].id, hits[0].label);
+  }
+
+  const openIso = openDay
+    ? `${monthKey}-${String(openDay).padStart(2, "0")}`
+    : "";
+  const openHits = openDay ? inMonth.filter((f) => f.date === openIso) : [];
+
+  return (
+    <div className="mt-1 rounded-xl border border-primary/20 bg-secondary p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <button
+          type="button"
+          className="rounded-lg px-2 py-1 text-sm text-primary"
+          onClick={() => {
+            setOpenDay(null);
+            setCursor(new Date(year, month - 1, 1));
+          }}
+          aria-label="Previous month"
+        >
+          ‹
+        </button>
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <button
+          type="button"
+          className="rounded-lg px-2 py-1 text-sm text-primary"
+          onClick={() => {
+            setOpenDay(null);
+            setCursor(new Date(year, month + 1, 1));
+          }}
+          aria-label="Next month"
+        >
+          ›
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px]">
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <span key={`${d}-${i}`} className="py-1 text-foreground/45">
+            {d}
+          </span>
+        ))}
+        {cells.map((day, i) => {
+          const iso = day ? `${monthKey}-${String(day).padStart(2, "0")}` : "";
+          const hits = day ? inMonth.filter((f) => f.date === iso) : [];
+          const chosen = hits.some((f) => f.id === selectedId);
+          return (
+            <button
+              key={`${day ?? "e"}-${i}`}
+              type="button"
+              disabled={!day || hits.length === 0}
+              title={hits.map((f) => f.label).join(", ")}
+              onClick={() => day && onDay(day)}
+              className={`rounded-lg py-1.5 ${
+                chosen
+                  ? "bg-primary font-bold text-white"
+                  : hits.length
+                    ? "bg-primary/20 font-semibold text-foreground"
+                    : "text-foreground/70"
+              } disabled:cursor-default`}
+            >
+              {day ?? ""}
+            </button>
+          );
+        })}
+      </div>
+      {openHits.length > 0 ? (
+        <div className="mt-3 rounded-lg bg-background px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+            {title.split(" ")[0]} {openDay}
+          </p>
+          <ul className="mt-1 space-y-1">
+            {openHits.map((f) => (
+              <li key={f.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(f.id, f.label)}
+                  className={`w-full rounded-lg px-2 py-1.5 text-left text-sm ${
+                    f.id === selectedId ? "bg-primary font-semibold text-white" : "hover:bg-primary/10"
+                  }`}
+                >
+                  {f.label}
+                  {f.country ? ` · ${f.country}` : ""}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-foreground/55">
+          Tap a plum day to see which festival it is.
+        </p>
+      )}
+      {selected && selected.id !== "none" ? (
+        <p className="mt-2 text-xs text-foreground/70">
+          Using {selected.label}
+          {selected.country ? ` · ${selected.country}` : ""}
+          <button
+            type="button"
+            className="ml-2 text-primary underline"
+            onClick={() => onSelect("none", "")}
+          >
+            Clear
+          </button>
+        </p>
+      ) : null}
+      {undated.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {undated.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => onSelect(f.id, f.label)}
+              className={`rounded-full px-2 py-1 text-[11px] ${
+                f.id === selectedId
+                  ? "bg-primary text-white"
+                  : "bg-background text-foreground ring-1 ring-primary/20"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       ) : null}
     </div>

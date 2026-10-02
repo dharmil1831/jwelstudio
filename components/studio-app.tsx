@@ -1,7 +1,9 @@
 "use client";
 
 import { BrandMarketingPanel, EMPTY_BRAND, type BrandFormState } from "@/components/brand-marketing-panel";
+import { StudioMobileHome } from "@/components/studio-mobile-home";
 import { DownloadImageButton } from "@/components/download-image-button";
+import { MarketingPosterButton } from "@/components/marketing-poster-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
@@ -35,6 +37,9 @@ import {
   FRAMING_LABELS,
   FRAMINGS,
   GENERATION_MODES,
+  JEWELRY_SHADOWS,
+  JEWELRY_SHADOW_HINTS,
+  JEWELRY_SHADOW_LABELS,
   MODE_LABELS,
   OUTPUT_FORMAT_ASPECT_CLASS,
   OUTPUT_FORMAT_LABELS,
@@ -52,6 +57,7 @@ import {
   normalizeBackdropHex,
   type Framing,
   type GenerationMode,
+  type JewelryShadow,
   type OutputFormat,
   type Placement,
   type Scene,
@@ -59,6 +65,7 @@ import {
   type Subject,
   type Vibe,
 } from "@/lib/style-options";
+import { CREDIT_COST_PER_GENERATION } from "@/lib/users";
 import {
   LOOK_PRESET_HINTS,
   LOOK_PRESET_IDS,
@@ -68,9 +75,46 @@ import {
 } from "@/lib/look-presets";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-type StudioTab = GenerationMode | "video";
+type StudioTab = GenerationMode | "video" | "batch";
+
+const BATCH_MAX = 10;
+
+type BatchItemStatus = "idle" | "queued" | "running" | "done" | "failed";
+
+type BatchItem = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: BatchItemStatus;
+  resultUrl?: string;
+  generationId?: string;
+  error?: string;
+};
+
+/** After the first photo sets the look, remaining SKUs run together. */
+const BATCH_CONCURRENCY = 3;
+
+type BatchBackdropMode = "white" | "soft_studio" | "scene";
+
+const BATCH_BACKDROP_MODES: BatchBackdropMode[] = [
+  "white",
+  "soft_studio",
+  "scene",
+];
+
+const BATCH_BACKDROP_LABELS: Record<BatchBackdropMode, string> = {
+  white: "White",
+  soft_studio: "Soft studio",
+  scene: "Keep scene",
+};
+
+const BATCH_BACKDROP_HINTS: Record<BatchBackdropMode, string> = {
+  white: "Clean solid white product backdrop",
+  soft_studio: "Warm ivory studio surface",
+  scene: "Use Scene / Mood chips (no solid fill)",
+};
 
 function isAcceptedImage(file: File): boolean {
   if (file.type.startsWith("image/")) return true;
@@ -125,6 +169,12 @@ export function StudioApp() {
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [jewelryShadow, setJewelryShadow] = useState<JewelryShadow>("soft");
+  const [batchBackdropMode, setBatchBackdropMode] =
+    useState<BatchBackdropMode>("white");
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const batchAbortRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -253,6 +303,53 @@ export function StudioApp() {
     setError(null);
   }, []);
 
+  const addBatchFiles = useCallback((list: FileList | File[] | null) => {
+    if (!list || list.length === 0) return;
+    const incoming = Array.from(list).filter(isAcceptedImage);
+    if (incoming.length === 0) {
+      setError("Please choose JPG, PNG, or WebP images.");
+      return;
+    }
+    setError(null);
+    setBatchItems((prev) => {
+      const room = BATCH_MAX - prev.length;
+      if (room <= 0) {
+        setError(`Batch max is ${BATCH_MAX} images.`);
+        return prev;
+      }
+      const slice = incoming.slice(0, room);
+      if (incoming.length > room) {
+        setError(`Only ${BATCH_MAX} images per batch. Extra files skipped.`);
+      }
+      const added: BatchItem[] = slice.map((f) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        file: f,
+        previewUrl: URL.createObjectURL(f),
+        status: "idle",
+      }));
+      return [...prev, ...added];
+    });
+  }, []);
+
+  const removeBatchItem = useCallback((id: string) => {
+    setBatchItems((prev) => {
+      const hit = prev.find((i) => i.id === id);
+      if (hit?.previewUrl) URL.revokeObjectURL(hit.previewUrl);
+      return prev.filter((i) => i.id !== id);
+    });
+  }, []);
+
+  const clearBatch = useCallback(() => {
+    setBatchItems((prev) => {
+      for (const i of prev) {
+        if (i.previewUrl) URL.revokeObjectURL(i.previewUrl);
+      }
+      return [];
+    });
+    batchAbortRef.current = true;
+    setBatchRunning(false);
+  }, []);
+
   const applySelfie = useCallback((next: File | null) => {
     if (next && !isAcceptedImage(next)) {
       setError("Please choose a JPG, PNG, or WebP selfie.");
@@ -298,7 +395,7 @@ export function StudioApp() {
 
   const applyTheme = useCallback((theme: ThemeListItem, style: ThemeStyleSnapshot) => {
     setAppliedThemeId(theme.id);
-    setTab(style.mode);
+    setTab((current) => (current === "batch" ? "batch" : style.mode));
     setMode(style.mode);
     setPlacement(style.placement);
     setSubject(style.subject);
@@ -319,8 +416,14 @@ export function StudioApp() {
   }, []);
 
   const themeSnapshot = useCallback((): ThemeStyleSnapshot => {
+    const batchHex =
+      batchBackdropMode === "white"
+        ? "#FFFFFF"
+        : batchBackdropMode === "soft_studio"
+          ? "#F5F0E8"
+          : null;
     return {
-      mode,
+      mode: tab === "batch" ? "background" : mode,
       placement,
       subject,
       shot,
@@ -328,7 +431,12 @@ export function StudioApp() {
       scene,
       vibe,
       format,
-      backdropColor: mode === "background" ? backdropColor : null,
+      backdropColor:
+        tab === "batch"
+          ? batchHex
+          : mode === "background"
+            ? backdropColor
+            : null,
       lookPreset: mode === "model" || tab === "video" ? lookPreset : null,
       customPrompt: customPrompt.trim() || null,
       usePreviewAsReference: true,
@@ -343,6 +451,7 @@ export function StudioApp() {
     vibe,
     format,
     backdropColor,
+    batchBackdropMode,
     lookPreset,
     customPrompt,
     tab,
@@ -429,11 +538,14 @@ export function StudioApp() {
           format,
           lookPreset: mode === "model" ? lookPreset : undefined,
           backdropColor: mode === "background" ? backdropColor : undefined,
+          jewelryShadow:
+            mode === "background" ? jewelryShadow : undefined,
           customPrompt: customPrompt.trim() || undefined,
           brandName: brand.brandName || undefined,
           marketingLine: brand.marketingLine || undefined,
           grams: brand.grams || undefined,
           festivalId: brand.festivalId,
+          festivalLabel: brand.festivalLabel || undefined,
           watermark: brand.watermark,
           logoPlacement: brand.logoPlacement,
           logoBase64: brand.logoBase64 || undefined,
@@ -481,10 +593,230 @@ export function StudioApp() {
     format,
     lookPreset,
     backdropColor,
+    jewelryShadow,
     customPrompt,
     brand,
     appliedThemeId,
   ]);
+
+  const runBatchIds = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0 || batchRunning) return;
+      const need = ids.length * CREDIT_COST_PER_GENERATION;
+      if (credits !== null && credits < need) {
+        setError(
+          `Need ${need} credits for ${ids.length} images (you have ${credits}).`,
+        );
+        return;
+      }
+
+      batchAbortRef.current = false;
+      setBatchRunning(true);
+      setLoading(true);
+      setError(null);
+
+      setBatchItems((prev) =>
+        prev.map((i) =>
+          ids.includes(i.id)
+            ? {
+                ...i,
+                status: "queued" as const,
+                resultUrl: undefined,
+                generationId: undefined,
+                error: undefined,
+              }
+            : i,
+        ),
+      );
+
+      let lastCredits = credits;
+      const snapshot = batchItems.filter((i) => ids.includes(i.id));
+      // Retries reuse a photo that already succeeded so the backdrop stays the same.
+      let lockGenerationId = batchItems.find(
+        (i) =>
+          !ids.includes(i.id) &&
+          i.status === "done" &&
+          Boolean(i.generationId),
+      )?.generationId;
+
+      const pending = [...ids];
+      let stopForCredits = false;
+
+      const generateOne = async (id: string, lockId?: string) => {
+        if (batchAbortRef.current || stopForCredits) return;
+        const item = snapshot.find((i) => i.id === id);
+        if (!item) return;
+
+        setBatchItems((prev) =>
+          prev.map((i) =>
+            i.id === id ? { ...i, status: "running" as const } : i,
+          ),
+        );
+
+        try {
+          const { base64, mimeType } = await prepareImageForUpload(item.file);
+          const controller = new AbortController();
+          const timeout = window.setTimeout(() => controller.abort(), 120_000);
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageBase64: base64,
+              mimeType,
+              mode,
+              placement: mode === "model" ? placement : undefined,
+              subject: mode === "model" ? subject : undefined,
+              shot: mode === "model" ? shot : undefined,
+              lookPreset: mode === "model" ? lookPreset : undefined,
+              framing,
+              scene,
+              vibe,
+              format,
+              backdropMode: mode === "background" ? "solid" : undefined,
+              backdropColor: mode === "background" ? backdropColor : undefined,
+              jewelryShadow: mode === "background" ? jewelryShadow : undefined,
+              customPrompt: customPrompt.trim() || undefined,
+              brandName: brand.brandName || undefined,
+              marketingLine: brand.marketingLine || undefined,
+              grams: brand.grams || undefined,
+              festivalId: brand.festivalId,
+          festivalLabel: brand.festivalLabel || undefined,
+              watermark: brand.watermark,
+              logoPlacement: brand.logoPlacement,
+              logoBase64: brand.logoBase64 || undefined,
+              logoMimeType: brand.logoMimeType || undefined,
+              themeId: appliedThemeId || undefined,
+              backgroundLockGenerationId:
+                mode === "background" ? lockId : undefined,
+            }),
+            signal: controller.signal,
+          });
+          window.clearTimeout(timeout);
+          const data = await readApiJson<{
+            error?: string;
+            resultUrl?: string;
+            generationId?: string;
+            credits?: number;
+          }>(res);
+
+          if (typeof data.credits === "number") {
+            lastCredits = data.credits;
+            setCredits(data.credits);
+          }
+          if (!res.ok) throw new Error(data.error ?? "Request failed");
+
+          if (data.generationId) lockGenerationId = lockGenerationId ?? data.generationId;
+
+          setBatchItems((prev) =>
+            prev.map((i) =>
+              i.id === id
+                ? {
+                    ...i,
+                    status: "done" as const,
+                    resultUrl: data.resultUrl,
+                    generationId: data.generationId,
+                    error: undefined,
+                  }
+                : i,
+            ),
+          );
+
+          if (data.resultUrl) {
+            setResultUrl(data.resultUrl);
+            setResultMime("image/jpeg");
+          }
+        } catch (err) {
+          const msg = friendlyClientError(err);
+          setBatchItems((prev) =>
+            prev.map((i) =>
+              i.id === id
+                ? { ...i, status: "failed" as const, error: msg }
+                : i,
+            ),
+          );
+          setError(msg);
+          if (
+            typeof lastCredits === "number" &&
+            lastCredits < CREDIT_COST_PER_GENERATION
+          ) {
+            stopForCredits = true;
+          }
+        }
+      };
+
+      // First success becomes the shared background for the rest of the set.
+      while (
+        !lockGenerationId &&
+        pending.length > 0 &&
+        !batchAbortRef.current &&
+        !stopForCredits
+      ) {
+        const id = pending.shift();
+        if (!id) break;
+        await generateOne(id);
+      }
+
+      const worker = async () => {
+        while (
+          pending.length > 0 &&
+          !batchAbortRef.current &&
+          !stopForCredits
+        ) {
+          const id = pending.shift();
+          if (!id) return;
+          await generateOne(id, lockGenerationId);
+        }
+      };
+
+      const workers = Math.min(BATCH_CONCURRENCY, pending.length);
+      if (workers > 0) {
+        await Promise.all(Array.from({ length: workers }, () => worker()));
+      }
+
+      setBatchItems((prev) =>
+        prev.map((i) =>
+          ids.includes(i.id) && i.status === "queued"
+            ? { ...i, status: "idle" as const }
+            : i,
+        ),
+      );
+
+      setBatchRunning(false);
+      setLoading(false);
+    },
+    [
+      batchItems,
+      batchRunning,
+      credits,
+      mode,
+      placement,
+      subject,
+      shot,
+      lookPreset,
+      framing,
+      scene,
+      vibe,
+      format,
+      backdropColor,
+      jewelryShadow,
+      customPrompt,
+      brand,
+      appliedThemeId,
+    ],
+  );
+
+  const generateBatch = useCallback(async () => {
+    if (batchItems.length === 0) return;
+    await runBatchIds(batchItems.map((i) => i.id));
+  }, [batchItems, runBatchIds]);
+
+  const retryFailedBatch = useCallback(async () => {
+    const failedIds = batchItems
+      .filter((i) => i.status === "failed")
+      .map((i) => i.id);
+    if (failedIds.length === 0) return;
+    await runBatchIds(failedIds);
+  }, [batchItems, runBatchIds]);
 
   const generateVideo = useCallback(async () => {
     if (!file) return;
@@ -543,6 +875,14 @@ export function StudioApp() {
       setError(null);
       return;
     }
+    if (next === "batch") {
+      setMode("background");
+      setResultUrl(null);
+      setResultMime(null);
+      setError(null);
+      setSelfieFile(null);
+      return;
+    }
     setMode(next);
     setResultUrl(null);
     setResultMime(null);
@@ -576,7 +916,85 @@ export function StudioApp() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
+    <>
+      <div className="fixed inset-0 z-50 lg:hidden">
+        <StudioMobileHome
+          credits={credits}
+          previewUrl={previewUrl}
+          fileName={file?.name ?? null}
+          resultUrl={resultUrl}
+          resultMime={resultMime}
+          generationId={generationId}
+          loading={loading || batchRunning}
+          error={error}
+          canCustomPrompt={canCustomPrompt}
+          canBrand={canBrand}
+          canThemes={canThemes}
+          canSelfie={canSelfie}
+          canVideo={canVideo}
+          generationReady={generationReady}
+          customPrompt={customPrompt}
+          onCustomPrompt={setCustomPrompt}
+          brand={brand}
+          onBrand={setBrand}
+          subject={subject}
+          onSubject={setSubject}
+          lookPreset={lookPreset}
+          onLook={setLookPreset}
+          shot={shot}
+          onShot={setShot}
+          placement={placement}
+          onPlacement={setPlacement}
+          scene={scene}
+          onScene={setScene}
+          vibe={vibe}
+          onVibe={setVibe}
+          format={format}
+          onFormat={setFormat}
+          backdropColor={backdropColor}
+          onBackdrop={(hex) => {
+            setBackdropColor(hex);
+            setBackdropHexInput(hex);
+            setBatchBackdropMode("white");
+          }}
+          jewelryShadow={jewelryShadow}
+          onShadow={setJewelryShadow}
+          videoPreset={videoPreset}
+          onVideoPreset={setVideoPreset}
+          videoAspect={videoAspect}
+          onVideoAspect={setVideoAspect}
+          videoPurpose={videoPurpose}
+          onVideoPurpose={setVideoPurpose}
+          videoCast={videoCast}
+          onVideoCast={setVideoCast}
+          selfiePreviewUrl={selfiePreviewUrl}
+          onPickJewelry={applyFile}
+          onPickSelfie={applySelfie}
+          onAddBatch={(files) => {
+            addBatchFiles(files);
+          }}
+          onSelectJob={(job) => {
+            if (job === "video" && !canVideo) {
+              setError("Video unlocks on Diamond. See Pricing.");
+              return;
+            }
+            selectTab(job);
+          }}
+          onGenerate={() => {
+            void (batchItems.length > 0 && tab !== "video"
+              ? generateBatch()
+              : tab === "video"
+                ? generateVideo()
+                : generate());
+          }}
+          themeSnapshot={themeSnapshot}
+          appliedThemeId={appliedThemeId}
+          onApplyTheme={applyTheme}
+          onClearTheme={() => setAppliedThemeId(null)}
+          onSaveTheme={() => void saveCurrentResultAsTheme()}
+        />
+      </div>
+      <div className="hidden gap-8 lg:grid lg:grid-cols-[minmax(0,360px)_1fr]">
       <aside className="flex flex-col gap-5 rounded-2xl border border-primary/20 bg-secondary/95 p-6 shadow-md">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-foreground/70">
@@ -604,7 +1022,7 @@ export function StudioApp() {
         <div
           role="tablist"
           aria-label="Generation mode"
-          className="grid grid-cols-3 gap-1 rounded-xl bg-background/60 p-1"
+          className="grid grid-cols-2 gap-1 rounded-xl bg-background/60 p-1 sm:grid-cols-3"
         >
           {GENERATION_MODES.map((key) => (
             <button
@@ -646,51 +1064,227 @@ export function StudioApp() {
           </button>
         </div>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
-            Jewelry photo
-          </p>
-          <input
-            id="jewelry-upload"
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={onPick}
-          />
-          <label
-            htmlFor="jewelry-upload"
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={onDrop}
-            className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-8 text-center text-sm transition ${
-              dragActive
-                ? "border-primary bg-primary/15 text-primary"
-                : "border-primary/30 bg-background/40 text-foreground/70 hover:border-primary"
-            }`}
-          >
-            {file && previewUrl ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt="Selected"
-                  className="mb-2 max-h-28 w-full rounded-lg object-contain"
-                />
-                <span className="text-xs text-foreground/80">{file.name}</span>
-              </>
-            ) : (
-              <>
-                Drop or tap to upload
-                <span className="mt-1 block text-xs text-foreground/45">
-                  JPG or PNG works best on iPhone
-                </span>
-              </>
-            )}
-          </label>
-        </div>
+        {tab === "batch" ? (
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                Jewelry photos
+              </p>
+              {batchItems.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearBatch}
+                  className="text-[11px] text-primary underline"
+                >
+                  Clear all
+                </button>
+              ) : null}
+            </div>
+            <input
+              id="batch-upload"
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                addBatchFiles(e.target.files);
+                try {
+                  e.target.value = "";
+                } catch {
+                  /* ignore */
+                }
+              }}
+            />
+            <label
+              htmlFor="batch-upload"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragActive(false);
+                addBatchFiles(e.dataTransfer.files);
+              }}
+              className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-6 text-center text-sm transition ${
+                dragActive
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-primary/30 bg-background/40 text-foreground/70 hover:border-primary"
+              }`}
+            >
+              Drop or tap to add up to {BATCH_MAX}
+              <span className="mt-1 block text-xs text-foreground/45">
+                First photo sets the background. Every other photo uses that same backdrop.
+              </span>
+            </label>
+            {batchItems.length > 0 ? (
+              <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+                {batchItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-2 rounded-lg bg-background/50 px-2 py-1.5"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.previewUrl}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] text-foreground/80">
+                        {item.file.name}
+                      </p>
+                      <p className="text-[10px] text-foreground/50">
+                        {item.status === "idle" && "Ready"}
+                        {item.status === "queued" && "Queued"}
+                        {item.status === "running" && "Generating…"}
+                        {item.status === "done" && "Done"}
+                        {item.status === "failed" && (item.error ?? "Failed")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={batchRunning}
+                      onClick={() => removeBatchItem(item.id)}
+                      className="text-[11px] text-primary underline disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+              Jewelry photo
+            </p>
+            <input
+              id="jewelry-upload"
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={onPick}
+            />
+            <label
+              htmlFor="jewelry-upload"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={onDrop}
+              className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-8 text-center text-sm transition ${
+                dragActive
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-primary/30 bg-background/40 text-foreground/70 hover:border-primary"
+              }`}
+            >
+              {file && previewUrl ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl}
+                    alt="Selected"
+                    className="mb-2 max-h-28 w-full rounded-lg object-contain"
+                  />
+                  <span className="text-xs text-foreground/80">{file.name}</span>
+                </>
+              ) : (
+                <>
+                  Drop or tap to upload
+                  <span className="mt-1 block text-xs text-foreground/45">
+                    JPG or PNG works best on iPhone
+                  </span>
+                </>
+              )}
+            </label>
+          </div>
+        )}
+
+        {tab === "model" || tab === "background" ? (
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                Batch photos
+              </p>
+              {batchItems.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearBatch}
+                  className="text-[11px] text-primary underline"
+                >
+                  Clear all
+                </button>
+              ) : null}
+            </div>
+            <input
+              id="inline-batch-upload"
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                addBatchFiles(e.target.files);
+                try {
+                  e.target.value = "";
+                } catch {
+                  /* ignore */
+                }
+              }}
+            />
+            <label
+              htmlFor="inline-batch-upload"
+              className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-background/40 px-4 py-4 text-center text-sm text-foreground/70 hover:border-primary"
+            >
+              Add more pieces, up to {BATCH_MAX}
+              <span className="mt-1 block text-xs text-foreground/45">
+                {tab === "background"
+                  ? "Every photo uses the backdrop color and shadow on this tab."
+                  : "Every photo uses the model look on this tab."}
+              </span>
+            </label>
+            {batchItems.length > 0 ? (
+              <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+                {batchItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-2 rounded-lg bg-background/50 px-2 py-1.5"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.previewUrl}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] text-foreground/80">
+                        {item.file.name}
+                      </p>
+                      <p className="text-[10px] text-foreground/50">
+                        {item.status === "idle" && "Ready"}
+                        {item.status === "queued" && "Queued"}
+                        {item.status === "running" && "Generating…"}
+                        {item.status === "done" && "Done"}
+                        {item.status === "failed" && (item.error ?? "Failed")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={batchRunning}
+                      onClick={() => removeBatchItem(item.id)}
+                      className="text-[11px] text-primary underline disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
 
         {tab === "model" ? (
           <div>
@@ -942,7 +1536,65 @@ export function StudioApp() {
           </p>
         )}
 
-        {tab === "video" ? null : mode === "model" ? (
+        {tab === "video" ? null : tab === "batch" ? (
+          <>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                Backdrop
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {BATCH_BACKDROP_MODES.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setBatchBackdropMode(id)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                      batchBackdropMode === id
+                        ? "bg-primary text-background"
+                        : "bg-background/60 text-foreground/70 hover:bg-secondary"
+                    }`}
+                  >
+                    {BATCH_BACKDROP_LABELS[id]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-foreground/55">
+                {BATCH_BACKDROP_HINTS[batchBackdropMode]}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                Jewelry shadow
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {JEWELRY_SHADOWS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setJewelryShadow(id)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                      jewelryShadow === id
+                        ? "bg-primary text-background"
+                        : "bg-background/60 text-foreground/70 hover:bg-secondary"
+                    }`}
+                  >
+                    {JEWELRY_SHADOW_LABELS[id]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-foreground/55">
+                {JEWELRY_SHADOW_HINTS[jewelryShadow]}
+              </p>
+            </div>
+            <Field
+              label="Framing"
+              value={framing}
+              onChange={setFraming}
+              disabled={Boolean(customPrompt.trim())}
+              options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
+            />
+          </>
+        ) : mode === "model" ? (
           <>
             <Field
               label="Where to show jewelry"
@@ -1006,6 +1658,30 @@ export function StudioApp() {
               disabled={Boolean(customPrompt.trim())}
               options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
             />
+            <div>
+              <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                Jewelry shadow
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {JEWELRY_SHADOWS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setJewelryShadow(id)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                      jewelryShadow === id
+                        ? "bg-primary text-background"
+                        : "bg-background/60 text-foreground/70 hover:bg-secondary"
+                    }`}
+                  >
+                    {JEWELRY_SHADOW_LABELS[id]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-foreground/55">
+                {JEWELRY_SHADOW_HINTS[jewelryShadow]}
+              </p>
+            </div>
             <div
               className={
                 customPrompt.trim() ? "pointer-events-none opacity-40" : undefined
@@ -1047,7 +1723,7 @@ export function StudioApp() {
               Targets Instagram / WhatsApp sizes. Download exports exact pixels
               (e.g. post 1080×1350, story 1080×1920, chat 1080×1080).
             </p>
-            {!selfieFile && !appliedThemeId ? (
+            {!selfieFile && !appliedThemeId && (tab === "batch" ? batchBackdropMode === "scene" : true) ? (
               <>
                 <Field
                   label="Scene"
@@ -1064,6 +1740,11 @@ export function StudioApp() {
                   options={VIBES.map((k) => [k, VIBE_LABELS[k]] as const)}
                 />
               </>
+            ) : tab === "batch" && batchBackdropMode !== "scene" && !appliedThemeId ? (
+              <p className="text-[11px] text-foreground/55">
+                Scene / Mood hidden for solid backdrops. Switch to Keep scene to
+                style the setting.
+              </p>
             ) : null}
           </>
         ) : null}
@@ -1071,32 +1752,77 @@ export function StudioApp() {
         <button
           type="button"
           disabled={
-            !file ||
             loading ||
+            batchRunning ||
             generationReady === false ||
-            (tab === "video"
-              ? !canVideo ||
-                (credits !== null && credits < CREDIT_COST_PER_VIDEO)
-              : credits !== null && credits < 1)
+            (batchItems.length > 0 && tab !== "video"
+              ? batchItems.length === 0 ||
+                (credits !== null &&
+                  credits < batchItems.length * CREDIT_COST_PER_GENERATION)
+              : tab === "video"
+                ? !file ||
+                  !canVideo ||
+                  (credits !== null && credits < CREDIT_COST_PER_VIDEO)
+                : !file || (credits !== null && credits < 1))
           }
           onClick={() =>
-            void (tab === "video" ? generateVideo() : generate())
+            void (batchItems.length > 0 && tab !== "video"
+              ? generateBatch()
+              : tab === "video"
+                ? generateVideo()
+                : generate())
           }
           className="rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40 hover:bg-accent hover:text-foreground"
         >
-          {loading
+          {loading || batchRunning
             ? tab === "video"
               ? "Generating video…"
-              : "Generating…"
-            : tab === "video"
-              ? `Generate video (${CREDIT_COST_PER_VIDEO} credits)`
-              : appliedThemeId
-                ? "Generate with applied theme"
-                : mode === "background"
-                  ? "Generate background"
-                  : "Generate model shot"}
+              : batchItems.length > 0 && tab !== "video"
+                ? "Generating batch…"
+                : "Generating…"
+            : batchItems.length > 0 && tab !== "video"
+              ? `Generate all (${batchItems.length * CREDIT_COST_PER_GENERATION} credits)`
+              : tab === "video"
+                ? `Generate video (${CREDIT_COST_PER_VIDEO} credits)`
+                : appliedThemeId
+                  ? "Generate with applied theme"
+                  : mode === "background"
+                    ? "Generate background"
+                    : "Generate model shot"}
         </button>
-        {tab !== "video" && appliedThemeId ? (
+        {batchItems.length > 0 && tab !== "video" && batchRunning ? (
+          <button
+            type="button"
+            onClick={() => {
+              batchAbortRef.current = true;
+            }}
+            className="text-center text-[11px] text-primary underline"
+          >
+            Stop after current image
+          </button>
+        ) : null}
+        {batchItems.length > 0 && tab !== "video" &&
+        !batchRunning &&
+        batchItems.some((i) => i.status === "failed") ? (
+          <button
+            type="button"
+            disabled={generationReady === false}
+            onClick={() => void retryFailedBatch()}
+            className="rounded-xl border border-primary/30 bg-secondary py-2 text-sm font-medium text-foreground hover:bg-accent/30"
+          >
+            Retry failed (
+            {batchItems.filter((i) => i.status === "failed").length})
+          </button>
+        ) : null}
+        {batchItems.length > 0 && tab !== "video" ? (
+          <p className="text-center text-[11px] text-foreground/55">
+            {tab === "background"
+              ? "The first photo locks the backdrop. The rest use that same color"
+              : "Each photo uses the model look selected above"}
+            {appliedThemeId ? ", using your applied theme" : ""}.
+          </p>
+        ) : null}
+        {tab !== "video" && !(batchItems.length > 0) && appliedThemeId ? (
           <p className="text-center text-[11px] text-foreground/55">
             Theme applied — new jewelry will reuse that look.
           </p>
@@ -1110,7 +1836,107 @@ export function StudioApp() {
       </aside>
 
       <section className="flex min-h-[420px] flex-col items-center justify-center gap-4">
-        {loading ? (
+        {batchItems.some((i) => i.status !== "idle" || Boolean(i.resultUrl)) &&
+        tab !== "video" ? (
+          <div className="w-full space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {batchItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="overflow-hidden rounded-xl border border-primary/20 bg-secondary/80"
+                >
+                  <div
+                    className={`relative bg-background/40 ${OUTPUT_FORMAT_ASPECT_CLASS[format]}`}
+                  >
+                    {item.resultUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResultUrl(item.resultUrl!);
+                          setResultMime("image/jpeg");
+                          setLightboxOpen(true);
+                        }}
+                        className="block h-full w-full cursor-zoom-in"
+                        aria-label={`View ${item.file.name}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.resultUrl}
+                          alt={item.file.name}
+                          className="h-full w-full object-contain"
+                        />
+                      </button>
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.previewUrl}
+                          alt=""
+                          className="mb-1 h-12 w-12 rounded object-cover opacity-60"
+                        />
+                        <p className="text-[10px] text-foreground/55">
+                          {item.status === "running" && "Generating…"}
+                          {item.status === "queued" && "Queued"}
+                          {item.status === "idle" && "Waiting"}
+                          {item.status === "failed" && "Failed"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-1 px-2 py-1.5">
+                    <p className="truncate text-[10px] text-foreground/65">
+                      {item.file.name}
+                    </p>
+                    {item.resultUrl ? (
+                      <DownloadImageButton
+                        url={item.resultUrl}
+                        filename={downloadFilename(
+                          item.resultUrl,
+                          `jwelpixel-batch-${format}`,
+                          "image/jpeg",
+                        )}
+                        exportFormat={format}
+                        className="shrink-0 text-[10px] font-semibold text-primary underline"
+                        label="Save"
+                      />
+                    ) : item.status === "failed" && !batchRunning ? (
+                      <button
+                        type="button"
+                        onClick={() => void runBatchIds([item.id])}
+                        className="shrink-0 text-[10px] font-semibold text-primary underline"
+                      >
+                        Retry
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {batchItems.some((i) => i.resultUrl) ? (
+              <p className="text-center text-[11px] text-foreground/55">
+                {
+                  batchItems.filter((i) => i.status === "done" && i.resultUrl)
+                    .length
+                }{" "}
+                of {batchItems.length} ready — tap a result to zoom, Save to
+                download.
+              </p>
+            ) : null}
+            {resultUrl && lightboxOpen ? (
+              <ImageLightbox
+                url={resultUrl}
+                alt="Batch result"
+                open={lightboxOpen}
+                onClose={() => setLightboxOpen(false)}
+                filename={downloadFilename(
+                  resultUrl,
+                  `jwelpixel-batch-${format}`,
+                  resultMime,
+                )}
+              />
+            ) : null}
+          </div>
+        ) : loading && tab !== "batch" ? (
           <GenerationPreviewPlaceholder
             aspectClass={
               tab === "video"
@@ -1125,7 +1951,7 @@ export function StudioApp() {
                   : "Creating your model shot…"
             }
           />
-        ) : resultUrl ? (
+        ) : resultUrl && tab !== "batch" ? (
           <>
             {resultMime?.startsWith("video/") || tab === "video" ? (
               <div
@@ -1204,6 +2030,13 @@ export function StudioApp() {
                 }
               />
               {!(resultMime?.startsWith("video/") || tab === "video") ? (
+                <MarketingPosterButton
+                  imageUrl={resultUrl}
+                  brand={brand}
+                  className="rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25"
+                />
+              ) : null}
+              {!(resultMime?.startsWith("video/") || tab === "video") ? (
                 <ShareImageButton
                   generationId={generationId}
                   imageUrl={resultUrl}
@@ -1236,14 +2069,15 @@ export function StudioApp() {
         ) : (
           <p className="max-w-sm text-center text-sm text-foreground/55">
             {tab === "video"
-              ? "Your jewelry video will appear here after generation. Pick ratio, type, and motion first."
-              : mode === "background"
-                ? "Your jewelry on a styled background will appear here after generation."
-                : "Your AI model shot will appear here after generation."}
+                ? "Your jewelry video will appear here after generation. Pick ratio, type, and motion first."
+                : mode === "background"
+                  ? "Your jewelry on a styled background will appear here after generation."
+                  : "Your AI model shot will appear here after generation."}
           </p>
         )}
       </section>
     </div>
+    </>
   );
 }
 

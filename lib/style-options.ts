@@ -114,6 +114,24 @@ export type Scene = (typeof SCENES)[number];
 export type Vibe = (typeof VIBES)[number];
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
 
+/** Photoroom-style product shadows for Background / Batch. */
+export const JEWELRY_SHADOWS = ["off", "soft", "hard", "floating"] as const;
+export type JewelryShadow = (typeof JEWELRY_SHADOWS)[number];
+
+export const JEWELRY_SHADOW_LABELS: Record<JewelryShadow, string> = {
+  off: "Off",
+  soft: "Soft",
+  hard: "Hard",
+  floating: "Floating",
+};
+
+export const JEWELRY_SHADOW_HINTS: Record<JewelryShadow, string> = {
+  off: "No cast shadow — flat catalog look",
+  soft: "Diffused contact shadow under the piece",
+  hard: "Sharper directional shadow",
+  floating: "Lifted look with soft shadow below",
+};
+
 export type StudioStyle = {
   mode: GenerationMode;
   placement: Placement;
@@ -123,8 +141,10 @@ export type StudioStyle = {
   scene: Scene;
   vibe: Vibe;
   format: OutputFormat;
-  /** Solid backdrop hex for Background mode, e.g. #FFFFFF. */
+  /** Solid backdrop hex for Background mode, e.g. #FFFFFF. Null = scene-led (no solid fill). */
   backdropColor: string | null;
+  /** Photoroom-like shadow for product stills. */
+  jewelryShadow: JewelryShadow;
   /** Campaign look (wardrobe/set). Null/auto merges with other options. */
   lookPreset: string | null;
   /** When set (Gold+), chip-driven style lines are skipped in the prompt. */
@@ -316,6 +336,11 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
         ? body.look.trim()
         : null;
 
+  const shadowRaw = body.jewelryShadow as JewelryShadow;
+  const jewelryShadow = JEWELRY_SHADOWS.includes(shadowRaw)
+    ? shadowRaw
+    : "soft";
+
   const parsed: StudioStyle = {
     mode,
     placement: PLACEMENTS.includes(placement) ? placement : "auto",
@@ -326,6 +351,7 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
     vibe: VIBES.includes(vibe) ? vibe : "luxury",
     format: OUTPUT_FORMATS.includes(format) ? format : "whatsapp",
     backdropColor: null,
+    jewelryShadow,
     lookPreset: lookRaw && lookRaw.length > 0 ? lookRaw : "auto",
     customPrompt: null,
   };
@@ -340,8 +366,16 @@ export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {
     parsed.placement = "auto";
     parsed.subject = "auto";
     parsed.lookPreset = null;
-    parsed.backdropColor =
-      normalizeBackdropHex(body.backdropColor) ?? DEFAULT_BACKDROP_HEX;
+    const backdropMode =
+      typeof body.backdropMode === "string"
+        ? body.backdropMode.trim().toLowerCase()
+        : "";
+    if (backdropMode === "scene") {
+      parsed.backdropColor = null;
+    } else {
+      parsed.backdropColor =
+        normalizeBackdropHex(body.backdropColor) ?? DEFAULT_BACKDROP_HEX;
+    }
   }
 
   return parsed;

@@ -1,0 +1,786 @@
+"use client";
+
+import { BrandMarketingPanel, type BrandFormState } from "@/components/brand-marketing-panel";
+import { MarketingPosterButton } from "@/components/marketing-poster-button";
+import { DownloadImageButton } from "@/components/download-image-button";
+import { ShareImageButton } from "@/components/share-image-button";
+import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
+import { LOOK_PRESET_IDS, LOOK_PRESET_LABELS, type LookPresetId } from "@/lib/look-presets";
+import {
+  BACKDROP_COLOR_PRESETS,
+  JEWELRY_SHADOW_LABELS,
+  JEWELRY_SHADOWS,
+  OUTPUT_FORMAT_EXPORT_PX,
+  OUTPUT_FORMAT_LABELS,
+  PLACEMENT_LABELS,
+  SCENE_LABELS,
+  SHOT_LABELS,
+  SUBJECT_LABELS,
+  VIBE_LABELS,
+  type JewelryShadow,
+  type OutputFormat,
+  type Placement,
+  type Scene,
+  type Shot,
+  type Subject,
+  type Vibe,
+} from "@/lib/style-options";
+import type { ThemeStyleSnapshot } from "@/lib/themes";
+import {
+  VIDEO_ASPECT_IDS,
+  VIDEO_ASPECT_LABELS,
+  VIDEO_CAST_IDS,
+  VIDEO_CAST_LABELS,
+  VIDEO_PRESET_IDS,
+  VIDEO_PRESET_LABELS,
+  VIDEO_PURPOSE_IDS,
+  VIDEO_PURPOSE_LABELS,
+  type VideoAspectId,
+  type VideoCastId,
+  type VideoPresetId,
+  type VideoPurposeId,
+} from "@/lib/video-presets";
+import { CREDIT_COST_PER_VIDEO } from "@/lib/video-presets";
+import Link from "next/link";
+import { useId, useState } from "react";
+
+type Screen = "home" | "tools" | "edit" | "profile";
+type Feed = "all" | "listing" | "editing" | "marketing";
+type Tool =
+  | "model"
+  | "backdrop"
+  | "video"
+  | "prompt"
+  | "brand"
+  | "theme"
+  | "selfie"
+  | "shadow"
+  | "resize";
+
+const SIZES: OutputFormat[] = [
+  "whatsapp",
+  "catalog",
+  "landscape",
+  "whatsapp_status",
+  "instagram_post",
+  "instagram_story",
+];
+
+const FORMAT_IMAGE: Record<OutputFormat, string> = {
+  whatsapp: "/mobile-looks/product-white.jpg",
+  square: "/mobile-looks/product-white.jpg",
+  catalog: "/mobile-looks/product-portrait.jpg",
+  instagram_post: "/mobile-looks/product-portrait.jpg",
+  landscape: "/mobile-looks/product-landscape.jpg",
+  whatsapp_status: "/mobile-looks/product-story.jpg",
+  instagram_story: "/mobile-looks/product-story.jpg",
+};
+
+const LOOK_IMAGE: Partial<Record<LookPresetId, string>> = {
+  bridal_studio: "/mobile-looks/look-bridal.jpg",
+  beauty_closeup: "/mobile-looks/look-beauty.jpg",
+  glamour_studio: "/mobile-looks/look-glamour.jpg",
+  outdoor_bridal: "/mobile-looks/look-outdoor.jpg",
+  tuxedo_luxury: "/mobile-looks/look-tuxedo.jpg",
+  couple_wedding: "/mobile-looks/look-couple.jpg",
+  high_fashion: "/mobile-looks/look-glamour.jpg",
+  gujarati_bridal: "/mobile-looks/look-bridal.jpg",
+  ethnic_bridal: "/mobile-looks/look-bridal.jpg",
+  macro_hand: "/mobile-looks/product-white.jpg",
+  side_profile_beauty: "/mobile-looks/look-beauty.jpg",
+  western_velvet_city: "/mobile-looks/look-glamour.jpg",
+};
+
+const COLOR_IMAGE: Record<string, string> = {
+  "#FFFFFF": "/mobile-looks/product-white.jpg",
+  "#F5F0E8": "/mobile-looks/product-portrait.jpg",
+  "#0A0A0A": "/mobile-looks/product-black.jpg",
+  "#2B2B2B": "/mobile-looks/product-black.jpg",
+  "#4A0E0E": "/mobile-looks/product-black.jpg",
+  "#0F1C3F": "/mobile-looks/product-navy.jpg",
+  "#0F2A1F": "/mobile-looks/product-navy.jpg",
+  "#F3E4E7": "/mobile-looks/product-blush.jpg",
+  "#C9A227": "/mobile-looks/product-gold.jpg",
+};
+
+const TOOLS: { id: Tool; label: string }[] = [
+  { id: "model", label: "Model" },
+  { id: "backdrop", label: "Backdrop" },
+  { id: "video", label: "Video" },
+  { id: "prompt", label: "Prompt" },
+  { id: "brand", label: "Brand" },
+  { id: "theme", label: "Theme" },
+  { id: "selfie", label: "Selfie" },
+  { id: "shadow", label: "Shadow" },
+  { id: "resize", label: "Resize" },
+];
+
+export type StudioMobileHomeProps = {
+  credits: number | null;
+  previewUrl: string | null;
+  fileName: string | null;
+  resultUrl: string | null;
+  resultMime: string | null;
+  generationId: string | null;
+  loading: boolean;
+  error: string | null;
+  canCustomPrompt: boolean;
+  canBrand: boolean;
+  canThemes: boolean;
+  canSelfie: boolean;
+  canVideo: boolean;
+  generationReady: boolean | null;
+  customPrompt: string;
+  onCustomPrompt: (value: string) => void;
+  brand: BrandFormState;
+  onBrand: (value: BrandFormState) => void;
+  subject: Subject;
+  onSubject: (value: Subject) => void;
+  lookPreset: LookPresetId;
+  onLook: (value: LookPresetId) => void;
+  shot: Shot;
+  onShot: (value: Shot) => void;
+  placement: Placement;
+  onPlacement: (value: Placement) => void;
+  scene: Scene;
+  onScene: (value: Scene) => void;
+  vibe: Vibe;
+  onVibe: (value: Vibe) => void;
+  format: OutputFormat;
+  onFormat: (value: OutputFormat) => void;
+  backdropColor: string;
+  onBackdrop: (hex: string) => void;
+  jewelryShadow: JewelryShadow;
+  onShadow: (value: JewelryShadow) => void;
+  videoPreset: VideoPresetId;
+  onVideoPreset: (value: VideoPresetId) => void;
+  videoAspect: VideoAspectId;
+  onVideoAspect: (value: VideoAspectId) => void;
+  videoPurpose: VideoPurposeId;
+  onVideoPurpose: (value: VideoPurposeId) => void;
+  videoCast: VideoCastId;
+  onVideoCast: (value: VideoCastId) => void;
+  selfiePreviewUrl: string | null;
+  onPickJewelry: (file: File | null) => void;
+  onPickSelfie: (file: File | null) => void;
+  onAddBatch: (files: FileList | null) => void;
+  onSelectJob: (job: "model" | "background" | "video") => void;
+  onGenerate: () => void;
+  themeSnapshot: () => ThemeStyleSnapshot;
+  appliedThemeId: string | null;
+  onApplyTheme: (theme: ThemeListItem, style: ThemeStyleSnapshot) => void;
+  onClearTheme: () => void;
+  onSaveTheme: () => void;
+};
+
+function Chip({
+  active,
+  children,
+  onClick,
+}: {
+  active?: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+        active
+          ? "bg-primary text-white"
+          : "bg-white text-foreground ring-1 ring-primary/20"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function StudioMobileHome(props: StudioMobileHomeProps) {
+  const [screen, setScreen] = useState<Screen>("home");
+  const [feed, setFeed] = useState<Feed>("all");
+  const [tool, setTool] = useState<Tool>("model");
+  const show = (id: Feed) => feed === "all" || feed === id;
+  const piece = props.resultUrl || props.previewUrl;
+
+  function openSize(format: OutputFormat) {
+    props.onFormat(format);
+    props.onSelectJob("model");
+    setTool("resize");
+    setScreen("edit");
+  }
+
+  function openColor(hex: string) {
+    props.onBackdrop(hex);
+    props.onSelectJob("background");
+    setTool("backdrop");
+    setScreen("edit");
+  }
+
+  function openLook(id: LookPresetId) {
+    props.onLook(id);
+    props.onSelectJob("model");
+    setTool("model");
+    setScreen("edit");
+  }
+
+  function openTool(next: Tool, job?: "model" | "background" | "video") {
+    if (job) props.onSelectJob(job);
+    setTool(next);
+    setScreen("edit");
+  }
+
+  const filters: { id: Feed; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "listing", label: "Listing" },
+    { id: "editing", label: "Editing" },
+    { id: "marketing", label: "Marketing" },
+  ];
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background font-sans text-foreground">
+      <header className="flex items-center gap-3 px-4 pb-2 pt-3">
+        <img
+          src="/brand/jwelpixel-logo-v4.png"
+          alt="Jwelpixel"
+          className="h-12 w-auto max-w-[min(62vw,240px)] object-contain object-left"
+        />
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setScreen("profile")}
+          className={`grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-white ${
+            screen === "profile" ? "bg-primary ring-2 ring-accent" : "bg-primary"
+          }`}
+          aria-label="Profile"
+        >
+          JP
+        </button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
+        {screen === "home" ? (
+          <>
+            <div className="flex gap-2 overflow-x-auto pb-3">
+              {filters.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setFeed(item.id)}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ${
+                    feed === item.id
+                      ? "bg-primary text-white"
+                      : "bg-white text-foreground ring-1 ring-primary/20"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            {show("listing") ? (
+              <>
+                <Section title="Sizes">
+                  {SIZES.slice(0, 3).map((id) => (
+                    <SizeCard key={id} id={id} src={FORMAT_IMAGE[id]} onClick={() => openSize(id)} />
+                  ))}
+                </Section>
+                <Section title="Listing essentials">
+                  {(["whatsapp", "instagram_post", "catalog", "landscape"] as const).map((id) => (
+                    <SizeCard key={id} id={id} src={FORMAT_IMAGE[id]} onClick={() => openSize(id)} />
+                  ))}
+                </Section>
+              </>
+            ) : null}
+            {show("marketing") && feed !== "marketing" ? (
+              <Section title="Social essentials">
+                {(["whatsapp_status", "instagram_story", "whatsapp"] as const).map((id) => (
+                  <SizeCard key={`s-${id}`} id={id} src={FORMAT_IMAGE[id]} onClick={() => openSize(id)} />
+                ))}
+              </Section>
+            ) : null}
+            {feed === "marketing" ? (
+              <div className="mb-4">
+                <h3 className="mb-2 font-[family-name:var(--font-display)] text-xl text-foreground">
+                  Brand and festival
+                </h3>
+                <div className="mt-3">
+                  <BrandMarketingPanel
+                    value={props.brand}
+                    onChange={props.onBrand}
+                    locked={!props.canBrand}
+                    initialOpen
+                  />
+                </div>
+                <Section title="Social essentials">
+                  {(["whatsapp_status", "instagram_story", "whatsapp"] as const).map((id) => (
+                    <SizeCard key={`m-${id}`} id={id} src={FORMAT_IMAGE[id]} onClick={() => openSize(id)} />
+                  ))}
+                </Section>
+              </div>
+            ) : null}
+            {show("editing") || show("listing") ? (
+              <Section title="Classic backdrops">
+                {BACKDROP_COLOR_PRESETS.map((color) => (
+                  <button
+                    key={color.id}
+                    type="button"
+                    onClick={() => openColor(color.hex)}
+                    className="w-32 shrink-0 text-left"
+                  >
+                    <span
+                      className="mb-2 grid aspect-square place-items-center overflow-hidden rounded-2xl border border-primary/15"
+                      style={{ background: color.hex }}
+                    >
+                        <img
+                          src={COLOR_IMAGE[color.hex.toUpperCase()] ?? "/mobile-looks/product-white.jpg"}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                    </span>
+                    <span className="text-xs font-bold">{color.label}</span>
+                  </button>
+                ))}
+              </Section>
+            ) : null}
+            {show("marketing") || show("editing") ? (
+              <Section title="Model looks">
+                {LOOK_PRESET_IDS.filter((id) => id !== "auto").slice(0, 6).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => openLook(id)}
+                    className="w-36 shrink-0 text-left"
+                  >
+                    <span className="mb-2 block aspect-[4/5] overflow-hidden rounded-2xl bg-white ring-1 ring-primary/15">
+                      <img
+                        src={LOOK_IMAGE[id] ?? "/mobile-looks/look-bridal.jpg"}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    </span>
+                    <span className="text-xs font-bold">{LOOK_PRESET_LABELS[id]}</span>
+                  </button>
+                ))}
+              </Section>
+            ) : null}
+          </>
+        ) : null}
+
+        {screen === "tools" ? (
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                ["Model shot", "model", "model"],
+                ["Background", "backdrop", "background"],
+                ["Video", "video", "video"],
+                ["Prompt", "prompt", "model"],
+                ["Brand", "brand", "model"],
+                ["Theme", "theme", "model"],
+              ] as const
+            ).map(([label, id, job]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => openTool(id, job)}
+                className="relative h-28 overflow-hidden rounded-2xl border border-primary/15 bg-white p-3 text-left text-sm font-bold"
+              >
+                {label}
+                <img
+                  src={
+                    id === "video"
+                      ? "/mobile-looks/product-story.jpg"
+                      : id === "backdrop"
+                        ? "/mobile-looks/product-white.jpg"
+                        : "/mobile-looks/look-bridal.jpg"
+                  }
+                  alt=""
+                  className="absolute right-0 bottom-0 h-14 w-16 rounded-tl-2xl object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {screen === "edit" ? (
+          <div className="flex flex-col gap-3">
+            <label className="block overflow-hidden rounded-2xl border border-primary/15 bg-white">
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => props.onPickJewelry(e.target.files?.[0] ?? null)}
+              />
+              <span className="grid h-60 place-items-center">
+                {piece ? (
+                  props.resultMime?.startsWith("video/") ? (
+                    <video src={props.resultUrl ?? ""} className="max-h-60 w-full object-contain" controls />
+                  ) : (
+                    <img src={piece} alt="" className="max-h-60 w-full object-contain" />
+                  )
+                ) : (
+                  <img src="/mobile-looks/look-bridal.jpg" alt="" className="h-full w-full object-cover" />
+                )}
+              </span>
+            </label>
+            {props.resultUrl && !props.resultMime?.startsWith("video/") ? (
+              <div className="grid grid-cols-2 gap-2">
+                <DownloadImageButton url={props.resultUrl} exportFormat={props.format} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20" />
+                <ShareImageButton generationId={props.generationId} imageUrl={props.resultUrl} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20" />
+                <button type="button" onClick={props.onSaveTheme} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20">
+                  Save theme
+                </button>
+                <MarketingPosterButton
+                  imageUrl={props.resultUrl}
+                  brand={props.brand}
+                  className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20"
+                />
+              </div>
+            ) : null}
+            <div className="flex gap-2 overflow-x-auto">
+              {TOOLS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setTool(item.id);
+                    if (item.id === "video") props.onSelectJob("video");
+                    else if (item.id === "backdrop" || item.id === "shadow") props.onSelectJob("background");
+                    else if (item.id === "model" || item.id === "resize" || item.id === "selfie") props.onSelectJob("model");
+                  }}
+                  className={`w-[4.75rem] shrink-0 rounded-2xl px-2 py-3 text-xs font-bold ${
+                    tool === item.id ? "bg-primary text-white" : "bg-white ring-1 ring-primary/15"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-primary/15 bg-white p-3">
+              {tool === "model" ? (
+                <div className="flex flex-col gap-3">
+                  <Chips label="Who wears it" value={props.subject} options={["woman", "man", "couple", "south_asian", "hands_only"] as Subject[]} labels={SUBJECT_LABELS} onChange={props.onSubject} />
+                  <Chips label="Look" value={props.lookPreset} options={LOOK_PRESET_IDS.filter((id) => id !== "auto").slice(0, 6)} labels={LOOK_PRESET_LABELS} onChange={props.onLook} />
+                  <Chips label="Where it sits" value={props.placement} options={["auto", "neck", "ears", "hands", "finger", "nose"] as Placement[]} labels={PLACEMENT_LABELS} onChange={props.onPlacement} />
+                  <Chips label="Shot" value={props.shot} options={["editorial", "close_up", "catalog", "full_body"] as Shot[]} labels={SHOT_LABELS} onChange={props.onShot} />
+                  <Chips label="Scene" value={props.scene} options={["studio", "boutique", "wedding", "golden_hour", "dark_luxe", "marble_interior"] as Scene[]} labels={SCENE_LABELS} onChange={props.onScene} />
+                  <Chips label="Mood" value={props.vibe} options={["luxury", "bridal", "festive", "minimal"] as Vibe[]} labels={VIBE_LABELS} onChange={props.onVibe} />
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Batch photos</p>
+                  <p className="text-xs text-foreground/60">Every extra photo uses this model look.</p>
+                  <label className="block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
+                    Add photos
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="sr-only"
+                      onChange={(e) => {
+                        props.onSelectJob("model");
+                        props.onAddBatch(e.target.files);
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : null}
+              {tool === "backdrop" ? (
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">Color</p>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {BACKDROP_COLOR_PRESETS.map((color) => (
+                      <button
+                        key={color.id}
+                        type="button"
+                        title={color.label}
+                        aria-label={color.label}
+                        onClick={() => {
+                          props.onSelectJob("background");
+                          props.onBackdrop(color.hex);
+                        }}
+                        className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ${
+                          props.backdropColor.toUpperCase() === color.hex.toUpperCase()
+                            ? "ring-primary"
+                            : "ring-transparent"
+                        }`}
+                        style={{ background: color.hex }}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Batch on this color</p>
+                  <p className="mt-1 text-xs text-foreground/60">Extra photos use this same backdrop.</p>
+                  <label className="mt-2 block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
+                    Add photos
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="sr-only"
+                      onChange={(e) => {
+                        props.onSelectJob("background");
+                        props.onAddBatch(e.target.files);
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : null}
+              {tool === "video" ? (
+                <div className="flex flex-col gap-3">
+                  {!props.canVideo ? (
+                    <p className="text-xs text-foreground/70">Video unlocks on Diamond. See Pricing.</p>
+                  ) : null}
+                  <Chips label="Shape" value={props.videoAspect} options={[...VIDEO_ASPECT_IDS]} labels={VIDEO_ASPECT_LABELS} onChange={props.onVideoAspect} />
+                  <Chips label="Purpose" value={props.videoPurpose} options={[...VIDEO_PURPOSE_IDS]} labels={VIDEO_PURPOSE_LABELS} onChange={props.onVideoPurpose} />
+                  <Chips label="Motion" value={props.videoPreset} options={[...VIDEO_PRESET_IDS]} labels={VIDEO_PRESET_LABELS} onChange={props.onVideoPreset} />
+                  <Chips label="Cast" value={props.videoCast} options={[...VIDEO_CAST_IDS]} labels={VIDEO_CAST_LABELS} onChange={props.onVideoCast} />
+                </div>
+              ) : null}
+              {tool === "prompt" ? (
+                props.canCustomPrompt ? (
+                  <textarea
+                    value={props.customPrompt}
+                    onChange={(e) => props.onCustomPrompt(e.target.value)}
+                    placeholder="Soft temple light. Keep every stone exact."
+                    className="min-h-24 w-full rounded-xl bg-background px-3 py-2 text-sm outline-none ring-1 ring-primary/20"
+                  />
+                ) : (
+                  <p className="text-xs text-foreground/70">Custom prompts unlock on higher plans.</p>
+                )
+              ) : null}
+              {tool === "brand" ? (
+                <BrandMarketingPanel value={props.brand} onChange={props.onBrand} locked={!props.canBrand} initialOpen />
+              ) : null}
+              {tool === "theme" ? (
+                <ThemesPanel
+                  locked={!props.canThemes}
+                  enabled={props.canThemes}
+                  currentStyle={props.themeSnapshot()}
+                  previewUrl={props.resultUrl && !props.resultMime?.startsWith("video/") ? props.resultUrl : null}
+                  appliedThemeId={props.appliedThemeId}
+                  onApply={props.onApplyTheme}
+                  onClear={props.onClearTheme}
+                />
+              ) : null}
+              {tool === "selfie" ? (
+                props.canSelfie ? (
+                  <label className="block rounded-xl border border-dashed border-primary p-3 text-sm">
+                    {props.selfiePreviewUrl ? "Selfie added. Tap to replace." : "Optional selfie for try-on"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(e) => props.onPickSelfie(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                ) : (
+                  <p className="text-xs text-foreground/70">Selfie try-on unlocks on Platinum and above.</p>
+                )
+              ) : null}
+              {tool === "shadow" ? (
+                <Chips label="Shadow" value={props.jewelryShadow} options={[...JEWELRY_SHADOWS]} labels={JEWELRY_SHADOW_LABELS} onChange={props.onShadow} />
+              ) : null}
+              {tool === "resize" ? (
+                <Chips label="Export size" value={props.format} options={SIZES} labels={OUTPUT_FORMAT_LABELS} onChange={props.onFormat} />
+              ) : null}
+            </div>
+            {props.error ? <p className="text-sm text-red-600">{props.error}</p> : null}
+            <button
+              type="button"
+              disabled={props.loading || props.generationReady === false}
+              onClick={props.onGenerate}
+              className="rounded-full bg-primary py-3 text-sm font-bold text-white disabled:opacity-40"
+            >
+              {props.loading
+                ? "Generating…"
+                : tool === "video"
+                  ? `Generate video · ${CREDIT_COST_PER_VIDEO} credits`
+                  : "Generate · 1 credit"}
+            </button>
+          </div>
+        ) : null}
+
+        {screen === "profile" ? (
+          <div className="rounded-2xl border border-primary/15 bg-white p-5">
+            <h2 className="font-[family-name:var(--font-display)] text-3xl font-normal">Your profile</h2>
+            <p className="mt-2 text-sm text-foreground/70">
+              {props.credits ?? "—"} credits left
+            </p>
+            <div className="mt-6 flex flex-col gap-2">
+              <Link href="/profile" className="rounded-xl bg-primary py-3 text-center text-sm font-semibold text-white">
+                Profile
+              </Link>
+              <Link href="/gallery" className="rounded-xl border border-primary/25 py-3 text-center text-sm font-semibold">
+                Gallery
+              </Link>
+              <Link href="/pricing" className="rounded-xl border border-primary/25 py-3 text-center text-sm font-semibold">
+                Pricing
+              </Link>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <nav className="grid grid-cols-4 gap-1 border-t border-primary/15 bg-white px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        {(
+          [
+            ["home", "Home"],
+            ["tools", "Tools"],
+            ["edit", "Edit"],
+            ["profile", "Library"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setScreen(id === "profile" ? "profile" : id)}
+            className={`rounded-2xl py-2 text-xs font-bold ${
+              screen === id || (id === "profile" && screen === "profile")
+                ? "bg-primary text-white"
+                : "text-foreground/60"
+            }`}
+          >
+            {id === "profile" ? "Profile" : label}
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-4">
+      <h3 className="mb-2 font-[family-name:var(--font-display)] text-xl font-medium">{title}</h3>
+      <div className="flex gap-3 overflow-x-auto pb-1">{children}</div>
+    </section>
+  );
+}
+
+function PieceArt({ className }: { className?: string }) {
+  const uid = useId().replace(/:/g, "");
+  return (
+    <svg viewBox="0 0 160 200" className={className} aria-hidden>
+      <defs>
+        <linearGradient id={uid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f7f3fc" />
+          <stop offset="0.55" stopColor="#d5c4f3" />
+          <stop offset="1" stopColor="#7c5cbf" />
+        </linearGradient>
+      </defs>
+      <rect width="160" height="200" fill={`url(#${uid})`} />
+      <ellipse cx="80" cy="62" rx="28" ry="34" fill="#3d2a55" />
+      <ellipse cx="80" cy="66" rx="21" ry="26" fill="#f3d7c3" />
+      <path d="M46 200c4-58 20-82 34-82s30 24 34 82" fill="#6d4eaa" />
+      <path d="M58 104q22 32 44 0" fill="none" stroke="#c6a15b" strokeWidth="3" />
+      <path d="M72 128 80 148 88 128z" fill="#c6a15b" />
+      <circle cx="80" cy="150" r="5" fill="#7c5cbf" stroke="#c6a15b" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function PlatformIcon({ id }: { id: OutputFormat }) {
+  const uid = useId().replace(/:/g, "");
+  if (id === "whatsapp" || id === "whatsapp_status") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden>
+        <path
+          fill="#25D366"
+          d="M12 2.2A9.7 9.7 0 0 0 3.6 16.7L2.4 21.6l5-1.2A9.8 9.8 0 1 0 12 2.2z"
+        />
+        <path
+          fill="#fff"
+          d="M16.7 14.3c-.2-.1-1.3-.6-1.5-.7-.2-.1-.4-.1-.5.1l-.6.7c-.1.2-.3.2-.5.1a7.3 7.3 0 0 1-2.1-1.3 8 8 0 0 1-1.5-1.9c-.1-.2 0-.4.1-.5l.4-.5c.1-.1.1-.3.2-.4l-.1-.5c-.1-.3-.5-1.3-.7-1.7-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 1.9s.8 2.2.9 2.3c.1.2 1.6 2.5 3.9 3.4 1.4.6 2 .6 2.7.5.4-.1 1.3-.5 1.5-1 .2-.5.2-.9.1-1 0-.1-.2-.1-.4-.2z"
+        />
+      </svg>
+    );
+  }
+  if (id === "instagram_post" || id === "instagram_story") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden>
+        <defs>
+          <linearGradient id={uid} x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stopColor="#f9ce34" />
+            <stop offset="0.5" stopColor="#ee2a7b" />
+            <stop offset="1" stopColor="#6228d7" />
+          </linearGradient>
+        </defs>
+        <rect x="3" y="3" width="18" height="18" rx="5" fill={`url(#${uid})`} />
+        <circle cx="12" cy="12" r="4" fill="none" stroke="#fff" strokeWidth="1.6" />
+        <circle cx="17" cy="7" r="1" fill="#fff" />
+      </svg>
+    );
+  }
+  return null;
+}
+
+function SizeCard({
+  id,
+  src,
+  onClick,
+}: {
+  id: OutputFormat;
+  src: string | null;
+  onClick: () => void;
+}) {
+  const px = OUTPUT_FORMAT_EXPORT_PX[id];
+  const tall = px.height > px.width;
+  const social =
+    id === "whatsapp" ||
+    id === "whatsapp_status" ||
+    id === "instagram_post" ||
+    id === "instagram_story";
+  return (
+    <button type="button" onClick={onClick} className="w-32 shrink-0 text-left">
+      <span
+        className={`relative mb-2 block overflow-hidden rounded-2xl border border-primary/15 bg-white ${
+          tall ? "aspect-[9/16]" : px.width > px.height ? "aspect-video" : "aspect-square"
+        }`}
+      >
+        <span className="absolute inset-0">
+          {src ? (
+            <img src={src} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <PieceArt className="h-full w-full" />
+          )}
+        </span>
+        {social ? (
+          <i className="absolute bottom-2 left-2 grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm">
+            <PlatformIcon id={id} />
+          </i>
+        ) : null}
+      </span>
+      <span className="flex items-center gap-1 text-xs font-bold">
+        {social ? <PlatformIcon id={id} /> : null}
+        {OUTPUT_FORMAT_LABELS[id].split("(")[0]}
+      </span>
+      <span className="block text-[11px] text-foreground/55">
+        {px.width}×{px.height}
+      </span>
+    </button>
+  );
+}
+
+function Chips<T extends string>({
+  label,
+  value,
+  options,
+  labels,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[];
+  labels: Record<T, string>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-bold uppercase tracking-wide text-primary">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((id) => (
+          <Chip key={id} active={value === id} onClick={() => onChange(id)}>
+            {labels[id]}
+          </Chip>
+        ))}
+      </div>
+    </div>
+  );
+}

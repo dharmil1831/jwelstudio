@@ -16,6 +16,7 @@ import {
   parseVideoSubject,
   veoPersonGeneration,
   VIDEO_ASPECT_RATIO,
+  VIDEO_JEWELRY_NEGATIVE_PROMPT,
 } from "@/lib/video-presets";
 import { deductCredits, refundCredits } from "@/lib/users";
 import { toUserFacingError } from "@/lib/user-facing-error";
@@ -135,6 +136,7 @@ export async function POST(req: Request) {
       prompt,
       aspectRatio: VIDEO_ASPECT_RATIO[aspect],
       personGeneration: veoPersonGeneration(cast),
+      negativePrompt: VIDEO_JEWELRY_NEGATIVE_PROMPT,
     });
     const buffer = Buffer.from(out.videoBase64, "base64");
     const ext = out.mimeType.includes("webm") ? "webm" : "mp4";

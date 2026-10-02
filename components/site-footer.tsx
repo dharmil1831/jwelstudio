@@ -18,11 +18,11 @@ export function SiteFooter() {
           <div className="max-w-sm">
             <Link href="/" aria-label="Jwelpixel home" className="inline-flex">
               <Image
-                src="/brand/jwelpixel-logo-v6.png"
+                src="/brand/jwelpixel-logo-v4.png"
                 unoptimized
                 alt="Jwelpixel — AI model shots & videos for jewelry"
-                width={2000}
-                height={425}
+                width={1321}
+                height={400}
                 className="h-12 w-auto object-contain object-left"
               />
             </Link>

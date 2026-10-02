@@ -69,7 +69,14 @@ export const FESTIVAL_PRESETS: FestivalPreset[] = [
     label: "Navratri",
     month: 9,
     prompt:
-      "Navratri festive jewelry campaign mood: celebratory color and energy in the scene only — never change the jewelry design.",
+      "FESTIVAL SCENE — Navratri: celebratory Indian festive set, rich color, flowers, and warm light around the jewelry. Change only backdrop, props, and lighting. Never change the jewelry design.",
+  },
+  {
+    id: "dussehra",
+    label: "Dussehra",
+    month: 10,
+    prompt:
+      "FESTIVAL SCENE — Dussehra / Vijayadashami / Dasara: the setting must clearly look like Dussehra. Warm gold light, marigolds, festive Indian celebration backdrop, victory-festival atmosphere. Change only the backdrop, props, and lighting. The jewelry must stay an exact copy of the upload — same pieces, stones, and metal.",
   },
 ];
 
@@ -110,6 +117,7 @@ export type BrandOptions = {
   marketingLine: string | null;
   grams: string | null;
   festivalId: string;
+  festivalLabel: string | null;
   watermark: boolean;
   logoPlacement: LogoPlacement;
   logoBase64: string | null;
@@ -144,11 +152,18 @@ export function parseBrandOptions(body: Record<string, unknown>): BrandOptions {
       : "";
   const grams =
     typeof body.grams === "string" ? body.grams.trim().slice(0, 40) : "";
+  const festivalRaw =
+    typeof body.festivalId === "string" ? body.festivalId.trim().slice(0, 80) : "";
   const festivalId =
-    typeof body.festivalId === "string" &&
-    FESTIVAL_PRESETS.some((f) => f.id === body.festivalId)
-      ? body.festivalId
+    festivalRaw &&
+    (FESTIVAL_PRESETS.some((f) => f.id === festivalRaw) ||
+      /^[a-z0-9-]{2,80}$/.test(festivalRaw))
+      ? festivalRaw
       : "none";
+  const festivalLabelRaw =
+    typeof body.festivalLabel === "string"
+      ? body.festivalLabel.trim().slice(0, 120)
+      : "";
   const watermark = Boolean(body.watermark);
   const placementRaw =
     typeof body.logoPlacement === "string" ? body.logoPlacement : "corner_br";
@@ -175,6 +190,7 @@ export function parseBrandOptions(body: Record<string, unknown>): BrandOptions {
     marketingLine: marketingLine || null,
     grams: grams || null,
     festivalId,
+    festivalLabel: festivalLabelRaw || null,
     watermark,
     logoPlacement,
     logoBase64,
@@ -218,36 +234,22 @@ function logoPlacementInstruction(placement: LogoPlacement): string {
 export function buildBrandPromptLines(brand: BrandOptions): string {
   const lines: string[] = [];
   const fest = festivalById(brand.festivalId);
-  if (fest?.prompt) lines.push(fest.prompt);
-
-  if (brand.brandName) {
+  if (fest?.prompt) {
+    lines.push(fest.prompt);
+  } else if (brand.festivalId !== "none" && brand.festivalLabel) {
     lines.push(
-      `REQUIRED on-image text: render the brand name "${brand.brandName}" as clear, readable marketing text or a small sign/plaque in the frame (not as unreadable blur). Do not alter the jewelry.`,
-    );
-  }
-  if (brand.marketingLine) {
-    lines.push(
-      `REQUIRED on-image text: render this marketing / festival banner EXACTLY as written — "${brand.marketingLine}" — as a clear caption, banner, or card in the frame (readable letters, never on the metal itself).`,
-    );
-  }
-  if (brand.grams) {
-    lines.push(
-      `REQUIRED on-image product label: show the weight text exactly as "${brand.grams}" (e.g. a small grams badge or caption). Do not invent hallmarks engraved into the metal.`,
+      `FESTIVAL SCENE — ${brand.festivalLabel}: the backdrop, props, and lighting must clearly read as ${brand.festivalLabel}. Change only the setting. The jewelry must stay an exact copy of the upload.`,
     );
   }
 
-  if (brand.watermark || brand.logoBase64) {
-    lines.push(
-      brand.logoBase64
-        ? `A labeled brand-logo image is provided. REQUIRED: composite that logo into the final photo. ${logoPlacementInstruction(brand.logoPlacement)} Keep jewelry design unchanged.`
-        : `REQUIRED: add a small text watermark${brand.brandName ? ` reading "${brand.brandName}"` : ""}. ${logoPlacementInstruction(brand.logoPlacement)} Never redesign the jewelry.`,
-    );
+  if (!fest?.prompt && !(brand.festivalId !== "none" && brand.festivalLabel)) {
+    return "";
   }
 
   if (lines.length === 0) return "";
   return [
-    "BRAND / MARKETING OVERLAY (REQUIRED — these override any earlier “clean photo / no text” framing notes; jewelry fidelity still wins for the product itself):",
+    "FESTIVAL SETTING (change backdrop, props, and lighting only — never the jewelry):",
     ...lines,
-    "All requested brand text and logo must be visible and legible in the final image.",
+    "The finished photograph must contain no store name, phone number, weight label, or logo. Those are added in the marketing poster.",
   ].join(" ");
 }

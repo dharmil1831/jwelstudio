@@ -26,6 +26,7 @@ export async function generateJewelryVideoWithGemini(params: {
   prompt: string;
   aspectRatio?: "9:16" | "16:9";
   personGeneration?: "allow_adult" | "dont_allow";
+  negativePrompt?: string;
 }): Promise<{ videoBase64: string; mimeType: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -61,6 +62,9 @@ export async function generateJewelryVideoWithGemini(params: {
         aspectRatio: params.aspectRatio ?? "9:16",
         personGeneration,
         sampleCount: 1,
+        ...(params.negativePrompt
+          ? { negativePrompt: params.negativePrompt }
+          : {}),
       },
     }),
   });

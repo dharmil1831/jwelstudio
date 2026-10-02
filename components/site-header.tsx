@@ -87,11 +87,11 @@ export function SiteHeader({
           aria-label="Jwelpixel home"
         >
           <Image
-            src="/brand/jwelpixel-logo-v6.png"
+            src="/brand/jwelpixel-logo-v4.png"
             unoptimized
             alt="Jwelpixel — AI model shots & videos for jewelry"
-            width={2000}
-            height={425}
+            width={1321}
+            height={400}
             priority
             className="h-12 w-auto max-w-[min(60vw,240px)] object-contain object-left sm:h-14 sm:max-w-[290px]"
           />
