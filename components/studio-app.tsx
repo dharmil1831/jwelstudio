@@ -1777,7 +1777,7 @@ export function StudioApp() {
           {loading || batchRunning
             ? tab === "video"
               ? "Generating video…"
-              : batchItems.length > 0 && tab !== "video"
+              : batchItems.length > 0
                 ? "Generating batch…"
                 : "Generating…"
             : batchItems.length > 0 && tab !== "video"
