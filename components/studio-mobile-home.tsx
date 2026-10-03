@@ -72,9 +72,40 @@ const FORMAT_IMAGE: Record<OutputFormat, string> = {
   catalog: "/mobile-looks/product-portrait.jpg",
   instagram_post: "/mobile-looks/product-portrait.jpg",
   landscape: "/mobile-looks/product-landscape.jpg",
-  whatsapp_status: "/mobile-looks/product-story.jpg",
-  instagram_story: "/mobile-looks/product-story.jpg",
+  // Jewelry product placeholders — not model/girl photos
+  whatsapp_status: "/mobile-looks/product-portrait.jpg",
+  instagram_story: "/mobile-looks/product-portrait.jpg",
 };
+
+const TOOL_CARDS: {
+  id: Tool;
+  label: string;
+  job: "model" | "background" | "video";
+  image: string;
+}[] = [
+  { id: "model", label: "Model shot", job: "model", image: "/mobile-looks/look-bridal.jpg" },
+  { id: "backdrop", label: "Background", job: "background", image: "/mobile-looks/product-white.jpg" },
+  { id: "video", label: "Video", job: "video", image: "/mobile-looks/product-gold.jpg" },
+  { id: "prompt", label: "Prompt", job: "model", image: "/mobile-looks/product-portrait.jpg" },
+  { id: "brand", label: "Brand", job: "model", image: "/mobile-looks/product-blush.jpg" },
+  { id: "theme", label: "Theme", job: "model", image: "/mobile-looks/product-navy.jpg" },
+];
+
+function profileLabel(email: string | null | undefined): string {
+  if (!email?.trim()) return "Guest";
+  const local = email.split("@")[0]?.trim() || "User";
+  return local.length > 16 ? `${local.slice(0, 14)}…` : local;
+}
+
+function profileInitials(email: string | null | undefined): string {
+  if (!email?.trim()) return "?";
+  const local = email.split("@")[0] || "U";
+  const parts = local.replace(/[._-]+/g, " ").split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }
+  return local.slice(0, 2).toUpperCase();
+}
 
 const LOOK_IMAGE: Partial<Record<LookPresetId, string>> = {
   bridal_studio: "/mobile-looks/look-bridal.jpg",
@@ -117,6 +148,7 @@ const TOOLS: { id: Tool; label: string }[] = [
 
 export type StudioMobileHomeProps = {
   credits: number | null;
+  userEmail?: string | null;
   previewUrl: string | null;
   fileName: string | null;
   resultUrl: string | null;
@@ -244,18 +276,25 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         <img
           src="/brand/jwelpixel-logo-v4.png"
           alt="Jwelpixel"
-          className="h-12 w-auto max-w-[min(62vw,240px)] object-contain object-left"
+          className="h-12 w-auto max-w-[min(52vw,200px)] object-contain object-left"
         />
         <span className="flex-1" />
         <button
           type="button"
           onClick={() => setScreen("profile")}
-          className={`grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-white ${
-            screen === "profile" ? "bg-primary ring-2 ring-accent" : "bg-primary"
+          className={`flex max-w-[46%] items-center gap-2 rounded-full py-1 pl-3 pr-1 ${
+            screen === "profile"
+              ? "bg-primary/15 ring-2 ring-primary/40"
+              : "bg-white ring-1 ring-primary/15"
           }`}
           aria-label="Profile"
         >
-          JP
+          <span className="min-w-0 truncate text-left text-xs font-semibold text-foreground">
+            {profileLabel(props.userEmail)}
+          </span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-[11px] font-bold text-white">
+            {profileInitials(props.userEmail)}
+          </span>
         </button>
       </header>
 
@@ -369,34 +408,24 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
 
         {screen === "tools" ? (
           <div className="grid grid-cols-2 gap-3">
-            {(
-              [
-                ["Model shot", "model", "model"],
-                ["Background", "backdrop", "background"],
-                ["Video", "video", "video"],
-                ["Prompt", "prompt", "model"],
-                ["Brand", "brand", "model"],
-                ["Theme", "theme", "model"],
-              ] as const
-            ).map(([label, id, job]) => (
+            {TOOL_CARDS.map((card) => (
               <button
-                key={id}
+                key={card.id}
                 type="button"
-                onClick={() => openTool(id, job)}
-                className="relative h-28 overflow-hidden rounded-2xl border border-primary/15 bg-white p-3 text-left text-sm font-bold"
+                onClick={() => openTool(card.id, card.job)}
+                className="overflow-hidden rounded-2xl border border-primary/15 bg-white text-left shadow-sm"
               >
-                {label}
-                <img
-                  src={
-                    id === "video"
-                      ? "/mobile-looks/product-story.jpg"
-                      : id === "backdrop"
-                        ? "/mobile-looks/product-white.jpg"
-                        : "/mobile-looks/look-bridal.jpg"
-                  }
-                  alt=""
-                  className="absolute right-0 bottom-0 h-14 w-16 rounded-tl-2xl object-cover"
-                />
+                <span className="block aspect-[5/4] w-full overflow-hidden bg-secondary/40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={card.image}
+                    alt=""
+                    className="h-full w-full object-cover object-center"
+                  />
+                </span>
+                <span className="block px-3 py-2.5 text-sm font-bold text-foreground">
+                  {card.label}
+                </span>
               </button>
             ))}
           </div>
@@ -404,22 +433,44 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
 
         {screen === "edit" ? (
           <div className="flex flex-col gap-3">
-            <label className="block overflow-hidden rounded-2xl border border-primary/15 bg-white">
+            <label className="block cursor-pointer overflow-hidden rounded-2xl border border-primary/15 bg-white">
               <input
                 type="file"
                 accept="image/*"
                 className="sr-only"
                 onChange={(e) => props.onPickJewelry(e.target.files?.[0] ?? null)}
               />
-              <span className="grid h-60 place-items-center">
+              <span className="relative mx-auto block aspect-square w-full max-w-sm bg-secondary/35">
                 {piece ? (
                   props.resultMime?.startsWith("video/") ? (
-                    <video src={props.resultUrl ?? ""} className="max-h-60 w-full object-contain" controls />
+                    <video
+                      src={props.resultUrl ?? ""}
+                      className="absolute inset-0 h-full w-full object-contain p-2"
+                      controls
+                    />
                   ) : (
-                    <img src={piece} alt="" className="max-h-60 w-full object-contain" />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={piece}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-contain p-2"
+                    />
                   )
                 ) : (
-                  <img src="/mobile-looks/look-bridal.jpg" alt="" className="h-full w-full object-cover" />
+                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/mobile-looks/product-white.jpg"
+                      alt=""
+                      className="h-28 w-28 rounded-xl object-contain opacity-70"
+                    />
+                    <span className="text-sm font-semibold text-foreground">
+                      Tap to upload jewelry
+                    </span>
+                    <span className="text-[11px] text-foreground/55">
+                      Full piece stays visible — nothing gets cropped
+                    </span>
+                  </span>
                 )}
               </span>
             </label>
@@ -600,6 +651,12 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         {screen === "profile" ? (
           <div className="rounded-2xl border border-primary/15 bg-white p-5">
             <h2 className="font-[family-name:var(--font-display)] text-3xl font-normal">Your profile</h2>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {profileLabel(props.userEmail)}
+            </p>
+            {props.userEmail ? (
+              <p className="mt-0.5 truncate text-xs text-foreground/55">{props.userEmail}</p>
+            ) : null}
             <p className="mt-2 text-sm text-foreground/70">
               {props.credits ?? "—"} credits left
             </p>
@@ -618,30 +675,74 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         ) : null}
       </div>
 
-      <nav className="grid grid-cols-4 gap-1 border-t border-primary/15 bg-white px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <nav className="grid grid-cols-4 gap-1 border-t border-primary/15 bg-white px-1 py-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))]">
         {(
           [
             ["home", "Home"],
             ["tools", "Tools"],
             ["edit", "Edit"],
-            ["profile", "Library"],
+            ["profile", "Profile"],
           ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setScreen(id === "profile" ? "profile" : id)}
-            className={`rounded-2xl py-2 text-xs font-bold ${
-              screen === id || (id === "profile" && screen === "profile")
-                ? "bg-primary text-white"
-                : "text-foreground/60"
-            }`}
-          >
-            {id === "profile" ? "Profile" : label}
-          </button>
-        ))}
+        ).map(([id, label]) => {
+          const active = screen === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setScreen(id)}
+              className={`flex flex-col items-center gap-0.5 rounded-2xl px-1 py-2 text-[10px] font-bold ${
+                active ? "bg-primary text-white" : "text-foreground/55"
+              }`}
+            >
+              <NavIcon id={id} active={active} />
+              {label}
+            </button>
+          );
+        })}
       </nav>
     </div>
+  );
+}
+
+function NavIcon({ id, active }: { id: Screen; active: boolean }) {
+  const stroke = active ? "currentColor" : "currentColor";
+  const common = {
+    fill: "none" as const,
+    stroke,
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (id === "home") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+        <path {...common} d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z" />
+      </svg>
+    );
+  }
+  if (id === "tools") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+        <rect {...common} x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+        <rect {...common} x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+        <rect {...common} x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+        <rect {...common} x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+      </svg>
+    );
+  }
+  if (id === "edit") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+        <path {...common} d="M4 20h4l11-11-4-4L4 16v4z" />
+        <path {...common} d="m13 7 4 4" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+      <circle {...common} cx="12" cy="8" r="3.5" />
+      <path {...common} d="M5 19.5c1.5-3.5 4-5 7-5s5.5 1.5 7 5" />
+    </svg>
   );
 }
 
@@ -734,9 +835,14 @@ function SizeCard({
           tall ? "aspect-[9/16]" : px.width > px.height ? "aspect-video" : "aspect-square"
         }`}
       >
-        <span className="absolute inset-0">
+        <span className="absolute inset-0 bg-secondary/30">
           {src ? (
-            <img src={src} alt="" className="h-full w-full object-cover" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={src}
+              alt=""
+              className="h-full w-full object-contain p-1.5"
+            />
           ) : (
             <PieceArt className="h-full w-full" />
           )}

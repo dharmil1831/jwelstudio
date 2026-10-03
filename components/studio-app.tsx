@@ -168,6 +168,7 @@ function isAcceptedImage(file: File): boolean {
 export function StudioApp() {
   const pathname = usePathname();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [generationReady, setGenerationReady] = useState<boolean | null>(null);
   const [canCustomPrompt, setCanCustomPrompt] = useState(false);
@@ -240,6 +241,7 @@ export function StudioApp() {
             authenticated?: boolean;
             credits?: number;
             generationConfigured?: boolean;
+            user?: { email?: string | null };
             features?: {
               customPrompt?: boolean;
               brandOverlay?: boolean;
@@ -257,8 +259,12 @@ export function StudioApp() {
             setCanVideo(Boolean(d.features?.videoGeneration));
             if (d.authenticated && typeof d.credits === "number") {
               setCredits(d.credits);
+              setUserEmail(
+                typeof d.user?.email === "string" ? d.user.email : null,
+              );
             } else {
               setCredits(null);
+              setUserEmail(null);
               setCanCustomPrompt(false);
               setCanBrand(false);
               setCanThemes(false);
@@ -279,6 +285,7 @@ export function StudioApp() {
           if (cancelled) return;
           setAuthenticated(false);
           setCredits(null);
+          setUserEmail(null);
           setCanCustomPrompt(false);
           setCanBrand(false);
           setCanThemes(false);
@@ -1028,6 +1035,7 @@ export function StudioApp() {
       <div className="fixed inset-0 z-50 lg:hidden">
         <StudioMobileHome
           credits={credits}
+          userEmail={userEmail}
           previewUrl={previewUrl}
           fileName={file?.name ?? null}
           resultUrl={resultUrl}
