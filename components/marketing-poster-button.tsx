@@ -218,118 +218,156 @@ async function drawClassic(
 ) {
   const w = 1080;
   const h = 1440;
-  const cream = "#f3ebe1";
+  const cream = "#f4ebe0";
   const ink = "#2c2016";
   const gold = "#b8924a";
-  const goldSoft = "#d4b56a";
+  const goldSoft = "#c9a45c";
   const points = pointsOf(brand);
+  const brandName = brand.brandName.trim();
+  const headline = brand.headline.trim();
+  const offer = brand.marketingLine.trim();
+  const hasFooter =
+    Boolean(brand.phone?.trim()) ||
+    Boolean(brand.address?.trim()) ||
+    Boolean(brand.instagram?.trim()) ||
+    Boolean(brand.whatsapp?.trim());
+  const footerH = hasFooter ? 188 : 56;
 
+  // Page
   ctx.fillStyle = cream;
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = gold;
-  ctx.lineWidth = 6;
-  ctx.strokeRect(22, 22, w - 44, h - 44);
+  ctx.lineWidth = 7;
+  ctx.strokeRect(20, 20, w - 40, h - 40);
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(34, 34, w - 68, h - 68);
+  ctx.strokeRect(32, 32, w - 64, h - 64);
 
-  let headerBottom = 48;
+  // —— Header: logo + brand left | TIMELESS Elegance right ——
+  let logoH = 0;
   if (logo) {
-    const { lh } = drawLogoPlate(ctx, logo, 52, 48, 130, 80, "#fffdf8");
-    headerBottom = Math.max(headerBottom, 48 + lh);
+    const box = drawLogoPlate(ctx, logo, 48, 44, 150, 95, "#fffdf9");
+    logoH = box.lh;
   }
-
-  const titleX = logo ? 210 : 52;
-  let ty = 70;
-  if (brand.brandName.trim()) {
+  const leftX = logo ? 220 : 48;
+  ctx.textAlign = "left";
+  if (brandName) {
     ctx.fillStyle = ink;
-    ctx.font = "700 40px Newsreader, Georgia, serif";
-    ctx.textAlign = "left";
-    ctx.fillText(brand.brandName.trim(), titleX, ty);
-    ty += 28;
+    ctx.font = "700 44px Newsreader, Georgia, serif";
+    ctx.fillText(brandName, leftX, 78);
     ctx.fillStyle = gold;
-    ctx.font = "600 16px Manrope, sans-serif";
-    ctx.fillText("TRUSTED LEGACY · TIMELESS ELEGANCE", titleX, ty + 8);
-    ty += 40;
+    ctx.font = "700 18px Manrope, sans-serif";
+    ctx.fillText("JEWELLERS", leftX, 108);
+    ctx.strokeStyle = goldSoft;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(leftX, 118);
+    ctx.lineTo(leftX + 160, 118);
+    ctx.stroke();
+    ctx.fillStyle = ink;
+    ctx.font = "600 14px Manrope, sans-serif";
+    ctx.fillText("TRUSTED LEGACY, TIMELESS ELEGANCE", leftX, 140);
   }
 
   ctx.textAlign = "right";
   ctx.fillStyle = ink;
-  ctx.font = "600 22px Newsreader, Georgia, serif";
-  ctx.fillText("TIMELESS", w - 52, 72);
+  ctx.font = "600 20px Manrope, sans-serif";
+  ctx.fillText("TIMELESS", w - 48, 70);
   ctx.fillStyle = gold;
-  ctx.font = "italic 700 48px Newsreader, Georgia, serif";
-  ctx.fillText("Elegance", w - 52, 122);
-  if (brand.marketingLine.trim()) {
-    ctx.fillStyle = ink;
-    ctx.font = "400 20px Newsreader, Georgia, serif";
-    ctx.fillText(brand.marketingLine.trim().slice(0, 48), w - 52, 152);
-  }
+  ctx.font = "italic 700 52px Newsreader, Georgia, serif";
+  ctx.fillText("Elegance", w - 48, 120);
+  ctx.fillStyle = ink;
+  ctx.font = "400 18px Newsreader, Georgia, serif";
+  ctx.fillText("Crafted to shine. Made to be cherished.", w - 48, 150);
   ctx.textAlign = "left";
-  headerBottom = Math.max(headerBottom, ty, 168);
 
-  if (brand.headline.trim()) {
-    ctx.fillStyle = ink;
-    ctx.font = "700 36px Newsreader, Georgia, serif";
+  const headerBottom = Math.max(168, 44 + logoH + 16);
+
+  // —— Offer + product title (clear, not overlapping script) ——
+  let cursorY = headerBottom + 8;
+  if (offer) {
+    ctx.font = "700 24px Manrope, sans-serif";
+    const chip = offer.slice(0, 40);
+    const chipW = Math.min(520, ctx.measureText(chip).width + 40);
+    drawTextBanner(ctx, (w - chipW) / 2, cursorY, chipW, 40, ink);
+    ctx.fillStyle = cream;
     ctx.textAlign = "center";
-    ctx.fillText(brand.headline.trim().toUpperCase(), w / 2, headerBottom + 40);
+    ctx.fillText(chip, w / 2, cursorY + 28);
     ctx.textAlign = "left";
-    headerBottom += 56;
+    cursorY += 56;
+  }
+  if (headline) {
+    ctx.fillStyle = ink;
+    ctx.font = "700 34px Newsreader, Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(headline.toUpperCase(), w / 2, cursorY + 28);
+    ctx.textAlign = "left";
+    cursorY += 48;
   }
 
-  const footerH =
-    brand.phone?.trim() || brand.address?.trim() || brand.instagram?.trim()
-      ? 170
-      : 48;
-  const photoX = points.length ? 300 : 56;
-  const photoY = headerBottom + 12;
-  const photoW = w - photoX - 56;
-  const photoH = h - photoY - footerH;
+  // —— Body: left feature rail + large centered product ——
+  const bodyTop = cursorY + 8;
+  const bodyBottom = h - footerH - 12;
+  const railW = 280;
+  const photoX = 48 + railW + 12;
+  const photoY = bodyTop;
+  const photoW = w - photoX - 48;
+  const photoH = bodyBottom - bodyTop;
 
+  // Feature rail (matches WhatsApp refs)
+  let py = bodyTop + 8;
+  const railPoints =
+    points.length > 0
+      ? points
+      : ["Hallmarked Gold", "Exquisite Craftsmanship", "Trusted Quality"];
+  railPoints.slice(0, 4).forEach((point, i) => {
+    drawFeatureIcon(
+      ctx,
+      78,
+      py + 20,
+      ICON_CYCLE[i % ICON_CYCLE.length],
+      gold,
+      cream,
+    );
+    ctx.fillStyle = ink;
+    ctx.font = "600 20px Manrope, sans-serif";
+    const lines = wrapText(ctx, point, 170);
+    let ly = py + 12;
+    for (const line of lines.slice(0, 2)) {
+      ctx.fillText(line, 108, ly + 12);
+      ly += 24;
+    }
+    py += 82;
+  });
+
+  if (brand.grams.trim()) {
+    const cx = 120;
+    const cy = Math.min(py + 50, bodyBottom - 70);
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 56, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = ink;
+    ctx.textAlign = "center";
+    ctx.font = "700 15px Manrope, sans-serif";
+    ctx.fillText("WEIGHT", cx, cy - 8);
+    ctx.font = "700 22px Newsreader, Georgia, serif";
+    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 18);
+    ctx.textAlign = "left";
+  }
+
+  // Product window — large, contain, padded from frame
   ctx.fillStyle = "#fffdf8";
   ctx.fillRect(photoX, photoY, photoW, photoH);
   ctx.strokeStyle = goldSoft;
   ctx.lineWidth = 2;
-  ctx.strokeRect(photoX - 3, photoY - 3, photoW + 6, photoH + 6);
-  // Keep jewelry fully visible and centered — never crop into the gold frame.
-  drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 36);
-
-  if (points.length) {
-    let py = photoY + 10;
-    points.forEach((point, i) => {
-      drawFeatureIcon(ctx, 90, py + 22, ICON_CYCLE[i % ICON_CYCLE.length], gold, cream);
-      ctx.fillStyle = ink;
-      ctx.font = "600 22px Manrope, sans-serif";
-      const lines = wrapText(ctx, point, 170);
-      let ly = py + 14;
-      for (const line of lines.slice(0, 2)) {
-        ctx.fillText(line, 122, ly);
-        ly += 26;
-      }
-      py += 78;
-    });
-  }
-
-  if (brand.grams.trim()) {
-    const cx = 120;
-    const cy = photoY + photoH - 70;
-    ctx.strokeStyle = gold;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 54, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = ink;
-    ctx.font = "700 18px Manrope, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("WEIGHT", cx, cy - 6);
-    ctx.font = "700 22px Newsreader, Georgia, serif";
-    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 20);
-    ctx.textAlign = "left";
-  }
+  ctx.strokeRect(photoX, photoY, photoW, photoH);
+  drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 28);
 
   if (brand.watermark && logo) {
     ctx.save();
-    ctx.globalAlpha = 0.1;
-    const s = Math.min(300 / logo.width, 160 / logo.height);
+    ctx.globalAlpha = 0.08;
+    const s = Math.min(260 / logo.width, 140 / logo.height);
     ctx.drawImage(
       logo,
       photoX + (photoW - logo.width * s) / 2,
@@ -340,41 +378,50 @@ async function drawClassic(
     ctx.restore();
   }
 
-  const barY = h - footerH + 8;
+  // —— Footer contact card (reference-style framed box) ——
+  const barY = h - footerH;
   ctx.strokeStyle = gold;
   ctx.lineWidth = 2;
-  roundRect(ctx, 48, barY, w - 96, footerH - 28, 8);
+  roundRect(ctx, 44, barY, w - 88, footerH - 28, 6);
   ctx.stroke();
+  // Corner ticks
+  for (const [x, y] of [
+    [44, barY],
+    [w - 44, barY],
+    [44, barY + footerH - 28],
+    [w - 44, barY + footerH - 28],
+  ] as const) {
+    ctx.beginPath();
+    ctx.moveTo(x - 10, y);
+    ctx.lineTo(x + 10, y);
+    ctx.moveTo(x, y - 10);
+    ctx.lineTo(x, y + 10);
+    ctx.stroke();
+  }
 
   ctx.fillStyle = ink;
-  ctx.font = "600 18px Manrope, sans-serif";
-  let fy = barY + 36;
-  if (brand.instagram?.trim()) {
-    ctx.fillText(`Instagram  ${brand.instagram.trim()}`, 70, fy);
+  ctx.font = "600 17px Manrope, sans-serif";
+  const ig = brand.instagram?.trim();
+  const wa = (brand.whatsapp || brand.phone || "").trim();
+  if (ig) {
+    ctx.textAlign = "left";
+    ctx.fillText(`Follow us  @${ig.replace(/^@/, "")}`, 64, barY + 40);
   }
-  if (brand.whatsapp?.trim() || brand.phone?.trim()) {
+  if (wa) {
     ctx.textAlign = "right";
-    ctx.fillText(
-      `WhatsApp  ${(brand.whatsapp || brand.phone).trim()}`,
-      w - 70,
-      fy,
-    );
-    ctx.textAlign = "left";
+    ctx.fillText(`WhatsApp  ${wa}`, w - 64, barY + 40);
   }
-  fy += 34;
   if (brand.phone?.trim()) {
-    ctx.font = "700 28px Manrope, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(brand.phone.trim(), w / 2, fy);
-    ctx.textAlign = "left";
-    fy += 32;
+    ctx.font = "700 30px Manrope, sans-serif";
+    ctx.fillText(brand.phone.trim(), w / 2, barY + 88);
   }
   if (brand.address?.trim()) {
-    ctx.font = "500 18px Manrope, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(brand.address.trim().slice(0, 70), w / 2, fy);
-    ctx.textAlign = "left";
+    ctx.font = "500 17px Manrope, sans-serif";
+    ctx.fillText(brand.address.trim().slice(0, 72), w / 2, barY + 122);
   }
+  ctx.textAlign = "left";
 }
 
 async function drawStory(
