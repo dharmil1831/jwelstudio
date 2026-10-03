@@ -149,8 +149,8 @@ body {
 
 .gen-preview-rings {
   position: relative;
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 5.5rem;
+  height: 5.5rem;
   margin-bottom: 0.25rem;
 }
 
@@ -168,6 +168,23 @@ body {
 
 .gen-preview-rings span:nth-child(3) {
   animation-delay: 1.3s;
+}
+
+.gen-preview-logo {
+  position: absolute;
+  inset: 18%;
+  width: 64%;
+  height: 64%;
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 4px 14px rgb(0 0 0 / 0.35));
+  animation: gen-logo-pulse 2.4s ease-in-out infinite;
+}
+
+.gen-preview-logo-compact {
+  inset: 22%;
+  width: 56%;
+  height: 56%;
 }
 
 @keyframes gen-base-shift {
@@ -263,6 +280,18 @@ body {
   }
 }
 
+@keyframes gen-logo-pulse {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.88;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gen-preview-base,
   .gen-preview-blob,
@@ -270,12 +299,17 @@ body {
   .gen-preview-grid,
   .gen-preview-shimmer,
   .gen-preview-spark,
-  .gen-preview-rings span {
+  .gen-preview-rings span,
+  .gen-preview-logo {
     animation: none;
   }
 
   .gen-preview-blob {
     opacity: 0.5;
+  }
+
+  .gen-preview-logo {
+    opacity: 1;
   }
 }
 

@@ -5,19 +5,36 @@ import { GenerationPreviewPlaceholder } from "@/components/generation-preview-pl
 import { MarketingPosterButton } from "@/components/marketing-poster-button";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ShareImageButton } from "@/components/share-image-button";
+import { StudioResultVideo } from "@/components/studio-result-video";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
-import { LOOK_PRESET_IDS, LOOK_PRESET_LABELS, type LookPresetId } from "@/lib/look-presets";
+import {
+  LOOK_PRESET_HINTS,
+  LOOK_PRESET_IDS,
+  LOOK_PRESET_LABELS,
+  type LookPresetId,
+} from "@/lib/look-presets";
 import {
   BACKDROP_COLOR_PRESETS,
+  FRAMINGS,
+  FRAMING_LABELS,
+  JEWELRY_SHADOW_HINTS,
   JEWELRY_SHADOW_LABELS,
   JEWELRY_SHADOWS,
+  normalizeBackdropHex,
   OUTPUT_FORMAT_EXPORT_PX,
   OUTPUT_FORMAT_LABELS,
+  PLACEMENTS,
   PLACEMENT_LABELS,
+  SCENES,
   SCENE_LABELS,
+  SHOTS,
   SHOT_LABELS,
+  STUDIO_OUTPUT_FORMATS,
+  SUBJECTS,
   SUBJECT_LABELS,
+  VIBES,
   VIBE_LABELS,
+  type Framing,
   type JewelryShadow,
   type OutputFormat,
   type Placement,
@@ -28,8 +45,10 @@ import {
 } from "@/lib/style-options";
 import type { ThemeStyleSnapshot } from "@/lib/themes";
 import {
+  VIDEO_ASPECT_HINTS,
   VIDEO_ASPECT_IDS,
   VIDEO_ASPECT_LABELS,
+  VIDEO_CAST_HINTS,
   VIDEO_CAST_IDS,
   VIDEO_CAST_LABELS,
   VIDEO_PRESET_IDS,
@@ -58,7 +77,8 @@ type Tool =
   | "shadow"
   | "resize";
 
-const SIZES: OutputFormat[] = [
+/** Home browse cards — slightly broader than the edit Resize tool. */
+const HOME_SIZES: OutputFormat[] = [
   "whatsapp",
   "catalog",
   "landscape",
@@ -180,10 +200,15 @@ export type StudioMobileHomeProps = {
   onScene: (value: Scene) => void;
   vibe: Vibe;
   onVibe: (value: Vibe) => void;
+  framing: Framing;
+  onFraming: (value: Framing) => void;
   format: OutputFormat;
   onFormat: (value: OutputFormat) => void;
   backdropColor: string;
   onBackdrop: (hex: string) => void;
+  backdropHexInput: string;
+  onBackdropHexInput: (hex: string) => void;
+  onApplyBackdropHex: () => void;
   jewelryShadow: JewelryShadow;
   onShadow: (value: JewelryShadow) => void;
   videoPreset: VideoPresetId;
@@ -237,7 +262,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   const [tool, setTool] = useState<Tool>("model");
   const previewSlotRef = useRef<HTMLLabelElement>(null);
   const show = (id: Feed) => feed === "all" || feed === id;
-  const piece = props.resultUrl || props.previewUrl;
+  const isVideoResult =
+    Boolean(props.resultMime?.startsWith("video/")) ||
+    Boolean(props.resultUrl && /\.(mp4|webm)(\?|$)/i.test(props.resultUrl));
+  // Never fall back to the jewelry upload thumbnail for a finished video.
+  const piece = isVideoResult ? props.resultUrl : props.resultUrl || props.previewUrl;
 
   useEffect(() => {
     if (!props.loading || screen !== "edit") return;
@@ -332,7 +361,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
             {show("listing") ? (
               <>
                 <Section title="Sizes">
-                  {SIZES.slice(0, 3).map((id) => (
+                  {HOME_SIZES.slice(0, 3).map((id) => (
                     <SizeCard key={id} id={id} src={FORMAT_IMAGE[id]} onClick={() => openSize(id)} />
                   ))}
                 </Section>
@@ -396,7 +425,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
             ) : null}
             {show("marketing") || show("editing") ? (
               <Section title="Model looks">
-                {LOOK_PRESET_IDS.filter((id) => id !== "auto").slice(0, 6).map((id) => (
+                {LOOK_PRESET_IDS.filter((id) => id !== "auto").map((id) => (
                   <button
                     key={id}
                     type="button"
@@ -474,11 +503,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     }
                   />
                 ) : piece ? (
-                  props.resultMime?.startsWith("video/") ? (
-                    <video
-                      src={props.resultUrl ?? ""}
-                      className="absolute inset-0 h-full w-full object-contain p-2"
-                      controls
+                  isVideoResult && props.resultUrl ? (
+                    <StudioResultVideo
+                      src={props.resultUrl}
+                      fillClassName="absolute inset-0"
+                      className="h-full w-full bg-secondary/35 object-contain p-2"
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -542,12 +571,74 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
             <div className="rounded-2xl border border-primary/15 bg-white p-3">
               {tool === "model" ? (
                 <div className="flex flex-col gap-3">
-                  <Chips label="Who wears it" value={props.subject} options={["woman", "man", "couple", "south_asian", "hands_only"] as Subject[]} labels={SUBJECT_LABELS} onChange={props.onSubject} />
-                  <Chips label="Look" value={props.lookPreset} options={LOOK_PRESET_IDS.filter((id) => id !== "auto").slice(0, 6)} labels={LOOK_PRESET_LABELS} onChange={props.onLook} />
-                  <Chips label="Where it sits" value={props.placement} options={["auto", "neck", "ears", "hands", "finger", "nose"] as Placement[]} labels={PLACEMENT_LABELS} onChange={props.onPlacement} />
-                  <Chips label="Shot" value={props.shot} options={["editorial", "close_up", "catalog", "full_body"] as Shot[]} labels={SHOT_LABELS} onChange={props.onShot} />
-                  <Chips label="Scene" value={props.scene} options={["studio", "boutique", "wedding", "golden_hour", "dark_luxe", "marble_interior"] as Scene[]} labels={SCENE_LABELS} onChange={props.onScene} />
-                  <Chips label="Mood" value={props.vibe} options={["luxury", "bridal", "festive", "minimal"] as Vibe[]} labels={VIBE_LABELS} onChange={props.onVibe} />
+                  {props.selfiePreviewUrl ? (
+                    <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
+                      Selfie uploaded — your photo is the model. Placement, scene, mood, and format still apply.
+                    </p>
+                  ) : props.appliedThemeId ? (
+                    <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
+                      Theme applied — model / look / scene come from the saved look. Upload new jewelry and Generate.
+                    </p>
+                  ) : (
+                    <>
+                      <Chips
+                        label="Model type"
+                        value={props.subject}
+                        options={SUBJECTS}
+                        labels={SUBJECT_LABELS}
+                        onChange={props.onSubject}
+                      />
+                      <Chips
+                        label="Campaign look"
+                        value={props.lookPreset}
+                        options={LOOK_PRESET_IDS}
+                        labels={LOOK_PRESET_LABELS}
+                        onChange={props.onLook}
+                      />
+                      <p className="text-[11px] text-foreground/55">
+                        {LOOK_PRESET_HINTS[props.lookPreset]}
+                      </p>
+                      <Chips
+                        label="Shot type"
+                        value={props.shot}
+                        options={SHOTS}
+                        labels={SHOT_LABELS}
+                        onChange={props.onShot}
+                        disabled={Boolean(props.customPrompt.trim())}
+                      />
+                    </>
+                  )}
+                  <Chips
+                    label="Where to show jewelry"
+                    value={props.placement}
+                    options={PLACEMENTS}
+                    labels={PLACEMENT_LABELS}
+                    onChange={props.onPlacement}
+                    disabled={Boolean(props.customPrompt.trim())}
+                  />
+                  <Chips
+                    label="Scene"
+                    value={props.scene}
+                    options={SCENES}
+                    labels={SCENE_LABELS}
+                    onChange={props.onScene}
+                    disabled={Boolean(props.customPrompt.trim())}
+                  />
+                  <Chips
+                    label="Mood"
+                    value={props.vibe}
+                    options={VIBES}
+                    labels={VIBE_LABELS}
+                    onChange={props.onVibe}
+                    disabled={Boolean(props.customPrompt.trim())}
+                  />
+                  <Chips
+                    label="Output format"
+                    value={props.format}
+                    options={STUDIO_OUTPUT_FORMATS}
+                    labels={OUTPUT_FORMAT_LABELS}
+                    onChange={props.onFormat}
+                  />
                   <p className="text-xs font-bold uppercase tracking-wide text-primary">Batch photos</p>
                   <p className="text-xs text-foreground/60">Every extra photo uses this model look.</p>
                   <label className="block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
@@ -566,31 +657,98 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 </div>
               ) : null}
               {tool === "backdrop" ? (
-                <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">Color</p>
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {BACKDROP_COLOR_PRESETS.map((color) => (
-                      <button
-                        key={color.id}
-                        type="button"
-                        title={color.label}
-                        aria-label={color.label}
-                        onClick={() => {
-                          props.onSelectJob("background");
-                          props.onBackdrop(color.hex);
-                        }}
-                        className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ${
-                          props.backdropColor.toUpperCase() === color.hex.toUpperCase()
-                            ? "ring-primary"
-                            : "ring-transparent"
-                        }`}
-                        style={{ background: color.hex }}
+                <div className="flex flex-col gap-3">
+                  <Chips
+                    label="Framing"
+                    value={props.framing}
+                    options={FRAMINGS}
+                    labels={FRAMING_LABELS}
+                    onChange={props.onFraming}
+                    disabled={Boolean(props.customPrompt.trim())}
+                  />
+                  <Chips
+                    label="Jewelry shadow"
+                    value={props.jewelryShadow}
+                    options={JEWELRY_SHADOWS}
+                    labels={JEWELRY_SHADOW_LABELS}
+                    onChange={props.onShadow}
+                  />
+                  <p className="text-[11px] text-foreground/55">
+                    {JEWELRY_SHADOW_HINTS[props.jewelryShadow]}
+                  </p>
+                  <div className={props.customPrompt.trim() ? "pointer-events-none opacity-40" : undefined}>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">Background color</p>
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {BACKDROP_COLOR_PRESETS.map((color) => (
+                        <button
+                          key={color.id}
+                          type="button"
+                          title={color.label}
+                          aria-label={color.label}
+                          onClick={() => {
+                            props.onSelectJob("background");
+                            props.onBackdrop(color.hex);
+                          }}
+                          className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ${
+                            props.backdropColor.toUpperCase() === color.hex.toUpperCase()
+                              ? "ring-primary"
+                              : "ring-transparent"
+                          }`}
+                          style={{ background: color.hex }}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={props.backdropHexInput}
+                        onChange={(e) => props.onBackdropHexInput(e.target.value)}
+                        placeholder="#FFFFFF"
+                        className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2 text-sm outline-none ring-1 ring-primary/20"
+                        aria-label="Custom backdrop hex color"
                       />
-                    ))}
+                      <span
+                        className="h-9 w-9 shrink-0 rounded-lg ring-1 ring-primary/20"
+                        style={{
+                          backgroundColor:
+                            normalizeBackdropHex(props.backdropHexInput) ?? "#CCCCCC",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={props.onApplyBackdropHex}
+                        className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white"
+                      >
+                        Apply
+                      </button>
+                    </div>
                   </div>
+                  <Chips
+                    label="Scene"
+                    value={props.scene}
+                    options={SCENES}
+                    labels={SCENE_LABELS}
+                    onChange={props.onScene}
+                    disabled={Boolean(props.customPrompt.trim())}
+                  />
+                  <Chips
+                    label="Mood"
+                    value={props.vibe}
+                    options={VIBES}
+                    labels={VIBE_LABELS}
+                    onChange={props.onVibe}
+                    disabled={Boolean(props.customPrompt.trim())}
+                  />
+                  <Chips
+                    label="Output format"
+                    value={props.format}
+                    options={STUDIO_OUTPUT_FORMATS}
+                    labels={OUTPUT_FORMAT_LABELS}
+                    onChange={props.onFormat}
+                  />
                   <p className="text-xs font-bold uppercase tracking-wide text-primary">Batch on this color</p>
-                  <p className="mt-1 text-xs text-foreground/60">Extra photos use this same backdrop.</p>
-                  <label className="mt-2 block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
+                  <p className="text-xs text-foreground/60">Extra photos use this same backdrop.</p>
+                  <label className="block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
                     Add photos
                     <input
                       type="file"
@@ -608,12 +766,69 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               {tool === "video" ? (
                 <div className="flex flex-col gap-3">
                   {!props.canVideo ? (
-                    <p className="text-xs text-foreground/70">Video unlocks on Diamond. See Pricing.</p>
+                    <p className="text-xs text-foreground/70">
+                      Video unlocks on Diamond.{" "}
+                      <Link href="/pricing" className="font-semibold text-primary underline">
+                        See Pricing
+                      </Link>
+                      .
+                    </p>
                   ) : null}
-                  <Chips label="Shape" value={props.videoAspect} options={[...VIDEO_ASPECT_IDS]} labels={VIDEO_ASPECT_LABELS} onChange={props.onVideoAspect} />
-                  <Chips label="Purpose" value={props.videoPurpose} options={[...VIDEO_PURPOSE_IDS]} labels={VIDEO_PURPOSE_LABELS} onChange={props.onVideoPurpose} />
-                  <Chips label="Motion" value={props.videoPreset} options={[...VIDEO_PRESET_IDS]} labels={VIDEO_PRESET_LABELS} onChange={props.onVideoPreset} />
-                  <Chips label="Cast" value={props.videoCast} options={[...VIDEO_CAST_IDS]} labels={VIDEO_CAST_LABELS} onChange={props.onVideoCast} />
+                  <Chips
+                    label="Ratio"
+                    value={props.videoAspect}
+                    options={VIDEO_ASPECT_IDS}
+                    labels={VIDEO_ASPECT_LABELS}
+                    onChange={props.onVideoAspect}
+                  />
+                  <p className="text-[11px] text-foreground/55">
+                    {VIDEO_ASPECT_HINTS[props.videoAspect]}
+                  </p>
+                  <Chips
+                    label="Show jewelry as"
+                    value={props.videoCast}
+                    options={VIDEO_CAST_IDS}
+                    labels={VIDEO_CAST_LABELS}
+                    onChange={props.onVideoCast}
+                  />
+                  <p className="text-[11px] text-foreground/55">
+                    {VIDEO_CAST_HINTS[props.videoCast]}
+                  </p>
+                  {props.videoCast === "model" ? (
+                    <>
+                      <Chips
+                        label="Model type"
+                        value={props.subject}
+                        options={SUBJECTS}
+                        labels={SUBJECT_LABELS}
+                        onChange={props.onSubject}
+                      />
+                      <Chips
+                        label="Campaign look"
+                        value={props.lookPreset}
+                        options={LOOK_PRESET_IDS}
+                        labels={LOOK_PRESET_LABELS}
+                        onChange={props.onLook}
+                      />
+                    </>
+                  ) : null}
+                  <Chips
+                    label="Video type"
+                    value={props.videoPurpose}
+                    options={VIDEO_PURPOSE_IDS}
+                    labels={VIDEO_PURPOSE_LABELS}
+                    onChange={props.onVideoPurpose}
+                  />
+                  <Chips
+                    label="Camera / motion"
+                    value={props.videoPreset}
+                    options={VIDEO_PRESET_IDS}
+                    labels={VIDEO_PRESET_LABELS}
+                    onChange={props.onVideoPreset}
+                  />
+                  <p className="text-[11px] text-foreground/50">
+                    Costs {CREDIT_COST_PER_VIDEO} credits · may take a few minutes
+                  </p>
                 </div>
               ) : null}
               {tool === "prompt" ? (
@@ -658,10 +873,32 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 )
               ) : null}
               {tool === "shadow" ? (
-                <Chips label="Shadow" value={props.jewelryShadow} options={[...JEWELRY_SHADOWS]} labels={JEWELRY_SHADOW_LABELS} onChange={props.onShadow} />
+                <div className="flex flex-col gap-2">
+                  <Chips
+                    label="Jewelry shadow"
+                    value={props.jewelryShadow}
+                    options={JEWELRY_SHADOWS}
+                    labels={JEWELRY_SHADOW_LABELS}
+                    onChange={props.onShadow}
+                  />
+                  <p className="text-[11px] text-foreground/55">
+                    {JEWELRY_SHADOW_HINTS[props.jewelryShadow]}
+                  </p>
+                </div>
               ) : null}
               {tool === "resize" ? (
-                <Chips label="Export size" value={props.format} options={SIZES} labels={OUTPUT_FORMAT_LABELS} onChange={props.onFormat} />
+                <div className="flex flex-col gap-2">
+                  <Chips
+                    label="Output format"
+                    value={props.format}
+                    options={STUDIO_OUTPUT_FORMATS}
+                    labels={OUTPUT_FORMAT_LABELS}
+                    onChange={props.onFormat}
+                  />
+                  <p className="text-[11px] leading-relaxed text-foreground/55">
+                    Targets Instagram / WhatsApp sizes. Download exports exact pixels.
+                  </p>
+                </div>
               ) : null}
             </div>
             {props.error ? <p className="text-sm text-red-600">{props.error}</p> : null}
@@ -1002,15 +1239,17 @@ function Chips<T extends string>({
   options,
   labels,
   onChange,
+  disabled,
 }: {
   label: string;
   value: T;
   options: readonly T[];
   labels: Record<T, string>;
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div>
+    <div className={disabled ? "pointer-events-none opacity-40" : undefined}>
       <p className="mb-1 text-xs font-bold uppercase tracking-wide text-primary">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {options.map((id) => (

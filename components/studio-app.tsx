@@ -8,6 +8,7 @@ import {
   MarketingPosterButton,
 } from "@/components/marketing-poster-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
+import { StudioResultVideo } from "@/components/studio-result-video";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
@@ -972,9 +973,15 @@ export function StudioApp() {
 
       if (!res.ok) throw new Error(data.error ?? "Video failed");
       if (typeof data.credits === "number") setCredits(data.credits);
-      if (data.resultUrl) setResultUrl(data.resultUrl);
+      if (data.resultUrl) {
+        setResultUrl(data.resultUrl);
+        setResultMime(
+          typeof data.mimeType === "string" && data.mimeType.startsWith("video/")
+            ? data.mimeType
+            : "video/mp4",
+        );
+      }
       if (typeof data.generationId === "string") setGenerationId(data.generationId);
-      if (typeof data.mimeType === "string") setResultMime(data.mimeType);
     } catch (err) {
       setError(friendlyClientError(err));
     } finally {
@@ -1065,12 +1072,27 @@ export function StudioApp() {
           onScene={setScene}
           vibe={vibe}
           onVibe={setVibe}
+          framing={framing}
+          onFraming={setFraming}
           format={format}
           onFormat={setFormat}
           backdropColor={backdropColor}
           onBackdrop={(hex) => {
             setBackdropColor(hex);
             setBackdropHexInput(hex);
+            setBatchBackdropMode("white");
+          }}
+          backdropHexInput={backdropHexInput}
+          onBackdropHexInput={setBackdropHexInput}
+          onApplyBackdropHex={() => {
+            const next = normalizeBackdropHex(backdropHexInput);
+            if (!next) {
+              setError("Enter a valid hex color like #110707");
+              return;
+            }
+            setError(null);
+            setBackdropColor(next);
+            setBackdropHexInput(next);
             setBatchBackdropMode("white");
           }}
           jewelryShadow={jewelryShadow}
@@ -2145,12 +2167,11 @@ export function StudioApp() {
           <>
             {resultMime?.startsWith("video/") || tab === "video" ? (
               <div
-                className={`mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${VIDEO_ASPECT_CLASS[videoAspect]}`}
+                className={`relative mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${VIDEO_ASPECT_CLASS[videoAspect]}`}
               >
-                <video
+                <StudioResultVideo
                   src={resultUrl}
-                  controls
-                  playsInline
+                  fillClassName="absolute inset-0"
                   className="h-full w-full bg-background/50 object-contain"
                 />
               </div>

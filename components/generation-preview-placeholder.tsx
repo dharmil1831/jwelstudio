@@ -1,6 +1,6 @@
 "use client";
 
-/** Animated preview slot while image/video generates — moving plum canvas, not a flat white box. */
+/** Animated preview slot while image/video generates — moving plum canvas + JP mark. */
 export function GenerationPreviewPlaceholder({
   aspectClass,
   label,
@@ -52,6 +52,12 @@ export function GenerationPreviewPlaceholder({
           <span />
           <span />
           <span />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/jwelpixel-emblem-v4.png"
+            alt=""
+            className={`gen-preview-logo ${compact ? "gen-preview-logo-compact" : ""}`}
+          />
         </div>
         <p
           className={`relative z-10 font-semibold text-white drop-shadow-sm ${

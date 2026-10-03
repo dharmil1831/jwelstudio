@@ -4,6 +4,7 @@ import { toUserFacingError } from "@/lib/user-facing-error";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
+import { StudioResultVideo } from "@/components/studio-result-video";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -110,12 +111,12 @@ export function GalleryGrid() {
               className="group overflow-hidden rounded-xl border border-primary/20 bg-secondary shadow-sm"
             >
               {video ? (
-                <div className="relative block w-full">
-                  <video
+                <div className="relative aspect-[4/5] w-full overflow-hidden bg-background/40">
+                  <StudioResultVideo
                     src={item.resultUrl}
-                    controls
-                    playsInline
-                    className="aspect-[4/5] w-full object-cover bg-background/40"
+                    fillClassName="absolute inset-0"
+                    className="h-full w-full object-cover"
+                    label="Loading video…"
                   />
                 </div>
               ) : (
