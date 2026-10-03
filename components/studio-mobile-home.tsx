@@ -6,6 +6,7 @@ import { MarketingPosterButton } from "@/components/marketing-poster-button";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ShareImageButton } from "@/components/share-image-button";
 import { StudioResultVideo } from "@/components/studio-result-video";
+import { VideoIdlePreview } from "@/components/video-idle-preview";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
 import {
   LOOK_PRESET_HINTS,
@@ -482,22 +483,10 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 !props.loading && isVideoResult && props.resultUrl,
               );
               const showVideoIdle =
-                !props.loading &&
-                !showVideoPlayer &&
-                tool === "video";
-              const showLoader = props.loading || showVideoIdle;
-              const loaderLabel = props.loading
-                ? tool === "video"
-                  ? "Creating your jewelry video…"
-                  : tool === "backdrop" || tool === "shadow"
-                    ? "Creating your background still…"
-                    : "Creating your model shot…"
-                : props.previewUrl
-                  ? "Ready — tap Generate for video"
-                  : "Upload jewelry, then generate video";
+                !props.loading && !showVideoPlayer && tool === "video";
 
-              // Video / loading must not sit inside a file <label> (steals taps + shows wrong poster).
-              if (showVideoPlayer || showLoader) {
+              // Generating / video player must not sit inside a file <label>.
+              if (props.loading) {
                 return (
                   <div
                     ref={(node) => {
@@ -506,32 +495,55 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     className="block overflow-hidden rounded-2xl border border-primary/15 bg-white"
                   >
                     <span className="relative mx-auto block aspect-square w-full max-w-sm bg-secondary/35">
-                      {showVideoPlayer && props.resultUrl ? (
-                        <StudioResultVideo
-                          src={props.resultUrl}
-                          fillClassName="absolute inset-0"
-                          className="h-full w-full bg-[#1a1224] object-contain"
-                        />
-                      ) : (
-                        <GenerationPreviewPlaceholder
-                          aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
-                          label={loaderLabel}
-                        />
-                      )}
+                      <GenerationPreviewPlaceholder
+                        aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
+                        label={
+                          tool === "video"
+                            ? "Creating your jewelry video…"
+                            : tool === "backdrop" || tool === "shadow"
+                              ? "Creating your background still…"
+                              : "Creating your model shot…"
+                        }
+                      />
                     </span>
-                    {showVideoIdle && !props.previewUrl ? (
-                      <label className="block cursor-pointer border-t border-primary/10 px-3 py-2.5 text-center text-sm font-semibold text-primary">
-                        Tap to upload jewelry
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="sr-only"
-                          onChange={(e) =>
-                            props.onPickJewelry(e.target.files?.[0] ?? null)
-                          }
-                        />
-                      </label>
-                    ) : null}
+                  </div>
+                );
+              }
+
+              if (showVideoPlayer && props.resultUrl) {
+                return (
+                  <div
+                    ref={(node) => {
+                      previewSlotRef.current = node;
+                    }}
+                    className="block overflow-hidden rounded-2xl border border-primary/15 bg-white"
+                  >
+                    <span className="relative mx-auto block aspect-square w-full max-w-sm bg-[#1a1224]">
+                      <StudioResultVideo
+                        src={props.resultUrl}
+                        fillClassName="absolute inset-0"
+                        className="h-full w-full object-contain"
+                        label="Opening your video…"
+                      />
+                    </span>
+                  </div>
+                );
+              }
+
+              if (showVideoIdle) {
+                return (
+                  <div
+                    ref={(node) => {
+                      previewSlotRef.current = node;
+                    }}
+                    className="block overflow-hidden rounded-2xl border border-primary/15 bg-white"
+                  >
+                    <span className="relative mx-auto block aspect-square w-full max-w-sm overflow-hidden">
+                      <VideoIdlePreview
+                        previewUrl={props.previewUrl}
+                        onUpload={props.onPickJewelry}
+                      />
+                    </span>
                   </div>
                 );
               }
@@ -577,7 +589,15 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 </label>
               );
             })()}
-            {props.resultUrl && !props.resultMime?.startsWith("video/") ? (
+            {props.resultUrl && isVideoResult ? (
+              <DownloadImageButton
+                url={props.resultUrl}
+                filename="jwelpixel-video.mp4"
+                label="Download video"
+                className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20"
+              />
+            ) : null}
+            {props.resultUrl && !isVideoResult ? (
               <div className="grid grid-cols-2 gap-2">
                 <DownloadImageButton url={props.resultUrl} exportFormat={props.format} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20" />
                 <ShareImageButton generationId={props.generationId} imageUrl={props.resultUrl} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20" />
@@ -944,17 +964,30 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               ) : null}
             </div>
             {props.error ? <p className="text-sm text-red-600">{props.error}</p> : null}
+            {!props.previewUrl && !props.loading ? (
+              <p className="text-center text-xs font-medium text-foreground/60">
+                Upload jewelry first — Generate stays locked so credits are not spent.
+              </p>
+            ) : null}
             <button
               type="button"
-              disabled={props.loading || props.generationReady === false}
+              disabled={
+                props.loading ||
+                props.generationReady === false ||
+                !props.previewUrl
+              }
               onClick={props.onGenerate}
               className="rounded-full bg-primary py-3 text-sm font-bold text-white disabled:opacity-40"
             >
               {props.loading
-                ? "Generating…"
-                : tool === "video"
-                  ? `Generate video · ${CREDIT_COST_PER_VIDEO} credits`
-                  : "Generate · 1 credit"}
+                ? tool === "video"
+                  ? "Generating video…"
+                  : "Generating…"
+                : !props.previewUrl
+                  ? "Upload jewelry to generate"
+                  : tool === "video"
+                    ? `Generate video · ${CREDIT_COST_PER_VIDEO} credits`
+                    : "Generate · 1 credit"}
             </button>
           </div>
         ) : null}

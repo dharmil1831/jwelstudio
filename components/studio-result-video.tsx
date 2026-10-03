@@ -6,62 +6,72 @@ import { useEffect, useRef, useState } from "react";
 type StudioResultVideoProps = {
   src: string;
   className?: string;
-  /** Wrapper classes when filling a fixed aspect slot (e.g. absolute inset-0). */
   fillClassName?: string;
   label?: string;
 };
 
+/** Seconds of playback kept under the cover so the jewelry still-head never flashes. */
+const STILL_COVER_S = 0.65;
+const REVEAL_FALLBACK_MS = 2800;
+
 /**
- * Never flash the jewelry upload / first still frame. Keep the JP loader up
- * until the video is actually playing (or the user taps Play).
+ * Plays under an opaque JP cover, then reveals only after the still head is past.
+ * Never shows the upload thumbnail as a poster.
  */
 export function StudioResultVideo({
   src,
   className,
   fillClassName,
-  label = "Starting your video…",
+  label = "Opening your video…",
 }: StudioResultVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    setPlaying(false);
+    setRevealed(false);
     setNeedsTap(false);
+    startedRef.current = false;
     const el = videoRef.current;
     if (!el) return;
     el.pause();
     el.load();
-  }, [src]);
 
-  function skipStillHead(el: HTMLVideoElement) {
-    if (!Number.isFinite(el.duration) || el.duration <= 0.5) return;
-    const target = Math.min(0.85, Math.max(0.4, el.duration * 0.12));
-    try {
-      el.currentTime = target;
-    } catch {
-      /* seek can fail before full buffer */
-    }
-  }
+    const fallback = window.setTimeout(() => {
+      // Don't leave people stuck on the cover if autoplay/buffer stalls.
+      if (!startedRef.current) setNeedsTap(true);
+      else setRevealed(true);
+    }, REVEAL_FALLBACK_MS);
+
+    return () => window.clearTimeout(fallback);
+  }, [src]);
 
   async function startPlayback() {
     const el = videoRef.current;
     if (!el) return;
-    skipStillHead(el);
     try {
       el.muted = true;
+      el.playsInline = true;
       await el.play();
-      setPlaying(true);
+      startedRef.current = true;
       setNeedsTap(false);
     } catch {
       setNeedsTap(true);
-      setPlaying(false);
+    }
+  }
+
+  function maybeReveal(el: HTMLVideoElement) {
+    if (revealed) return;
+    if (el.currentTime >= STILL_COVER_S) {
+      setRevealed(true);
+      setNeedsTap(false);
     }
   }
 
   return (
     <div className={fillClassName ?? "relative h-full w-full"}>
-      {!playing ? (
+      {!revealed ? (
         <div className="absolute inset-0 z-[2]">
           <GenerationPreviewPlaceholder
             aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
@@ -89,35 +99,34 @@ export function StudioResultVideo({
         ref={videoRef}
         key={src}
         src={src}
-        controls={playing}
+        controls={revealed}
         playsInline
         autoPlay
         muted
         preload="auto"
-        // Transparent poster so the browser never paints the jewelry still underneath.
         poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-        onLoadedData={(e) => {
-          skipStillHead(e.currentTarget);
+        onLoadedData={() => {
+          if (!startedRef.current) void startPlayback();
         }}
         onCanPlay={() => {
-          if (!playing) void startPlayback();
+          if (!startedRef.current) void startPlayback();
         }}
         onPlaying={() => {
-          setPlaying(true);
+          startedRef.current = true;
           setNeedsTap(false);
+          const el = videoRef.current;
+          if (el) maybeReveal(el);
         }}
-        onPause={(e) => {
-          // Ignore the brief pause that can happen while seeking the still head.
-          if (e.currentTarget.currentTime < 0.2) return;
-        }}
+        onTimeUpdate={(e) => maybeReveal(e.currentTarget)}
         onEnded={() => {
-          setPlaying(false);
           setNeedsTap(true);
+          setRevealed(false);
+          startedRef.current = false;
         }}
         className={`${className ?? "h-full w-full object-contain"} ${
-          playing
-            ? "relative z-[1] opacity-100"
-            : "pointer-events-none absolute inset-0 opacity-0"
+          revealed
+            ? "relative z-[1] bg-[#1a1224] opacity-100"
+            : "pointer-events-none absolute inset-0 bg-[#1a1224] opacity-0"
         }`}
       />
     </div>
