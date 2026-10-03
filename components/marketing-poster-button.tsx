@@ -142,27 +142,11 @@ async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not draw the poster.");
 
-  const cream = "#f6efe4";
-  const creamDeep = "#ebe2d2";
-  const ink = "#3a2a1a";
+  const cream = "#f4ebe0";
+  const ink = "#2f2116";
   const gold = "#b8924a";
   const goldSoft = "#d4b56a";
 
-  // Cream page
-  const page = ctx.createLinearGradient(0, 0, 0, h);
-  page.addColorStop(0, "#faf6ee");
-  page.addColorStop(1, creamDeep);
-  ctx.fillStyle = page;
-  ctx.fillRect(0, 0, w, h);
-
-  // Outer gold frame
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 8;
-  ctx.strokeRect(28, 28, w - 56, h - 56);
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(42, 42, w - 84, h - 84);
-
-  // Header brand block
   const brandName = brand.brandName.trim();
   const headline = brand.headline.trim();
   const offer = brand.marketingLine.trim();
@@ -171,138 +155,160 @@ async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob
     .map((p) => p.trim())
     .filter(Boolean)
     .slice(0, 4);
-
-  let headerBottom = 56;
   const logoPlacement = brand.logoPlacement || "corner_tl";
-  const logoOnTop =
-    logoPlacement === "corner_tl" ||
-    logoPlacement === "corner_tr" ||
-    logoPlacement === "subtle";
+  const phoneH = brand.phone.trim() ? 84 : 0;
 
-  let logoLayout: { x: number; y: number; lw: number; lh: number } | null = null;
-  if (logo && logoOnTop) {
-    logoLayout = drawLogoAt(
-      ctx,
-      logo,
-      logoPlacement === "subtle" ? "corner_tr" : logoPlacement,
-      w,
-      h,
-      logoPlacement === "subtle",
-    );
-    headerBottom = Math.max(headerBottom, logoLayout.y + logoLayout.lh + 16);
+  // Cream page
+  ctx.fillStyle = cream;
+  ctx.fillRect(0, 0, w, h);
+
+  // Outer gold frame
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 7;
+  ctx.strokeRect(24, 24, w - 48, h - 48);
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(36, 36, w - 72, h - 72);
+
+  // Compact header: logo (if top) + brand + headline + offer in one tight band
+  const headerTop = 52;
+  let headerH = 120;
+  const topLogo =
+    logo &&
+    (logoPlacement === "corner_tl" ||
+      logoPlacement === "corner_tr" ||
+      logoPlacement === "subtle");
+
+  let topLogoBox: { x: number; y: number; lw: number; lh: number } | null = null;
+  if (topLogo && logo) {
+    const place = logoPlacement === "subtle" ? "corner_tr" : logoPlacement;
+    topLogoBox = drawLogoAt(ctx, logo, place, w, h, logoPlacement === "subtle");
   }
 
-  // Brand name under / beside logo area
-  const titleX =
-    logoLayout && logoPlacement === "corner_tl"
-      ? logoLayout.x + logoLayout.lw + 24
+  const textLeft =
+    topLogoBox && logoPlacement === "corner_tl"
+      ? topLogoBox.x + topLogoBox.lw + 20
       : 56;
-  const titleMax =
-    logoLayout && logoPlacement === "corner_tr"
-      ? logoLayout.x - 72
-      : w - titleX - 56;
+  const textRight =
+    topLogoBox && (logoPlacement === "corner_tr" || logoPlacement === "subtle")
+      ? topLogoBox.x - 24
+      : w - 56;
+  const textMax = Math.max(280, textRight - textLeft);
 
-  let ty = logoLayout ? logoLayout.y + 28 : 64;
-  if (brandName) {
+  // Measure header height first
+  ctx.font = "700 34px Newsreader, Georgia, serif";
+  const brandLines = brandName ? wrapText(ctx, brandName, textMax) : [];
+  ctx.font = "700 48px Newsreader, Georgia, serif";
+  const headLines = headline ? wrapText(ctx, headline.toUpperCase(), textMax) : [];
+  ctx.font = "italic 400 26px Newsreader, Georgia, serif";
+  const offerLines = offer ? wrapText(ctx, offer, textMax) : [];
+  const contentH =
+    (brandLines.length ? brandLines.length * 38 + 10 : 0) +
+    headLines.length * 52 +
+    offerLines.length * 32 +
+    8;
+  headerH = Math.max(
+    contentH + 24,
+    topLogoBox ? topLogoBox.lh + 24 : 0,
+    brandName || headline || offer ? 96 : 20,
+  );
+
+  let ty = headerTop + 28;
+  ctx.textAlign = "left";
+  if (brandLines.length) {
     ctx.fillStyle = ink;
-    ctx.font = "700 42px Newsreader, Georgia, serif";
-    ctx.textAlign = "left";
-    ctx.fillText(brandName, titleX, ty);
-    ty += 36;
+    ctx.font = "700 34px Newsreader, Georgia, serif";
+    for (const line of brandLines) {
+      ctx.fillText(line, textLeft, ty);
+      ty += 38;
+    }
     ctx.strokeStyle = goldSoft;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(titleX, ty);
-    ctx.lineTo(titleX + Math.min(180, titleMax), ty);
+    ctx.moveTo(textLeft, ty - 12);
+    ctx.lineTo(textLeft + 140, ty - 12);
     ctx.stroke();
-    ty += 40;
+    ty += 8;
   }
-
-  if (headline) {
+  if (headLines.length) {
     ctx.fillStyle = gold;
-    ctx.font = "700 52px Newsreader, Georgia, serif";
-    for (const line of wrapText(ctx, headline.toUpperCase(), titleMax)) {
-      ctx.fillText(line, titleX, ty);
-      ty += 58;
+    ctx.font = "700 48px Newsreader, Georgia, serif";
+    for (const line of headLines) {
+      ctx.fillText(line, textLeft, ty);
+      ty += 52;
     }
   }
-
-  if (offer) {
+  if (offerLines.length) {
     ctx.fillStyle = ink;
-    ctx.font = "italic 400 28px Newsreader, Georgia, serif";
-    for (const line of wrapText(ctx, offer, titleMax)) {
-      ctx.fillText(line, titleX, ty);
-      ty += 36;
+    ctx.font = "italic 400 26px Newsreader, Georgia, serif";
+    for (const line of offerLines) {
+      ctx.fillText(line, textLeft, ty);
+      ty += 32;
     }
   }
 
-  headerBottom = Math.max(headerBottom, ty + 20, 200);
+  // Optional right-side script accent (reference flyers)
+  if (headline || brandName) {
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = gold;
+    ctx.font = "italic 700 54px Newsreader, Georgia, serif";
+    ctx.textAlign = "right";
+    ctx.fillText("Elegance", w - 56, headerTop + Math.min(70, headerH - 20));
+    ctx.restore();
+  }
 
-  // Photo window
-  const phoneH = brand.phone.trim() ? 92 : 0;
-  const footerReserve = 36 + phoneH;
-  const sideRail = points.length ? 300 : 64;
-  const photoX = sideRail;
-  const photoY = headerBottom + 12;
-  const photoW = w - photoX - 64;
-  const photoH = h - photoY - footerReserve - 24;
+  const photoX = 56;
+  const photoY = headerTop + headerH + 8;
+  const photoW = w - 112;
+  const photoH = h - photoY - (phoneH ? phoneH + 40 : 48);
 
-  // Soft photo mat
-  ctx.fillStyle = cream;
-  roundRect(ctx, photoX - 10, photoY - 10, photoW + 20, photoH + 20, 8);
-  ctx.fill();
+  // Photo with thin gold mat
   ctx.strokeStyle = goldSoft;
   ctx.lineWidth = 2;
-  roundRect(ctx, photoX - 10, photoY - 10, photoW + 20, photoH + 20, 8);
-  ctx.stroke();
+  ctx.strokeRect(photoX - 4, photoY - 4, photoW + 8, photoH + 8);
 
   const cover = Math.max(photoW / photo.width, photoH / photo.height);
   const dw = photo.width * cover;
   const dh = photo.height * cover;
   ctx.save();
   ctx.beginPath();
-  roundRect(ctx, photoX, photoY, photoW, photoH, 4);
+  ctx.rect(photoX, photoY, photoW, photoH);
   ctx.clip();
   ctx.drawImage(photo, photoX + (photoW - dw) / 2, photoY + (photoH - dh) / 2, dw, dh);
   ctx.restore();
 
-  // Left feature rail (reference-style)
+  // Feature pills over the photo (left), like reference flyers
   if (points.length) {
-    let py = photoY + 24;
+    let py = photoY + 28;
     for (const point of points) {
+      ctx.font = "600 22px Manrope, sans-serif";
+      const label = point.slice(0, 28);
+      const tw = ctx.measureText(label).width;
+      const pillW = tw + 70;
+      ctx.fillStyle = "rgba(244, 235, 224, 0.92)";
+      roundRect(ctx, photoX + 18, py, pillW, 44, 22);
+      ctx.fill();
       ctx.fillStyle = gold;
       ctx.beginPath();
-      ctx.arc(78, py + 10, 22, 0, Math.PI * 2);
+      ctx.arc(photoX + 40, py + 22, 12, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = cream;
-      ctx.font = "700 18px Manrope, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("◆", 78, py + 16);
-      ctx.textAlign = "left";
-
       ctx.fillStyle = ink;
-      ctx.font = "600 22px Manrope, sans-serif";
-      const wrapped = wrapText(ctx, point, 180);
-      let ly = py + 4;
-      for (const line of wrapped.slice(0, 2)) {
-        ctx.fillText(line, 112, ly + 14);
-        ly += 26;
-      }
-      py += Math.max(70, wrapped.length * 26 + 36);
+      ctx.fillText(label, photoX + 60, py + 29);
+      py += 56;
     }
   }
 
   // Grams badge
   if (brand.grams.trim()) {
-    const cx = photoX + photoW - 70;
-    const cy = photoY + photoH - 70;
+    const cx = photoX + photoW - 72;
+    const cy = photoY + photoH - 72;
     ctx.fillStyle = gold;
     ctx.beginPath();
-    ctx.arc(cx, cy, 58, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 56, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = cream;
     ctx.beginPath();
-    ctx.arc(cx, cy, 50, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 48, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = gold;
     ctx.lineWidth = 2;
@@ -314,41 +320,71 @@ async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob
     ctx.textAlign = "left";
   }
 
-  // Soft watermark
+  // Soft watermark on photo
   if (brand.watermark) {
     ctx.save();
-    ctx.globalAlpha = 0.1;
+    ctx.globalAlpha = 0.12;
     if (logo) {
-      const s = Math.min(380 / logo.width, 200 / logo.height);
+      const s = Math.min(340 / logo.width, 180 / logo.height);
       const mw = logo.width * s;
       const mh = logo.height * s;
-      ctx.drawImage(logo, photoX + (photoW - mw) / 2, photoY + (photoH - mh) / 2, mw, mh);
+      ctx.drawImage(
+        logo,
+        photoX + (photoW - mw) / 2,
+        photoY + (photoH - mh) / 2,
+        mw,
+        mh,
+      );
     } else if (brandName) {
-      ctx.fillStyle = ink;
-      ctx.font = "700 64px Newsreader, Georgia, serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 60px Newsreader, Georgia, serif";
       ctx.textAlign = "center";
       ctx.fillText(brandName.toUpperCase(), photoX + photoW / 2, photoY + photoH / 2);
     }
     ctx.restore();
   }
 
-  // Corner / bottom logos when not already drawn on top
-  if (logo && !logoOnTop) {
-    drawLogoAt(ctx, logo, logoPlacement, w, h, false);
+  // Logo on photo corners when placement is not top header
+  if (logo && !topLogo) {
+    const maxW = 150;
+    const maxH = 90;
+    const scale = Math.min(maxW / logo.width, maxH / logo.height);
+    const lw = logo.width * scale;
+    const lh = logo.height * scale;
+    let lx = photoX + 20;
+    let ly = photoY + 20;
+    if (logoPlacement === "corner_br") {
+      lx = photoX + photoW - lw - 20;
+      ly = photoY + photoH - lh - 20;
+    } else if (logoPlacement === "corner_bl") {
+      lx = photoX + 20;
+      ly = photoY + photoH - lh - 20;
+    } else if (logoPlacement === "bottom_center") {
+      lx = photoX + (photoW - lw) / 2;
+      ly = photoY + photoH - lh - 20;
+    } else if (logoPlacement === "center" || logoPlacement === "jewelry_center") {
+      lx = photoX + (photoW - lw) / 2;
+      ly = photoY + (photoH - lh) / 2;
+    }
+    // Cream plate behind logo so it reads on busy photos
+    ctx.fillStyle = "rgba(244, 235, 224, 0.92)";
+    roundRect(ctx, lx - 10, ly - 10, lw + 20, lh + 20, 10);
+    ctx.fill();
+    ctx.drawImage(logo, lx, ly, lw, lh);
   }
 
   // Phone footer
   if (brand.phone.trim()) {
-    const barY = h - 36 - phoneH;
+    const barY = h - 28 - phoneH;
     ctx.fillStyle = ink;
-    roundRect(ctx, 56, barY, w - 112, phoneH, 10);
+    roundRect(ctx, 48, barY, w - 96, phoneH, 8);
     ctx.fill();
     ctx.fillStyle = goldSoft;
-    ctx.fillRect(56, barY, w - 112, 3);
+    ctx.fillRect(48, barY, w - 96, 3);
     ctx.fillStyle = cream;
-    ctx.font = "700 32px Manrope, sans-serif";
+    ctx.font = "700 30px Manrope, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(brand.phone.trim(), w / 2, barY + 56);
+    ctx.fillText(brand.phone.trim(), w / 2, barY + 52);
     ctx.textAlign = "left";
   }
 
