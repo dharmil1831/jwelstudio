@@ -6,6 +6,10 @@ import {
   LOGO_PLACEMENTS,
   type LogoPlacement,
 } from "@/lib/brand-options";
+import {
+  POSTER_TEMPLATES,
+  type PosterTemplateId,
+} from "@/lib/poster-templates";
 import { useEffect, useState } from "react";
 
 export type BrandFormState = {
@@ -15,10 +19,14 @@ export type BrandFormState = {
   headline: string;
   phone: string;
   highlights: string;
+  address: string;
+  instagram: string;
+  whatsapp: string;
   festivalId: string;
   festivalLabel: string;
   watermark: boolean;
   logoPlacement: LogoPlacement;
+  posterTemplate: PosterTemplateId;
   logoBase64: string | null;
   logoMimeType: string | null;
 };
@@ -30,10 +38,14 @@ export const EMPTY_BRAND: BrandFormState = {
   headline: "",
   phone: "",
   highlights: "",
+  address: "",
+  instagram: "",
+  whatsapp: "",
   festivalId: "none",
   festivalLabel: "",
   watermark: false,
   logoPlacement: "corner_br",
+  posterTemplate: "classic",
   logoBase64: null,
   logoMimeType: null,
 };
@@ -119,6 +131,33 @@ export function BrandMarketingPanel({
       </button>
       {open ? (
         <div className="space-y-3 border-t border-primary/15 px-3 py-3">
+          <div>
+            <p className="mb-2 text-[11px] text-foreground/55">Poster template</p>
+            <div className="grid gap-2">
+              {POSTER_TEMPLATES.map((t) => {
+                const active = value.posterTemplate === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() =>
+                      onChange({ ...value, posterTemplate: t.id })
+                    }
+                    className={`cursor-pointer rounded-xl border px-3 py-2 text-left transition ${
+                      active
+                        ? "border-primary bg-primary/15 text-foreground"
+                        : "border-primary/20 bg-background/30 text-foreground/75 hover:border-primary/40"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{t.label}</span>
+                    <span className="block text-[11px] text-foreground/55">
+                      {t.blurb}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <input
             type="text"
             placeholder="Headline (e.g. Pure gold necklace set)"
@@ -161,8 +200,37 @@ export function BrandMarketingPanel({
             }
             className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
           />
+          <input
+            type="text"
+            placeholder="WhatsApp (optional)"
+            value={value.whatsapp}
+            onChange={(e) =>
+              onChange({ ...value, whatsapp: e.target.value.slice(0, 40) })
+            }
+            className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            type="text"
+            placeholder="Instagram handle (optional)"
+            value={value.instagram}
+            onChange={(e) =>
+              onChange({ ...value, instagram: e.target.value.slice(0, 60) })
+            }
+            className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            type="text"
+            placeholder="Store address (optional)"
+            value={value.address}
+            onChange={(e) =>
+              onChange({ ...value, address: e.target.value.slice(0, 120) })
+            }
+            className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
           <textarea
-            placeholder={"Poster points, one per line\n22K pure gold\nHallmarked"}
+            placeholder={
+              "Poster points, one per line\n22K pure gold\nHallmarked\nTrusted quality"
+            }
             value={value.highlights}
             onChange={(e) =>
               onChange({ ...value, highlights: e.target.value.slice(0, 240) })

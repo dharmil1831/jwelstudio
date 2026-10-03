@@ -1,7 +1,7 @@
 "use client";
 
 import type { BrandFormState } from "@/components/brand-marketing-panel";
-import type { LogoPlacement } from "@/lib/brand-options";
+import type { PosterTemplateId } from "@/lib/poster-templates";
 import { useEffect, useState } from "react";
 
 type MarketingPosterButtonProps = {
@@ -9,6 +9,8 @@ type MarketingPosterButtonProps = {
   brand: BrandFormState;
   className?: string;
 };
+
+type IconKind = "shield" | "diamond" | "sparkle" | "gift" | "check";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -65,328 +67,544 @@ async function ensurePosterFonts() {
     document.fonts.load("700 72px Newsreader"),
     document.fonts.load("600 40px Newsreader"),
     document.fonts.load("400 28px Newsreader"),
+    document.fonts.load("italic 700 54px Newsreader"),
     document.fonts.load("600 26px Manrope"),
     document.fonts.load("700 30px Manrope"),
   ]).catch(() => undefined);
 }
 
-function logoBox(
-  placement: LogoPlacement,
-  canvasW: number,
-  canvasH: number,
-  lw: number,
-  lh: number,
+function drawCoverPhoto(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
 ) {
-  const pad = 48;
-  switch (placement) {
-    case "corner_bl":
-      return { x: pad, y: canvasH - pad - lh - 110 };
-    case "corner_tr":
-      return { x: canvasW - pad - lw, y: pad };
-    case "corner_br":
-      return { x: canvasW - pad - lw, y: canvasH - pad - lh - 110 };
-    case "bottom_center":
-      return { x: (canvasW - lw) / 2, y: canvasH - pad - lh - 110 };
-    case "center":
-    case "jewelry_center":
-      return { x: (canvasW - lw) / 2, y: (canvasH - lh) / 2 - 40 };
-    case "subtle":
-      return { x: canvasW - pad - lw * 0.75, y: canvasH - pad - lh * 0.75 - 110 };
-    case "corner_tl":
-    default:
-      return { x: pad, y: pad };
+  const cover = Math.max(w / photo.width, h / photo.height);
+  const dw = photo.width * cover;
+  const dh = photo.height * cover;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.drawImage(photo, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  ctx.restore();
+}
+
+function drawFeatureIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  kind: IconKind,
+  gold: string,
+  cream: string,
+) {
+  ctx.fillStyle = gold;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = cream;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (kind === "diamond") {
+    ctx.moveTo(cx, cy - 10);
+    ctx.lineTo(cx + 10, cy);
+    ctx.lineTo(cx, cy + 10);
+    ctx.lineTo(cx - 10, cy);
+    ctx.closePath();
+  } else if (kind === "gift") {
+    ctx.strokeRect(cx - 8, cy - 4, 16, 12);
+    ctx.moveTo(cx, cy - 4);
+    ctx.lineTo(cx, cy + 8);
+    ctx.moveTo(cx - 8, cy + 2);
+    ctx.lineTo(cx + 8, cy + 2);
+  } else if (kind === "sparkle") {
+    for (const [dx, dy] of [
+      [0, -9],
+      [9, 0],
+      [0, 9],
+      [-9, 0],
+    ] as const) {
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + dx, cy + dy);
+    }
+  } else {
+    // shield / check
+    ctx.moveTo(cx, cy - 10);
+    ctx.lineTo(cx + 9, cy - 6);
+    ctx.lineTo(cx + 9, cy + 2);
+    ctx.lineTo(cx, cy + 11);
+    ctx.lineTo(cx - 9, cy + 2);
+    ctx.lineTo(cx - 9, cy - 6);
+    ctx.closePath();
+  }
+  ctx.stroke();
+  if (kind === "shield" || kind === "check") {
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, cy);
+    ctx.lineTo(cx - 1, cy + 4);
+    ctx.lineTo(cx + 6, cy - 4);
+    ctx.stroke();
   }
 }
 
-function drawLogoAt(
+const ICON_CYCLE: IconKind[] = ["shield", "diamond", "sparkle", "gift", "check"];
+
+function pointsOf(brand: BrandFormState) {
+  return brand.highlights
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+function drawLogoPlate(
   ctx: CanvasRenderingContext2D,
   logo: HTMLImageElement,
-  placement: LogoPlacement,
-  canvasW: number,
-  canvasH: number,
-  subtle: boolean,
+  x: number,
+  y: number,
+  maxW: number,
+  maxH: number,
+  cream: string,
 ) {
-  const maxW = subtle ? 120 : 170;
-  const maxH = subtle ? 70 : 100;
   const scale = Math.min(maxW / logo.width, maxH / logo.height);
   const lw = logo.width * scale;
   const lh = logo.height * scale;
-  const { x, y } = logoBox(placement, canvasW, canvasH, lw, lh);
-  ctx.save();
-  if (subtle) ctx.globalAlpha = 0.72;
-  ctx.shadowColor = "rgba(40, 28, 16, 0.25)";
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = cream;
+  roundRect(ctx, x - 8, y - 8, lw + 16, lh + 16, 8);
+  ctx.fill();
   ctx.drawImage(logo, x, y, lw, lh);
-  ctx.restore();
-  return { x, y, lw, lh };
+  return { lw, lh };
 }
 
-/** Luxury cream flyer inspired by jewelry WhatsApp posters. */
+async function drawClassic(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement,
+  logo: HTMLImageElement | null,
+  brand: BrandFormState,
+) {
+  const w = 1080;
+  const h = 1440;
+  const cream = "#f3ebe1";
+  const ink = "#2c2016";
+  const gold = "#b8924a";
+  const goldSoft = "#d4b56a";
+  const points = pointsOf(brand);
+
+  ctx.fillStyle = cream;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 6;
+  ctx.strokeRect(22, 22, w - 44, h - 44);
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(34, 34, w - 68, h - 68);
+
+  let headerBottom = 48;
+  if (logo) {
+    const { lh } = drawLogoPlate(ctx, logo, 52, 48, 130, 80, "#fffdf8");
+    headerBottom = Math.max(headerBottom, 48 + lh);
+  }
+
+  const titleX = logo ? 210 : 52;
+  let ty = 70;
+  if (brand.brandName.trim()) {
+    ctx.fillStyle = ink;
+    ctx.font = "700 40px Newsreader, Georgia, serif";
+    ctx.textAlign = "left";
+    ctx.fillText(brand.brandName.trim(), titleX, ty);
+    ty += 28;
+    ctx.fillStyle = gold;
+    ctx.font = "600 16px Manrope, sans-serif";
+    ctx.fillText("TRUSTED LEGACY · TIMELESS ELEGANCE", titleX, ty + 8);
+    ty += 40;
+  }
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = ink;
+  ctx.font = "600 22px Newsreader, Georgia, serif";
+  ctx.fillText("TIMELESS", w - 52, 72);
+  ctx.fillStyle = gold;
+  ctx.font = "italic 700 48px Newsreader, Georgia, serif";
+  ctx.fillText("Elegance", w - 52, 122);
+  if (brand.marketingLine.trim()) {
+    ctx.fillStyle = ink;
+    ctx.font = "400 20px Newsreader, Georgia, serif";
+    ctx.fillText(brand.marketingLine.trim().slice(0, 48), w - 52, 152);
+  }
+  ctx.textAlign = "left";
+  headerBottom = Math.max(headerBottom, ty, 168);
+
+  if (brand.headline.trim()) {
+    ctx.fillStyle = ink;
+    ctx.font = "700 36px Newsreader, Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brand.headline.trim().toUpperCase(), w / 2, headerBottom + 40);
+    ctx.textAlign = "left";
+    headerBottom += 56;
+  }
+
+  const footerH =
+    brand.phone?.trim() || brand.address?.trim() || brand.instagram?.trim()
+      ? 170
+      : 48;
+  const photoX = points.length ? 300 : 56;
+  const photoY = headerBottom + 12;
+  const photoW = w - photoX - 56;
+  const photoH = h - photoY - footerH;
+
+  ctx.strokeStyle = goldSoft;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(photoX - 3, photoY - 3, photoW + 6, photoH + 6);
+  drawCoverPhoto(ctx, photo, photoX, photoY, photoW, photoH);
+
+  if (points.length) {
+    let py = photoY + 10;
+    points.forEach((point, i) => {
+      drawFeatureIcon(ctx, 90, py + 22, ICON_CYCLE[i % ICON_CYCLE.length], gold, cream);
+      ctx.fillStyle = ink;
+      ctx.font = "600 22px Manrope, sans-serif";
+      const lines = wrapText(ctx, point, 170);
+      let ly = py + 14;
+      for (const line of lines.slice(0, 2)) {
+        ctx.fillText(line, 122, ly);
+        ly += 26;
+      }
+      py += 78;
+    });
+  }
+
+  if (brand.grams.trim()) {
+    const cx = 120;
+    const cy = photoY + photoH - 70;
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 54, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = ink;
+    ctx.font = "700 18px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("WEIGHT", cx, cy - 6);
+    ctx.font = "700 22px Newsreader, Georgia, serif";
+    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 20);
+    ctx.textAlign = "left";
+  }
+
+  if (brand.watermark && logo) {
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    const s = Math.min(300 / logo.width, 160 / logo.height);
+    ctx.drawImage(
+      logo,
+      photoX + (photoW - logo.width * s) / 2,
+      photoY + (photoH - logo.height * s) / 2,
+      logo.width * s,
+      logo.height * s,
+    );
+    ctx.restore();
+  }
+
+  const barY = h - footerH + 8;
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 2;
+  roundRect(ctx, 48, barY, w - 96, footerH - 28, 8);
+  ctx.stroke();
+
+  ctx.fillStyle = ink;
+  ctx.font = "600 18px Manrope, sans-serif";
+  let fy = barY + 36;
+  if (brand.instagram?.trim()) {
+    ctx.fillText(`Instagram  ${brand.instagram.trim()}`, 70, fy);
+  }
+  if (brand.whatsapp?.trim() || brand.phone?.trim()) {
+    ctx.textAlign = "right";
+    ctx.fillText(
+      `WhatsApp  ${(brand.whatsapp || brand.phone).trim()}`,
+      w - 70,
+      fy,
+    );
+    ctx.textAlign = "left";
+  }
+  fy += 34;
+  if (brand.phone?.trim()) {
+    ctx.font = "700 28px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brand.phone.trim(), w / 2, fy);
+    ctx.textAlign = "left";
+    fy += 32;
+  }
+  if (brand.address?.trim()) {
+    ctx.font = "500 18px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brand.address.trim().slice(0, 70), w / 2, fy);
+    ctx.textAlign = "left";
+  }
+}
+
+async function drawStory(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement,
+  logo: HTMLImageElement | null,
+  brand: BrandFormState,
+) {
+  const w = 1080;
+  const h = 1920;
+  const cream = "#f6efe6";
+  const ink = "#2c2016";
+  const gold = "#b8924a";
+  const points = pointsOf(brand);
+
+  ctx.fillStyle = cream;
+  ctx.fillRect(0, 0, w, h);
+
+  // Full-bleed soft photo with cream margins
+  const photoX = 40;
+  const photoY = 200;
+  const photoW = w - 80;
+  const photoH = h - 420;
+  drawCoverPhoto(ctx, photo, photoX, photoY, photoW, photoH);
+
+  // Top cream band drawn after so text sits clean
+  ctx.fillStyle = cream;
+  ctx.fillRect(0, 0, w, 200);
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 5;
+  ctx.strokeRect(18, 18, w - 36, h - 36);
+
+  if (logo) {
+    drawLogoPlate(ctx, logo, 40, 40, 120, 72, "#fffdf8");
+  }
+
+  ctx.fillStyle = ink;
+  ctx.font = "700 42px Newsreader, Georgia, serif";
+  ctx.textAlign = "left";
+  const titleX = logo ? 180 : 40;
+  if (brand.brandName.trim()) ctx.fillText(brand.brandName.trim(), titleX, 78);
+  ctx.fillStyle = gold;
+  ctx.font = "700 44px Newsreader, Georgia, serif";
+  const head = (brand.headline.trim() || "TIMELESS ELEGANCE").toUpperCase();
+  for (const line of wrapText(ctx, head, w - titleX - 40).slice(0, 2)) {
+    ctx.fillText(line, titleX, 130);
+  }
+  if (brand.marketingLine.trim()) {
+    ctx.fillStyle = ink;
+    ctx.font = "italic 400 24px Newsreader, Georgia, serif";
+    ctx.fillText(brand.marketingLine.trim().slice(0, 50), titleX, 170);
+  }
+
+  points.slice(0, 4).forEach((point, i) => {
+    const py = photoY + 40 + i * 90;
+    ctx.fillStyle = "rgba(246, 239, 230, 0.94)";
+    roundRect(ctx, photoX + 24, py, 320, 70, 35);
+    ctx.fill();
+    drawFeatureIcon(
+      ctx,
+      photoX + 58,
+      py + 35,
+      ICON_CYCLE[i % ICON_CYCLE.length],
+      gold,
+      cream,
+    );
+    ctx.fillStyle = ink;
+    ctx.font = "600 22px Manrope, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(point.slice(0, 22), photoX + 90, py + 42);
+  });
+
+  if (brand.grams.trim()) {
+    const cx = photoX + photoW - 80;
+    const cy = photoY + photoH - 90;
+    ctx.fillStyle = "#2a1f18";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = cream;
+    ctx.font = "700 24px Newsreader, Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 8);
+  }
+
+  if (brand.watermark && logo) {
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    const s = Math.min(280 / logo.width, 150 / logo.height);
+    ctx.drawImage(
+      logo,
+      photoX + (photoW - logo.width * s) / 2,
+      photoY + (photoH - logo.height * s) / 2,
+      logo.width * s,
+      logo.height * s,
+    );
+    ctx.restore();
+  }
+
+  ctx.fillStyle = cream;
+  ctx.fillRect(0, h - 220, w, 220);
+  ctx.fillStyle = ink;
+  ctx.fillRect(40, h - 200, w - 80, 160);
+  ctx.fillStyle = gold;
+  ctx.fillRect(40, h - 200, w - 80, 4);
+  ctx.fillStyle = cream;
+  ctx.font = "600 22px Manrope, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("FOR REQUIREMENT", w / 2, h - 150);
+  ctx.font = "700 40px Manrope, sans-serif";
+  ctx.fillText((brand.phone || brand.whatsapp || "").trim() || " ", w / 2, h - 100);
+  if (brand.address?.trim()) {
+    ctx.font = "500 20px Manrope, sans-serif";
+    ctx.fillText(brand.address.trim().slice(0, 64), w / 2, h - 60);
+  }
+  ctx.textAlign = "left";
+}
+
+async function drawFestival(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement,
+  logo: HTMLImageElement | null,
+  brand: BrandFormState,
+) {
+  const w = 1080;
+  const h = 1440;
+  const cream = "#f7f1e8";
+  const ink = "#24180f";
+  const gold = "#c4a35a";
+  const points = pointsOf(brand);
+
+  drawCoverPhoto(ctx, photo, 0, 0, w, h);
+
+  // Vignette
+  const g = ctx.createLinearGradient(0, 0, 0, 380);
+  g.addColorStop(0, "rgba(20,12,8,0.62)");
+  g.addColorStop(1, "rgba(20,12,8,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, 380);
+  const g2 = ctx.createLinearGradient(0, h - 320, 0, h);
+  g2.addColorStop(0, "rgba(20,12,8,0)");
+  g2.addColorStop(1, "rgba(20,12,8,0.7)");
+  ctx.fillStyle = g2;
+  ctx.fillRect(0, h - 320, w, 320);
+
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 10;
+  ctx.strokeRect(24, 24, w - 48, h - 48);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(40, 40, w - 80, h - 80);
+
+  if (logo) {
+    const place = brand.logoPlacement || "corner_br";
+    const maxW = 150;
+    const maxH = 90;
+    const scale = Math.min(maxW / logo.width, maxH / logo.height);
+    const lw = logo.width * scale;
+    const lh = logo.height * scale;
+    let lx = 56;
+    let ly = 56;
+    if (place === "corner_br") {
+      lx = w - lw - 56;
+      ly = h - lh - 160;
+    } else if (place === "corner_tr") {
+      lx = w - lw - 56;
+      ly = 56;
+    } else if (place === "corner_bl") {
+      lx = 56;
+      ly = h - lh - 160;
+    }
+    ctx.fillStyle = "rgba(247,241,232,0.92)";
+    roundRect(ctx, lx - 10, ly - 10, lw + 20, lh + 20, 10);
+    ctx.fill();
+    ctx.drawImage(logo, lx, ly, lw, lh);
+  }
+
+  ctx.fillStyle = cream;
+  ctx.font = "600 28px Manrope, sans-serif";
+  ctx.textAlign = "left";
+  if (brand.brandName.trim()) ctx.fillText(brand.brandName.trim(), 56, 90);
+
+  const festLabel =
+    brand.headline.trim() ||
+    brand.festivalLabel.trim() ||
+    "HAPPY FESTIVAL";
+  ctx.fillStyle = gold;
+  ctx.font = "700 64px Newsreader, Georgia, serif";
+  let ty = 160;
+  for (const line of wrapText(ctx, festLabel.toUpperCase(), 900)) {
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = 12;
+    ctx.fillText(line, 56, ty);
+    ctx.shadowBlur = 0;
+    ty += 70;
+  }
+
+  if (brand.marketingLine.trim()) {
+    ctx.fillStyle = cream;
+    ctx.font = "italic 400 32px Newsreader, Georgia, serif";
+    ctx.fillText(brand.marketingLine.trim(), 56, ty + 10);
+  }
+
+  points.slice(0, 3).forEach((point, i) => {
+    const py = h - 280 + i * 42;
+    ctx.fillStyle = gold;
+    ctx.beginPath();
+    ctx.arc(70, py - 6, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = cream;
+    ctx.font = "600 24px Manrope, sans-serif";
+    ctx.fillText(point.slice(0, 34), 90, py);
+  });
+
+  if (brand.grams.trim()) {
+    const cx = w - 110;
+    const cy = h - 200;
+    ctx.fillStyle = "#111";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 64, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = cream;
+    ctx.font = "700 26px Newsreader, Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 9);
+  }
+
+  if (brand.phone.trim()) {
+    ctx.fillStyle = "rgba(20,12,8,0.88)";
+    ctx.fillRect(40, h - 110, w - 80, 70);
+    ctx.fillStyle = cream;
+    ctx.font = "700 32px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brand.phone.trim(), w / 2, h - 64);
+  }
+  ctx.textAlign = "left";
+}
+
 async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob> {
   const photo = await loadImage(imageUrl);
-  const logo =
-    brand.logoBase64
-      ? await loadImage(
-          `data:${brand.logoMimeType || "image/png"};base64,${brand.logoBase64}`,
-        )
-      : null;
+  const logo = brand.logoBase64
+    ? await loadImage(
+        `data:${brand.logoMimeType || "image/png"};base64,${brand.logoBase64}`,
+      )
+    : null;
 
   await ensurePosterFonts();
 
+  const template = (brand.posterTemplate || "classic") as PosterTemplateId;
   const w = 1080;
-  const h = 1440;
+  const h = template === "story" ? 1920 : 1440;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not draw the poster.");
 
-  const cream = "#f4ebe0";
-  const ink = "#2f2116";
-  const gold = "#b8924a";
-  const goldSoft = "#d4b56a";
-
-  const brandName = brand.brandName.trim();
-  const headline = brand.headline.trim();
-  const offer = brand.marketingLine.trim();
-  const points = brand.highlights
-    .split("\n")
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .slice(0, 4);
-  const logoPlacement = brand.logoPlacement || "corner_tl";
-  const phoneH = brand.phone.trim() ? 84 : 0;
-
-  // Cream page
-  ctx.fillStyle = cream;
-  ctx.fillRect(0, 0, w, h);
-
-  // Outer gold frame
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 7;
-  ctx.strokeRect(24, 24, w - 48, h - 48);
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(36, 36, w - 72, h - 72);
-
-  // Compact header: logo (if top) + brand + headline + offer in one tight band
-  const headerTop = 52;
-  let headerH = 120;
-  const topLogo =
-    logo &&
-    (logoPlacement === "corner_tl" ||
-      logoPlacement === "corner_tr" ||
-      logoPlacement === "subtle");
-
-  let topLogoBox: { x: number; y: number; lw: number; lh: number } | null = null;
-  if (topLogo && logo) {
-    const place = logoPlacement === "subtle" ? "corner_tr" : logoPlacement;
-    topLogoBox = drawLogoAt(ctx, logo, place, w, h, logoPlacement === "subtle");
-  }
-
-  const textLeft =
-    topLogoBox && logoPlacement === "corner_tl"
-      ? topLogoBox.x + topLogoBox.lw + 20
-      : 56;
-  const textRight =
-    topLogoBox && (logoPlacement === "corner_tr" || logoPlacement === "subtle")
-      ? topLogoBox.x - 24
-      : w - 56;
-  const textMax = Math.max(280, textRight - textLeft);
-
-  // Measure header height first
-  ctx.font = "700 34px Newsreader, Georgia, serif";
-  const brandLines = brandName ? wrapText(ctx, brandName, textMax) : [];
-  ctx.font = "700 48px Newsreader, Georgia, serif";
-  const headLines = headline ? wrapText(ctx, headline.toUpperCase(), textMax) : [];
-  ctx.font = "italic 400 26px Newsreader, Georgia, serif";
-  const offerLines = offer ? wrapText(ctx, offer, textMax) : [];
-  const contentH =
-    (brandLines.length ? brandLines.length * 38 + 10 : 0) +
-    headLines.length * 52 +
-    offerLines.length * 32 +
-    8;
-  headerH = Math.max(
-    contentH + 24,
-    topLogoBox ? topLogoBox.lh + 24 : 0,
-    brandName || headline || offer ? 96 : 20,
-  );
-
-  let ty = headerTop + 28;
-  ctx.textAlign = "left";
-  if (brandLines.length) {
-    ctx.fillStyle = ink;
-    ctx.font = "700 34px Newsreader, Georgia, serif";
-    for (const line of brandLines) {
-      ctx.fillText(line, textLeft, ty);
-      ty += 38;
-    }
-    ctx.strokeStyle = goldSoft;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(textLeft, ty - 12);
-    ctx.lineTo(textLeft + 140, ty - 12);
-    ctx.stroke();
-    ty += 8;
-  }
-  if (headLines.length) {
-    ctx.fillStyle = gold;
-    ctx.font = "700 48px Newsreader, Georgia, serif";
-    for (const line of headLines) {
-      ctx.fillText(line, textLeft, ty);
-      ty += 52;
-    }
-  }
-  if (offerLines.length) {
-    ctx.fillStyle = ink;
-    ctx.font = "italic 400 26px Newsreader, Georgia, serif";
-    for (const line of offerLines) {
-      ctx.fillText(line, textLeft, ty);
-      ty += 32;
-    }
-  }
-
-  // Optional right-side script accent (reference flyers)
-  if (headline || brandName) {
-    ctx.save();
-    ctx.globalAlpha = 0.22;
-    ctx.fillStyle = gold;
-    ctx.font = "italic 700 54px Newsreader, Georgia, serif";
-    ctx.textAlign = "right";
-    ctx.fillText("Elegance", w - 56, headerTop + Math.min(70, headerH - 20));
-    ctx.restore();
-  }
-
-  const photoX = 56;
-  const photoY = headerTop + headerH + 8;
-  const photoW = w - 112;
-  const photoH = h - photoY - (phoneH ? phoneH + 40 : 48);
-
-  // Photo with thin gold mat
-  ctx.strokeStyle = goldSoft;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(photoX - 4, photoY - 4, photoW + 8, photoH + 8);
-
-  const cover = Math.max(photoW / photo.width, photoH / photo.height);
-  const dw = photo.width * cover;
-  const dh = photo.height * cover;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(photoX, photoY, photoW, photoH);
-  ctx.clip();
-  ctx.drawImage(photo, photoX + (photoW - dw) / 2, photoY + (photoH - dh) / 2, dw, dh);
-  ctx.restore();
-
-  // Feature pills over the photo (left), like reference flyers
-  if (points.length) {
-    let py = photoY + 28;
-    for (const point of points) {
-      ctx.font = "600 22px Manrope, sans-serif";
-      const label = point.slice(0, 28);
-      const tw = ctx.measureText(label).width;
-      const pillW = tw + 70;
-      ctx.fillStyle = "rgba(244, 235, 224, 0.92)";
-      roundRect(ctx, photoX + 18, py, pillW, 44, 22);
-      ctx.fill();
-      ctx.fillStyle = gold;
-      ctx.beginPath();
-      ctx.arc(photoX + 40, py + 22, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = ink;
-      ctx.fillText(label, photoX + 60, py + 29);
-      py += 56;
-    }
-  }
-
-  // Grams badge
-  if (brand.grams.trim()) {
-    const cx = photoX + photoW - 72;
-    const cy = photoY + photoH - 72;
-    ctx.fillStyle = gold;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 56, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = cream;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 48, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = gold;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = ink;
-    ctx.font = "700 22px Newsreader, Georgia, serif";
-    ctx.textAlign = "center";
-    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 8);
-    ctx.textAlign = "left";
-  }
-
-  // Soft watermark on photo
-  if (brand.watermark) {
-    ctx.save();
-    ctx.globalAlpha = 0.12;
-    if (logo) {
-      const s = Math.min(340 / logo.width, 180 / logo.height);
-      const mw = logo.width * s;
-      const mh = logo.height * s;
-      ctx.drawImage(
-        logo,
-        photoX + (photoW - mw) / 2,
-        photoY + (photoH - mh) / 2,
-        mw,
-        mh,
-      );
-    } else if (brandName) {
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "700 60px Newsreader, Georgia, serif";
-      ctx.textAlign = "center";
-      ctx.fillText(brandName.toUpperCase(), photoX + photoW / 2, photoY + photoH / 2);
-    }
-    ctx.restore();
-  }
-
-  // Logo on photo corners when placement is not top header
-  if (logo && !topLogo) {
-    const maxW = 150;
-    const maxH = 90;
-    const scale = Math.min(maxW / logo.width, maxH / logo.height);
-    const lw = logo.width * scale;
-    const lh = logo.height * scale;
-    let lx = photoX + 20;
-    let ly = photoY + 20;
-    if (logoPlacement === "corner_br") {
-      lx = photoX + photoW - lw - 20;
-      ly = photoY + photoH - lh - 20;
-    } else if (logoPlacement === "corner_bl") {
-      lx = photoX + 20;
-      ly = photoY + photoH - lh - 20;
-    } else if (logoPlacement === "bottom_center") {
-      lx = photoX + (photoW - lw) / 2;
-      ly = photoY + photoH - lh - 20;
-    } else if (logoPlacement === "center" || logoPlacement === "jewelry_center") {
-      lx = photoX + (photoW - lw) / 2;
-      ly = photoY + (photoH - lh) / 2;
-    }
-    // Cream plate behind logo so it reads on busy photos
-    ctx.fillStyle = "rgba(244, 235, 224, 0.92)";
-    roundRect(ctx, lx - 10, ly - 10, lw + 20, lh + 20, 10);
-    ctx.fill();
-    ctx.drawImage(logo, lx, ly, lw, lh);
-  }
-
-  // Phone footer
-  if (brand.phone.trim()) {
-    const barY = h - 28 - phoneH;
-    ctx.fillStyle = ink;
-    roundRect(ctx, 48, barY, w - 96, phoneH, 8);
-    ctx.fill();
-    ctx.fillStyle = goldSoft;
-    ctx.fillRect(48, barY, w - 96, 3);
-    ctx.fillStyle = cream;
-    ctx.font = "700 30px Manrope, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(brand.phone.trim(), w / 2, barY + 52);
-    ctx.textAlign = "left";
-  }
+  if (template === "story") await drawStory(ctx, photo, logo, brand);
+  else if (template === "festival") await drawFestival(ctx, photo, logo, brand);
+  else await drawClassic(ctx, photo, logo, brand);
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", 0.94),
@@ -431,7 +649,7 @@ export function MarketingPosterButton({
     if (!previewUrl) return;
     const a = document.createElement("a");
     a.href = previewUrl;
-    a.download = "jwelpixel-marketing-poster.jpg";
+    a.download = `jwelpixel-poster-${brand.posterTemplate || "classic"}.jpg`;
     a.click();
   }
 
@@ -462,7 +680,9 @@ export function MarketingPosterButton({
           aria-label="Marketing poster preview"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
-            <p className="text-sm text-white/80">Marketing poster preview</p>
+            <p className="text-sm text-white/80">
+              {(brand.posterTemplate || "classic").toUpperCase()} poster preview
+            </p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
