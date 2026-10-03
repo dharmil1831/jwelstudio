@@ -73,8 +73,8 @@ const FORMAT_IMAGE: Record<OutputFormat, string> = {
   instagram_post: "/mobile-looks/product-portrait.jpg",
   landscape: "/mobile-looks/product-landscape.jpg",
   // Jewelry product placeholders — not model/girl photos
-  whatsapp_status: "/mobile-looks/product-portrait.jpg",
-  instagram_story: "/mobile-looks/product-portrait.jpg",
+  whatsapp_status: "/mobile-looks/product-story.jpg",
+  instagram_story: "/mobile-looks/product-story.jpg",
 };
 
 const TOOL_CARDS: {
@@ -85,9 +85,10 @@ const TOOL_CARDS: {
 }[] = [
   { id: "model", label: "Model shot", job: "model", image: "/mobile-looks/look-bridal.jpg" },
   { id: "backdrop", label: "Background", job: "background", image: "/mobile-looks/product-white.jpg" },
-  { id: "video", label: "Video", job: "video", image: "/mobile-looks/product-gold.jpg" },
+  // Jewelry product placeholders for non-model tools (not look/model photos)
+  { id: "video", label: "Video", job: "video", image: "/mobile-looks/product-story.jpg" },
   { id: "prompt", label: "Prompt", job: "model", image: "/mobile-looks/product-portrait.jpg" },
-  { id: "brand", label: "Brand", job: "model", image: "/mobile-looks/product-blush.jpg" },
+  { id: "brand", label: "Brand", job: "model", image: "/mobile-looks/product-gold.jpg" },
   { id: "theme", label: "Theme", job: "model", image: "/mobile-looks/product-navy.jpg" },
 ];
 
@@ -302,20 +303,24 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         {screen === "home" ? (
           <>
             <div className="flex gap-2 overflow-x-auto pb-3">
-              {filters.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setFeed(item.id)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ${
-                    feed === item.id
-                      ? "bg-primary text-white"
-                      : "bg-white text-foreground ring-1 ring-primary/20"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {filters.map((item) => {
+                const active = feed === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setFeed(item.id)}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold ${
+                      active
+                        ? "bg-primary text-white"
+                        : "bg-white text-foreground ring-1 ring-primary/20"
+                    }`}
+                  >
+                    <FeedIcon id={item.id} />
+                    {item.label}
+                  </button>
+                );
+              })}
             </div>
             {show("listing") ? (
               <>
@@ -415,13 +420,16 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 onClick={() => openTool(card.id, card.job)}
                 className="overflow-hidden rounded-2xl border border-primary/15 bg-white text-left shadow-sm"
               >
-                <span className="block aspect-[5/4] w-full overflow-hidden bg-secondary/40">
+                <span className="relative block aspect-[5/4] w-full overflow-hidden bg-secondary/40">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={card.image}
                     alt=""
                     className="h-full w-full object-cover object-center"
                   />
+                  <span className="absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-xl bg-white/95 text-primary shadow-sm">
+                    <ToolGlyph id={card.id} />
+                  </span>
                 </span>
                 <span className="block px-3 py-2.5 text-sm font-bold text-foreground">
                   {card.label}
@@ -701,6 +709,106 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         })}
       </nav>
     </div>
+  );
+}
+
+function FeedIcon({ id }: { id: Feed }) {
+  const stroke = {
+    fill: "none" as const,
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (id === "all") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" aria-hidden>
+        <rect fill="currentColor" x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+        <rect fill="currentColor" x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+        <rect fill="currentColor" x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+        <rect fill="currentColor" x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+      </svg>
+    );
+  }
+  if (id === "listing") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" aria-hidden>
+        <rect {...stroke} x="4" y="3" width="16" height="18" rx="2" />
+        <path {...stroke} d="M8 8h8M8 12h8M8 16h5" />
+      </svg>
+    );
+  }
+  if (id === "editing") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" aria-hidden>
+        <path {...stroke} d="M12 20h9" />
+        <path {...stroke} d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 2.8 14.6 9l6.9.6-5.2 4.4 1.6 6.7L12 17.2 6.1 20.7 7.7 14 2.5 9.6 9.4 9z"
+      />
+    </svg>
+  );
+}
+
+function ToolGlyph({ id }: { id: Tool }) {
+  const common = {
+    fill: "none" as const,
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (id === "model") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+        <circle {...common} cx="12" cy="8" r="3" />
+        <path {...common} d="M6 19c1.2-3 3.2-4.5 6-4.5s4.8 1.5 6 4.5" />
+      </svg>
+    );
+  }
+  if (id === "backdrop") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+        <rect {...common} x="3" y="5" width="18" height="14" rx="2" />
+        <circle {...common} cx="9" cy="11" r="2" />
+        <path {...common} d="m21 16-5-5-7 7" />
+      </svg>
+    );
+  }
+  if (id === "video") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+        <rect {...common} x="3" y="6" width="13" height="12" rx="2" />
+        <path {...common} d="m16 10 5-3v10l-5-3v-4z" />
+      </svg>
+    );
+  }
+  if (id === "prompt") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+        <path {...common} d="M5 5h14v10H9l-4 3V5z" />
+        <path {...common} d="M9 10h6M9 13h4" />
+      </svg>
+    );
+  }
+  if (id === "brand") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+        <path {...common} d="M12 3 14.2 8.2 20 9l-4.2 3.8L17 19l-5-2.8L7 19l1.2-6.2L4 9l5.8-.8z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <path {...common} d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+      <circle {...common} cx="12" cy="12" r="3.5" />
+    </svg>
   );
 }
 
