@@ -108,7 +108,7 @@ export const PLAN_FEATURE_BULLETS: Record<PaidPlanId, string[]> = {
   silver: [
     "Model shot & background modes",
     "WhatsApp & Instagram formats",
-    "Share to social (link / WhatsApp)",
+    "Download-ready exports",
     "Expanded model & scene options",
   ],
   gold: [

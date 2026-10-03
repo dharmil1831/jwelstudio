@@ -1,6 +1,7 @@
 "use client";
 
 import { BrandMarketingPanel, type BrandFormState } from "@/components/brand-marketing-panel";
+import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { MarketingPosterButton } from "@/components/marketing-poster-button";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ShareImageButton } from "@/components/share-image-button";
@@ -42,7 +43,7 @@ import {
 } from "@/lib/video-presets";
 import { CREDIT_COST_PER_VIDEO } from "@/lib/video-presets";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 type Screen = "home" | "tools" | "edit" | "profile";
 type Feed = "all" | "listing" | "editing" | "marketing";
@@ -234,8 +235,14 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   const [screen, setScreen] = useState<Screen>("home");
   const [feed, setFeed] = useState<Feed>("all");
   const [tool, setTool] = useState<Tool>("model");
+  const previewSlotRef = useRef<HTMLLabelElement>(null);
   const show = (id: Feed) => feed === "all" || feed === id;
   const piece = props.resultUrl || props.previewUrl;
+
+  useEffect(() => {
+    if (!props.loading || screen !== "edit") return;
+    previewSlotRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [props.loading, screen]);
 
   function openSize(format: OutputFormat) {
     props.onFormat(format);
@@ -441,15 +448,32 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
 
         {screen === "edit" ? (
           <div className="flex flex-col gap-3">
-            <label className="block cursor-pointer overflow-hidden rounded-2xl border border-primary/15 bg-white">
+            <label
+              ref={previewSlotRef}
+              className={`block overflow-hidden rounded-2xl border border-primary/15 bg-white ${
+                props.loading ? "pointer-events-none" : "cursor-pointer"
+              }`}
+            >
               <input
                 type="file"
                 accept="image/*"
                 className="sr-only"
+                disabled={props.loading}
                 onChange={(e) => props.onPickJewelry(e.target.files?.[0] ?? null)}
               />
               <span className="relative mx-auto block aspect-square w-full max-w-sm bg-secondary/35">
-                {piece ? (
+                {props.loading ? (
+                  <GenerationPreviewPlaceholder
+                    aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
+                    label={
+                      tool === "video"
+                        ? "Creating your jewelry video…"
+                        : tool === "backdrop" || tool === "shadow"
+                          ? "Creating your background still…"
+                          : "Creating your model shot…"
+                    }
+                  />
+                ) : piece ? (
                   props.resultMime?.startsWith("video/") ? (
                     <video
                       src={props.resultUrl ?? ""}

@@ -3,13 +3,25 @@
 import { toUserFacingError } from "@/lib/user-facing-error";
 import { useState } from "react";
 
+/**
+ * Local Share / WhatsApp (public link + wa.me) is parked until we ship
+ * account-connected social posting (Meta / WhatsApp Business). Keep Download
+ * and branded share-card preview as the export path for now.
+ */
+export const SOCIAL_SHARE_UI_ENABLED = false;
+
 type ShareImageButtonProps = {
   generationId: string | null;
   imageUrl: string;
   className?: string;
 };
 
-export function ShareImageButton({
+export function ShareImageButton(props: ShareImageButtonProps) {
+  if (!SOCIAL_SHARE_UI_ENABLED) return null;
+  return <ShareImageButtonInner {...props} />;
+}
+
+function ShareImageButtonInner({
   generationId,
   imageUrl,
   className,

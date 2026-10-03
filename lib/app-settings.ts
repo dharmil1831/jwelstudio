@@ -18,7 +18,8 @@ const DEFAULTS: AppSettingsMap = {
   featureThemesEnabled: true,
   featureCustomPromptEnabled: true,
   featureBrandEnabled: true,
-  featurePublicShareEnabled: true,
+  // Public /s/[id] links stay off until account-connected social share ships.
+  featurePublicShareEnabled: false,
   smsEnabled: true,
 };
 

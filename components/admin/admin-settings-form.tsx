@@ -96,7 +96,7 @@ export function AdminSettingsForm() {
             ["featureThemesEnabled", "Saved themes"],
             ["featureSelfieEnabled", "Selfie try-on"],
             ["featureVideoEnabled", "Video generation"],
-            ["featurePublicShareEnabled", "Public share links"],
+            ["featurePublicShareEnabled", "Public share links (API; UI hidden until social connect)"],
             ["smsEnabled", "MSG91 SMS"],
           ] as const
         ).map(([key, label]) => (
