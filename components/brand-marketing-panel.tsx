@@ -45,7 +45,7 @@ export const EMPTY_BRAND: BrandFormState = {
   festivalLabel: "",
   watermark: false,
   logoPlacement: "corner_br",
-  posterTemplate: "designed-bust",
+  posterTemplate: "classic",
   logoBase64: null,
   logoMimeType: null,
 };
@@ -132,13 +132,10 @@ export function BrandMarketingPanel({
       {open ? (
         <div className="space-y-3 border-t border-primary/15 px-3 py-3">
           <div>
-            <p className="mb-2 text-[11px] text-foreground/55">
-              Poster template (designed WhatsApp layouts first)
-            </p>
-            <div className="grid grid-cols-1 gap-2">
+            <p className="mb-2 text-[11px] text-foreground/55">Poster template</p>
+            <div className="grid gap-2">
               {POSTER_TEMPLATES.map((t) => {
                 const active = value.posterTemplate === t.id;
-                const thumb = t.kind === "designed" ? t.thumb : null;
                 return (
                   <button
                     key={t.id}
@@ -146,34 +143,24 @@ export function BrandMarketingPanel({
                     onClick={() =>
                       onChange({ ...value, posterTemplate: t.id })
                     }
-                    className={`flex cursor-pointer gap-3 rounded-xl border p-2 text-left transition ${
+                    className={`cursor-pointer rounded-xl border px-3 py-2 text-left transition ${
                       active
                         ? "border-primary bg-primary/15 text-foreground"
                         : "border-primary/20 bg-background/30 text-foreground/75 hover:border-primary/40"
                     }`}
                   >
-                    {thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={thumb}
-                        alt=""
-                        className="h-20 w-14 shrink-0 rounded-md object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-20 w-14 shrink-0 items-center justify-center rounded-md bg-secondary text-[10px] text-foreground/50">
-                        Auto
-                      </span>
-                    )}
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold">{t.label}</span>
-                      <span className="block text-[11px] text-foreground/55">
-                        {t.blurb}
-                      </span>
+                    <span className="block text-sm font-semibold">{t.label}</span>
+                    <span className="block text-[11px] text-foreground/55">
+                      {t.blurb}
                     </span>
                   </button>
                 );
               })}
             </div>
+            <p className="mt-2 text-[10px] text-foreground/45">
+              Designer WhatsApp templates will unlock after blank artwork is
+              uploaded (empty photo area, no burned-in store name).
+            </p>
           </div>
           <input
             type="text"

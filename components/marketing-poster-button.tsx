@@ -3,9 +3,6 @@
 import type { BrandFormState } from "@/components/brand-marketing-panel";
 import {
   getPosterTemplate,
-  isDesignedTemplate,
-  rectToPx,
-  type DesignedPosterTemplate,
   type PosterTemplateId,
 } from "@/lib/poster-templates";
 import { useEffect, useState } from "react";
@@ -722,117 +719,6 @@ async function drawFestival(
   }
 }
 
-async function drawDesigned(
-  ctx: CanvasRenderingContext2D,
-  canvasW: number,
-  canvasH: number,
-  template: DesignedPosterTemplate,
-  baseArt: HTMLImageElement,
-  photo: HTMLImageElement,
-  logo: HTMLImageElement | null,
-  brand: BrandFormState,
-) {
-  // Scale designed art to canvas
-  ctx.drawImage(baseArt, 0, 0, canvasW, canvasH);
-
-  const cream = "#f3ebe1";
-  const ink = "#2c2016";
-  const gold = "#b8924a";
-
-  // 1) Replace jewelry window
-  const photoBox = rectToPx(template.photo, canvasW, canvasH);
-  ctx.fillStyle = cream;
-  roundRect(ctx, photoBox.x, photoBox.y, photoBox.w, photoBox.h, 12);
-  ctx.fill();
-  drawContainPhoto(
-    ctx,
-    photo,
-    photoBox.x,
-    photoBox.y,
-    photoBox.w,
-    photoBox.h,
-    18,
-  );
-
-  // 2) Logo plate
-  if (logo && template.logo) {
-    const box = rectToPx(template.logo, canvasW, canvasH);
-    ctx.fillStyle = cream;
-    roundRect(ctx, box.x - 4, box.y - 4, box.w + 8, box.h + 8, 8);
-    ctx.fill();
-    const scale = Math.min(box.w / logo.width, box.h / logo.height);
-    const lw = logo.width * scale;
-    const lh = logo.height * scale;
-    ctx.drawImage(
-      logo,
-      box.x + (box.w - lw) / 2,
-      box.y + (box.h - lh) / 2,
-      lw,
-      lh,
-    );
-  }
-
-  // 3) Brand name plate (covers BSH92 text when client fills their brand)
-  if (brand.brandName.trim() && template.brandName) {
-    const box = rectToPx(template.brandName, canvasW, canvasH);
-    ctx.fillStyle = cream;
-    ctx.fillRect(box.x, box.y, box.w, box.h);
-    ctx.fillStyle = ink;
-    ctx.font = `700 ${Math.round(box.h * 0.45)}px Newsreader, Georgia, serif`;
-    ctx.textAlign = "left";
-    ctx.fillText(brand.brandName.trim(), box.x + 4, box.y + box.h * 0.62);
-  }
-
-  // 4) Headline / offer
-  if ((brand.headline.trim() || brand.marketingLine.trim()) && template.headline) {
-    const box = rectToPx(template.headline, canvasW, canvasH);
-    ctx.fillStyle = cream;
-    ctx.fillRect(box.x, box.y, box.w, box.h);
-    const line = (brand.headline.trim() || brand.marketingLine.trim()).slice(0, 42);
-    ctx.fillStyle = gold;
-    ctx.font = `700 ${Math.round(box.h * 0.5)}px Newsreader, Georgia, serif`;
-    ctx.textAlign = "left";
-    ctx.fillText(line.toUpperCase(), box.x + 4, box.y + box.h * 0.7);
-  }
-
-  // 5) Grams badge
-  if (brand.grams.trim() && template.grams) {
-    const box = rectToPx(template.grams, canvasW, canvasH);
-    const cx = box.x + box.w / 2;
-    const cy = box.y + box.h / 2;
-    const r = Math.min(box.w, box.h) / 2 - 2;
-    ctx.fillStyle = cream;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = ink;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = gold;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.fillStyle = cream;
-    ctx.textAlign = "center";
-    ctx.font = `700 ${Math.round(r * 0.45)}px Newsreader, Georgia, serif`;
-    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + r * 0.15);
-  }
-
-  // 6) Phone
-  if (brand.phone.trim() && template.phone) {
-    const box = rectToPx(template.phone, canvasW, canvasH);
-    ctx.fillStyle = cream;
-    roundRect(ctx, box.x, box.y, box.w, box.h, 8);
-    ctx.fill();
-    ctx.fillStyle = ink;
-    ctx.textAlign = "center";
-    ctx.font = `700 ${Math.round(box.h * 0.45)}px Manrope, sans-serif`;
-    ctx.fillText(brand.phone.trim(), box.x + box.w / 2, box.y + box.h * 0.68);
-  }
-
-  ctx.textAlign = "left";
-}
-
 async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob> {
   const photo = await loadImage(imageUrl);
   const logo = brand.logoBase64
@@ -844,33 +730,16 @@ async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob
   await ensurePosterFonts();
 
   const template = getPosterTemplate(brand.posterTemplate);
+  const id = template.id as PosterTemplateId;
   const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = id === "story" ? 1920 : 1440;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not draw the poster.");
 
-  if (isDesignedTemplate(template)) {
-    const base = await loadImage(template.src);
-    const scale = 1080 / base.width;
-    canvas.width = 1080;
-    canvas.height = Math.round(base.height * scale);
-    await drawDesigned(
-      ctx,
-      canvas.width,
-      canvas.height,
-      template,
-      base,
-      photo,
-      logo,
-      brand,
-    );
-  } else {
-    const id = template.id as PosterTemplateId;
-    canvas.width = 1080;
-    canvas.height = id === "story" ? 1920 : 1440;
-    if (id === "story") await drawStory(ctx, photo, logo, brand);
-    else if (id === "festival") await drawFestival(ctx, photo, logo, brand);
-    else await drawClassic(ctx, photo, logo, brand);
-  }
+  if (id === "story") await drawStory(ctx, photo, logo, brand);
+  else if (id === "festival") await drawFestival(ctx, photo, logo, brand);
+  else await drawClassic(ctx, photo, logo, brand);
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", 0.94),
