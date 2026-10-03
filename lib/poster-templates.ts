@@ -15,20 +15,20 @@ export type PosterTemplate = {
 export const POSTER_TEMPLATES: PosterTemplate[] = [
   {
     id: "classic",
-    label: "Classic store",
-    blurb: "Cream flyer with feature list, weight, and contact footer",
+    label: "Classic card",
+    blurb: "Simple cream share card with logo, offer, and contact",
     kind: "simple",
   },
   {
     id: "story",
-    label: "Status / story",
-    blurb: "Tall WhatsApp-style share card",
+    label: "Status card",
+    blurb: "Tall card for WhatsApp status / Instagram story",
     kind: "simple",
   },
   {
     id: "festival",
-    label: "Festival offer",
-    blurb: "Festive photo with readable offer banner",
+    label: "Festival card",
+    blurb: "Festive photo with a clear offer banner",
     kind: "simple",
   },
 ];

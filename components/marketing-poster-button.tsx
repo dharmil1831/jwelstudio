@@ -803,7 +803,7 @@ export function MarketingPosterButton({
         onClick={() => void openPreview()}
         className={className}
       >
-        {busy ? "Building preview…" : "Preview / marketing poster"}
+        {busy ? "Building preview…" : "Preview share card"}
       </button>
       {error ? <span className="mt-1 text-xs text-red-600">{error}</span> : null}
 

@@ -132,7 +132,9 @@ export function BrandMarketingPanel({
       {open ? (
         <div className="space-y-3 border-t border-primary/15 px-3 py-3">
           <div>
-            <p className="mb-2 text-[11px] text-foreground/55">Poster template</p>
+            <p className="mb-2 text-[11px] text-foreground/55">
+              Quick share card layout
+            </p>
             <div className="grid gap-2">
               {POSTER_TEMPLATES.map((t) => {
                 const active = value.posterTemplate === t.id;
@@ -158,8 +160,8 @@ export function BrandMarketingPanel({
               })}
             </div>
             <p className="mt-2 text-[10px] text-foreground/45">
-              Designer WhatsApp templates will unlock after blank artwork is
-              uploaded (empty photo area, no burned-in store name).
+              For now this adds a simple branded share card. Designer WhatsApp
+              flyers will come later with blank templates.
             </p>
           </div>
           <input
@@ -193,7 +195,8 @@ export function BrandMarketingPanel({
             className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           <p className="text-[10px] text-foreground/45">
-            Brand name, line, and grams stay exact on a marketing poster. They are not painted onto the jewelry.
+            Focus on a strong jewelry photo first. Brand text is only added on
+            the optional share card — not painted into the jewelry image.
           </p>
           <input
             type="text"
