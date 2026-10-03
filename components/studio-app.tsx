@@ -3,11 +3,15 @@
 import { BrandMarketingPanel, EMPTY_BRAND, type BrandFormState } from "@/components/brand-marketing-panel";
 import { StudioMobileHome } from "@/components/studio-mobile-home";
 import { DownloadImageButton } from "@/components/download-image-button";
-import { MarketingPosterButton } from "@/components/marketing-poster-button";
+import {
+  buildShareCardBlob,
+  MarketingPosterButton,
+} from "@/components/marketing-poster-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
+import { brandKitReady } from "@/lib/brand-form-state";
 import { prepareImageForUpload } from "@/lib/image-resize";
 import { downloadFilename } from "@/lib/download-image";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
@@ -89,6 +93,8 @@ type BatchItem = {
   previewUrl: string;
   status: BatchItemStatus;
   resultUrl?: string;
+  /** Branded share card with text/grams/points stamped on. */
+  posterUrl?: string;
   generationId?: string;
   error?: string;
 };
@@ -115,6 +121,36 @@ const BATCH_BACKDROP_HINTS: Record<BatchBackdropMode, string> = {
   soft_studio: "Warm ivory studio surface",
   scene: "Use Scene / Mood chips (no solid fill)",
 };
+
+function festivalSelected(brand: BrandFormState): boolean {
+  return Boolean(brand.festivalId && brand.festivalId !== "none");
+}
+
+/** Batch / festival: solid white kills festive scene — prefer scene mode. */
+function resolveBackdropPayload(
+  opts: {
+    batchMode?: BatchBackdropMode;
+    solidHex?: string;
+    festivalOn: boolean;
+  },
+): { backdropMode: "solid" | "scene"; backdropColor?: string } {
+  if (opts.festivalOn) {
+    return { backdropMode: "scene" };
+  }
+  if (opts.batchMode === "scene") {
+    return { backdropMode: "scene" };
+  }
+  if (opts.batchMode === "soft_studio") {
+    return { backdropMode: "solid", backdropColor: "#F5F0E8" };
+  }
+  if (opts.batchMode === "white") {
+    return { backdropMode: "solid", backdropColor: "#FFFFFF" };
+  }
+  return {
+    backdropMode: "solid",
+    backdropColor: opts.solidHex ?? DEFAULT_BACKDROP_HEX,
+  };
+}
 
 function isAcceptedImage(file: File): boolean {
   if (file.type.startsWith("image/")) return true;
@@ -147,6 +183,7 @@ export function StudioApp() {
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultMime, setResultMime] = useState<string | null>(null);
+  const [shareCardUrl, setShareCardUrl] = useState<string | null>(null);
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [tab, setTab] = useState<StudioTab>("model");
   const [mode, setMode] = useState<GenerationMode>("model");
@@ -175,6 +212,22 @@ export function StudioApp() {
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [batchRunning, setBatchRunning] = useState(false);
   const batchAbortRef = useRef(false);
+  const [shareCardToken, setShareCardToken] = useState(0);
+
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem("jwelpixel-brand-kit-v1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!festivalSelected(brand)) return;
+    setBatchBackdropMode("scene");
+    setScene("festive_indoor");
+    setVibe("festive");
+  }, [brand.festivalId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -331,10 +384,15 @@ export function StudioApp() {
     });
   }, []);
 
+  const revokeShareCard = useCallback((url: string | null | undefined) => {
+    if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+  }, []);
+
   const removeBatchItem = useCallback((id: string) => {
     setBatchItems((prev) => {
       const hit = prev.find((i) => i.id === id);
       if (hit?.previewUrl) URL.revokeObjectURL(hit.previewUrl);
+      if (hit?.posterUrl) URL.revokeObjectURL(hit.posterUrl);
       return prev.filter((i) => i.id !== id);
     });
   }, []);
@@ -343,6 +401,7 @@ export function StudioApp() {
     setBatchItems((prev) => {
       for (const i of prev) {
         if (i.previewUrl) URL.revokeObjectURL(i.previewUrl);
+        if (i.posterUrl) URL.revokeObjectURL(i.posterUrl);
       }
       return [];
     });
@@ -508,6 +567,10 @@ export function StudioApp() {
     setError(null);
     setResultUrl(null);
     setResultMime(null);
+    setShareCardUrl((prev) => {
+      revokeShareCard(prev);
+      return null;
+    });
     setGenerationId(null);
 
     try {
@@ -519,6 +582,15 @@ export function StudioApp() {
         selfieBase64 = selfie.base64;
         selfieMimeType = selfie.mimeType;
       }
+
+      const festivalOn = festivalSelected(brand);
+      const backdrop =
+        mode === "background"
+          ? resolveBackdropPayload({
+              solidHex: backdropColor,
+              festivalOn,
+            })
+          : null;
 
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 120_000);
@@ -533,11 +605,12 @@ export function StudioApp() {
           subject,
           shot,
           framing,
-          scene,
-          vibe,
+          scene: festivalOn ? "festive_indoor" : scene,
+          vibe: festivalOn ? "festive" : vibe,
           format,
           lookPreset: mode === "model" ? lookPreset : undefined,
-          backdropColor: mode === "background" ? backdropColor : undefined,
+          backdropMode: backdrop?.backdropMode,
+          backdropColor: backdrop?.backdropColor,
           jewelryShadow:
             mode === "background" ? jewelryShadow : undefined,
           customPrompt: customPrompt.trim() || undefined,
@@ -569,7 +642,22 @@ export function StudioApp() {
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       if (typeof data.credits === "number") setCredits(data.credits);
-      if (data.resultUrl) setResultUrl(data.resultUrl);
+      if (data.resultUrl) {
+        setResultUrl(data.resultUrl);
+        if (brandKitReady(brand)) {
+          try {
+            const blob = await buildShareCardBlob(data.resultUrl, brand);
+            const cardUrl = URL.createObjectURL(blob);
+            setShareCardUrl((prev) => {
+              revokeShareCard(prev);
+              return cardUrl;
+            });
+            setShareCardToken((t) => t + 1);
+          } catch {
+            setShareCardToken((t) => t + 1);
+          }
+        }
+      }
       if (typeof data.generationId === "string") setGenerationId(data.generationId);
       if (typeof data.mimeType === "string") setResultMime(data.mimeType);
       if (data.themeWarning) setError(toUserFacingError(data.themeWarning));
@@ -597,6 +685,7 @@ export function StudioApp() {
     customPrompt,
     brand,
     appliedThemeId,
+    revokeShareCard,
   ]);
 
   const runBatchIds = useCallback(
@@ -616,17 +705,18 @@ export function StudioApp() {
       setError(null);
 
       setBatchItems((prev) =>
-        prev.map((i) =>
-          ids.includes(i.id)
-            ? {
-                ...i,
-                status: "queued" as const,
-                resultUrl: undefined,
-                generationId: undefined,
-                error: undefined,
-              }
-            : i,
-        ),
+        prev.map((i) => {
+          if (!ids.includes(i.id)) return i;
+          if (i.posterUrl) URL.revokeObjectURL(i.posterUrl);
+          return {
+            ...i,
+            status: "queued" as const,
+            resultUrl: undefined,
+            posterUrl: undefined,
+            generationId: undefined,
+            error: undefined,
+          };
+        }),
       );
 
       let lastCredits = credits;
@@ -639,8 +729,17 @@ export function StudioApp() {
           Boolean(i.generationId),
       )?.generationId;
 
+      const festivalOn = festivalSelected(brand);
+      const backdrop = resolveBackdropPayload({
+        batchMode: batchBackdropMode,
+        festivalOn,
+      });
+      const batchScene = festivalOn ? "festive_indoor" : scene;
+      const batchVibe = festivalOn ? "festive" : vibe;
+
       const pending = [...ids];
       let stopForCredits = false;
+      let lastBatchResultUrl: string | undefined;
 
       const generateOne = async (id: string, lockId?: string) => {
         if (batchAbortRef.current || stopForCredits) return;
@@ -663,31 +762,26 @@ export function StudioApp() {
             body: JSON.stringify({
               imageBase64: base64,
               mimeType,
-              mode,
-              placement: mode === "model" ? placement : undefined,
-              subject: mode === "model" ? subject : undefined,
-              shot: mode === "model" ? shot : undefined,
-              lookPreset: mode === "model" ? lookPreset : undefined,
+              mode: "background",
               framing,
-              scene,
-              vibe,
+              scene: batchScene,
+              vibe: batchVibe,
               format,
-              backdropMode: mode === "background" ? "solid" : undefined,
-              backdropColor: mode === "background" ? backdropColor : undefined,
-              jewelryShadow: mode === "background" ? jewelryShadow : undefined,
+              backdropMode: backdrop.backdropMode,
+              backdropColor: backdrop.backdropColor,
+              jewelryShadow,
               customPrompt: customPrompt.trim() || undefined,
               brandName: brand.brandName || undefined,
               marketingLine: brand.marketingLine || undefined,
               grams: brand.grams || undefined,
               festivalId: brand.festivalId,
-          festivalLabel: brand.festivalLabel || undefined,
+              festivalLabel: brand.festivalLabel || undefined,
               watermark: brand.watermark,
               logoPlacement: brand.logoPlacement,
               logoBase64: brand.logoBase64 || undefined,
               logoMimeType: brand.logoMimeType || undefined,
               themeId: appliedThemeId || undefined,
-              backgroundLockGenerationId:
-                mode === "background" ? lockId : undefined,
+              backgroundLockGenerationId: lockId,
             }),
             signal: controller.signal,
           });
@@ -707,6 +801,16 @@ export function StudioApp() {
 
           if (data.generationId) lockGenerationId = lockGenerationId ?? data.generationId;
 
+          let posterUrl: string | undefined;
+          if (data.resultUrl && brandKitReady(brand)) {
+            try {
+              const blob = await buildShareCardBlob(data.resultUrl, brand);
+              posterUrl = URL.createObjectURL(blob);
+            } catch {
+              posterUrl = undefined;
+            }
+          }
+
           setBatchItems((prev) =>
             prev.map((i) =>
               i.id === id
@@ -714,6 +818,7 @@ export function StudioApp() {
                     ...i,
                     status: "done" as const,
                     resultUrl: data.resultUrl,
+                    posterUrl,
                     generationId: data.generationId,
                     error: undefined,
                   }
@@ -722,6 +827,7 @@ export function StudioApp() {
           );
 
           if (data.resultUrl) {
+            lastBatchResultUrl = data.resultUrl;
             setResultUrl(data.resultUrl);
             setResultMime("image/jpeg");
           }
@@ -781,6 +887,12 @@ export function StudioApp() {
         ),
       );
 
+      if (lastBatchResultUrl && brandKitReady(brand)) {
+        setResultUrl(lastBatchResultUrl);
+        setResultMime("image/jpeg");
+        setShareCardToken((t) => t + 1);
+      }
+
       setBatchRunning(false);
       setLoading(false);
     },
@@ -788,20 +900,16 @@ export function StudioApp() {
       batchItems,
       batchRunning,
       credits,
-      mode,
-      placement,
-      subject,
-      shot,
-      lookPreset,
       framing,
       scene,
       vibe,
       format,
-      backdropColor,
+      batchBackdropMode,
       jewelryShadow,
       customPrompt,
       brand,
       appliedThemeId,
+      revokeShareCard,
     ],
   );
 
@@ -1115,9 +1223,24 @@ export function StudioApp() {
             >
               Drop or tap to add up to {BATCH_MAX}
               <span className="mt-1 block text-xs text-foreground/45">
-                First photo sets the background. Every other photo uses that same backdrop.
+                One jewelry product per photo works best. First photo sets the
+                shared backdrop for the rest.
               </span>
             </label>
+            {festivalSelected(brand) ? (
+              <p className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-[11px] leading-relaxed text-foreground/70">
+                Festival <strong className="font-medium text-foreground/85">{brand.festivalLabel || "selected"}</strong>{" "}
+                styles the photo scene. Brand name, grams, and offer text appear
+                on <strong className="font-medium text-foreground/85">Preview share card</strong>{" "}
+                after generate — not inside the batch thumbnails.
+              </p>
+            ) : (
+              <p className="mt-2 text-[11px] leading-relaxed text-foreground/50">
+                Tip: pick a festival for a festive photo scene, then use{" "}
+                <strong className="font-medium text-foreground/65">Preview share card</strong>{" "}
+                on each result to add brand text.
+              </p>
+            )}
             {batchItems.length > 0 ? (
               <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
                 {batchItems.map((item) => (
@@ -1543,23 +1666,33 @@ export function StudioApp() {
                 Backdrop
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {BATCH_BACKDROP_MODES.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setBatchBackdropMode(id)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                      batchBackdropMode === id
-                        ? "bg-primary text-background"
-                        : "bg-background/60 text-foreground/70 hover:bg-secondary"
-                    }`}
-                  >
-                    {BATCH_BACKDROP_LABELS[id]}
-                  </button>
-                ))}
+                {BATCH_BACKDROP_MODES.map((id) => {
+                  const festivalLocksScene =
+                    festivalSelected(brand) && id !== "scene";
+                  const active = festivalSelected(brand)
+                    ? id === "scene"
+                    : batchBackdropMode === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={festivalLocksScene}
+                      onClick={() => setBatchBackdropMode(id)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
+                        active
+                          ? "bg-primary text-background"
+                          : "bg-background/60 text-foreground/70 hover:bg-secondary"
+                      }`}
+                    >
+                      {BATCH_BACKDROP_LABELS[id]}
+                    </button>
+                  );
+                })}
               </div>
               <p className="mt-1.5 text-[11px] text-foreground/55">
-                {BATCH_BACKDROP_HINTS[batchBackdropMode]}
+                {festivalSelected(brand)
+                  ? "Festival selected — Keep scene is required so festive props can appear (solid white would hide them)."
+                  : BATCH_BACKDROP_HINTS[batchBackdropMode]}
               </p>
             </div>
             <div>
@@ -1723,24 +1856,35 @@ export function StudioApp() {
               Targets Instagram / WhatsApp sizes. Download exports exact pixels
               (e.g. post 1080×1350, story 1080×1920, chat 1080×1080).
             </p>
-            {!selfieFile && !appliedThemeId && (tab === "batch" ? batchBackdropMode === "scene" : true) ? (
+            {!selfieFile &&
+            !appliedThemeId &&
+            (tab === "batch"
+              ? festivalSelected(brand) || batchBackdropMode === "scene"
+              : true) ? (
               <>
                 <Field
                   label="Scene"
-                  value={scene}
+                  value={festivalSelected(brand) ? "festive_indoor" : scene}
                   onChange={setScene}
-                  disabled={Boolean(customPrompt.trim())}
+                  disabled={
+                    Boolean(customPrompt.trim()) || festivalSelected(brand)
+                  }
                   options={SCENES.map((k) => [k, SCENE_LABELS[k]] as const)}
                 />
                 <Field
                   label="Mood"
-                  value={vibe}
+                  value={festivalSelected(brand) ? "festive" : vibe}
                   onChange={setVibe}
-                  disabled={Boolean(customPrompt.trim())}
+                  disabled={
+                    Boolean(customPrompt.trim()) || festivalSelected(brand)
+                  }
                   options={VIBES.map((k) => [k, VIBE_LABELS[k]] as const)}
                 />
               </>
-            ) : tab === "batch" && batchBackdropMode !== "scene" && !appliedThemeId ? (
+            ) : tab === "batch" &&
+              batchBackdropMode !== "scene" &&
+              !festivalSelected(brand) &&
+              !appliedThemeId ? (
               <p className="text-[11px] text-foreground/55">
                 Scene / Mood hidden for solid backdrops. Switch to Keep scene to
                 style the setting.
@@ -1852,7 +1996,7 @@ export function StudioApp() {
                       <button
                         type="button"
                         onClick={() => {
-                          setResultUrl(item.resultUrl!);
+                          setResultUrl(item.posterUrl || item.resultUrl!);
                           setResultMime("image/jpeg");
                           setLightboxOpen(true);
                         }}
@@ -1861,44 +2005,70 @@ export function StudioApp() {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={item.resultUrl}
+                          src={item.posterUrl || item.resultUrl}
                           alt={item.file.name}
                           className="h-full w-full object-contain"
                         />
                       </button>
-                    ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center">
+                    ) : item.status === "failed" ? (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-red-50/80 p-2 text-center">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.previewUrl}
                           alt=""
-                          className="mb-1 h-12 w-12 rounded object-cover opacity-60"
+                          className="mb-1 h-12 w-12 rounded object-cover opacity-50"
                         />
-                        <p className="text-[10px] text-foreground/55">
-                          {item.status === "running" && "Generating…"}
-                          {item.status === "queued" && "Queued"}
-                          {item.status === "idle" && "Waiting"}
-                          {item.status === "failed" && "Failed"}
+                        <p className="text-[10px] font-medium text-red-700">
+                          Failed
                         </p>
                       </div>
+                    ) : (
+                      <GenerationPreviewPlaceholder
+                        aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
+                        label={
+                          item.status === "running"
+                            ? "Generating…"
+                            : item.status === "queued"
+                              ? "Queued…"
+                              : "Waiting…"
+                        }
+                        compact
+                      />
                     )}
                   </div>
-                  <div className="flex items-center justify-between gap-1 px-2 py-1.5">
+                  <div className="space-y-1 px-2 py-1.5">
                     <p className="truncate text-[10px] text-foreground/65">
                       {item.file.name}
                     </p>
                     {item.resultUrl ? (
-                      <DownloadImageButton
-                        url={item.resultUrl}
-                        filename={downloadFilename(
-                          item.resultUrl,
-                          `jwelpixel-batch-${format}`,
-                          "image/jpeg",
-                        )}
-                        exportFormat={format}
-                        className="shrink-0 text-[10px] font-semibold text-primary underline"
-                        label="Save"
-                      />
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {item.posterUrl ? (
+                          <DownloadImageButton
+                            url={item.posterUrl}
+                            filename={`jwelpixel-card-${brand.posterTemplate || "classic"}.jpg`}
+                            className="shrink-0 text-[10px] font-semibold text-primary underline"
+                            label="Save card"
+                          />
+                        ) : null}
+                        <DownloadImageButton
+                          url={item.resultUrl}
+                          filename={downloadFilename(
+                            item.resultUrl,
+                            `jwelpixel-batch-${format}`,
+                            "image/jpeg",
+                          )}
+                          exportFormat={format}
+                          className="shrink-0 text-[10px] font-semibold text-primary underline"
+                          label="Photo"
+                        />
+                        <MarketingPosterButton
+                          imageUrl={item.resultUrl}
+                          brand={brand}
+                          label="Edit card"
+                          busyLabel="…"
+                          className="shrink-0 text-[10px] font-semibold text-primary underline"
+                        />
+                      </div>
                     ) : item.status === "failed" && !batchRunning ? (
                       <button
                         type="button"
@@ -1913,14 +2083,26 @@ export function StudioApp() {
               ))}
             </div>
             {batchItems.some((i) => i.resultUrl) ? (
-              <p className="text-center text-[11px] text-foreground/55">
+              <p className="text-center text-[11px] leading-relaxed text-foreground/55">
                 {
                   batchItems.filter((i) => i.status === "done" && i.resultUrl)
                     .length
                 }{" "}
-                of {batchItems.length} ready — tap a result to zoom, Save to
-                download.
+                of {batchItems.length} ready
+                {batchItems.some((i) => i.posterUrl)
+                  ? " — cards show your brand text, grams, and points. Save card to download."
+                  : " — add brand name / festival, then regenerate to stamp text on cards."}
               </p>
+            ) : null}
+            {resultUrl && tab === "batch" && !resultMime?.startsWith("video/") ? (
+              <div className="sr-only">
+                <MarketingPosterButton
+                  imageUrl={resultUrl}
+                  brand={brand}
+                  autoOpenToken={shareCardToken}
+                  label="Share card"
+                />
+              </div>
             ) : null}
             {resultUrl && lightboxOpen ? (
               <ImageLightbox
@@ -1976,15 +2158,26 @@ export function StudioApp() {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={resultUrl}
+                    src={shareCardUrl || resultUrl}
                     alt={
-                      mode === "background" ? "Background still" : "Model shot"
+                      shareCardUrl
+                        ? "Branded share card"
+                        : mode === "background"
+                          ? "Background still"
+                          : "Model shot"
                     }
                     className="h-full w-full bg-background/50 object-contain"
                   />
                 </button>
               </div>
             )}
+            {shareCardUrl &&
+            !(resultMime?.startsWith("video/") || tab === "video") ? (
+              <p className="max-w-md text-center text-[11px] text-foreground/60">
+                Showing your <strong className="font-medium text-foreground/75">share card</strong>{" "}
+                with brand text, grams, and points. Raw AI photo is still available below.
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center justify-center gap-3">
               {!(resultMime?.startsWith("video/") || tab === "video") ? (
                 <button
@@ -2008,6 +2201,15 @@ export function StudioApp() {
                   Save as look
                 </button>
               ) : null}
+              {shareCardUrl &&
+              !(resultMime?.startsWith("video/") || tab === "video") ? (
+                <DownloadImageButton
+                  url={shareCardUrl}
+                  filename={`jwelpixel-card-${brand.posterTemplate || "classic"}.jpg`}
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
+                  label="Download card"
+                />
+              ) : null}
               <DownloadImageButton
                 url={resultUrl}
                 filename={downloadFilename(
@@ -2024,17 +2226,25 @@ export function StudioApp() {
                     ? undefined
                     : format
                 }
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
+                className={
+                  shareCardUrl &&
+                  !(resultMime?.startsWith("video/") || tab === "video")
+                    ? "rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25"
+                    : "rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
+                }
                 label={
                   resultMime?.startsWith("video/") || tab === "video"
                     ? "Download video"
-                    : "Download image"
+                    : shareCardUrl
+                      ? "Download photo"
+                      : "Download image"
                 }
               />
               {!(resultMime?.startsWith("video/") || tab === "video") ? (
                 <MarketingPosterButton
                   imageUrl={resultUrl}
                   brand={brand}
+                  autoOpenToken={shareCardToken}
                   className="rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25"
                 />
               ) : null}
@@ -2054,17 +2264,27 @@ export function StudioApp() {
             ) : null}
             {!(resultMime?.startsWith("video/") || tab === "video") ? (
               <ImageLightbox
-                url={resultUrl}
-                alt={mode === "background" ? "Background still" : "Model shot"}
+                url={shareCardUrl || resultUrl}
+                alt={
+                  shareCardUrl
+                    ? "Branded share card"
+                    : mode === "background"
+                      ? "Background still"
+                      : "Model shot"
+                }
                 open={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
-                filename={downloadFilename(
-                  resultUrl,
-                  mode === "background"
-                    ? `jwelpixel-background-${format}`
-                    : `jwelpixel-model-${format}`,
-                  resultMime,
-                )}
+                filename={
+                  shareCardUrl
+                    ? `jwelpixel-card-${brand.posterTemplate || "classic"}.jpg`
+                    : downloadFilename(
+                        resultUrl,
+                        mode === "background"
+                          ? `jwelpixel-background-${format}`
+                          : `jwelpixel-model-${format}`,
+                        resultMime,
+                      )
+                }
               />
             ) : null}
           </>

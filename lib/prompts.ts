@@ -13,6 +13,7 @@ const jewelryFidelityRules = [
   "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add extra sparkle, change stone hue, or invent new jewelry.",
   "Do NOT invent matching earrings, rings, bracelets, or set pieces that are not clearly present in the uploaded reference. Show only what is in the reference photo.",
   "COMPLETE PIECE: Show every part of the jewelry that is visible in the upload — top, middle, and bottom, including long hanging rows, side pieces, earrings beside a necklace, and the lower pendant. Do not stop at the upper or first section. Do not leave a detached fragment, hook, or partial piece floating away from the product.",
+  "SINGLE FRAME: Output exactly ONE product photograph — never a collage, contact sheet, split panel, before/after, or stacked duplicate. If the upload already shows two copies of the same set or a multi-panel catalog layout, keep only the clearest single product arrangement once. A necklace with matching earrings in one arrangement is fine; repeating that set twice in the same frame is not.",
   "If any style, scene, mood, casting, or camera instruction conflicts with jewelry accuracy, jewelry accuracy always wins.",
 ].join(" ");
 
@@ -145,7 +146,7 @@ const noCropRule =
   "FRAMING RULE: The selected output format sets the canvas aspect ratio only. Never cut, crop, clip, stretch, squash, or hide any part of the uploaded jewelry. Show the complete piece with correct proportions exactly as in the reference; use empty space / background / camera distance to fill the format — never reshape the product.";
 
 const finalCheck =
-  "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions (no stretch/warp). Not a similar piece. No extra jewelry added.";
+  "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions (no stretch/warp). Not a similar piece. No extra jewelry added. Exactly one product arrangement in the frame — no duplicated sets or collage panels.";
 
 function lookLineForStyle(style: StudioStyle): string | null {
   const look = parseLookPreset(style.lookPreset ?? "auto");
@@ -359,7 +360,8 @@ export function withSharedBackgroundLockPrompt(basePrompt: string): string {
     "Copy ONLY that image's empty background: same surface, color, texture, lighting direction, and softness.",
     "Do not invent a new scene, table, color, or lighting setup.",
     "Do not copy the lock image's jewelry, and do not copy its crop. If matching that photo's camera distance would cut off the new piece, zoom out and add margin.",
-    "Place the FULL new jewelry product into that background. Show every part visible in the new upload from top to bottom, including dangling rows, side earrings, and the lower pendant.",
+    "Place the FULL new jewelry product into that background as ONE arrangement only — never duplicate the set or recreate a collage from the lock image.",
+    "Show every part visible in the new upload from top to bottom, including dangling rows, side earrings, and the lower pendant.",
     "Do not keep only the upper or first section. Do not leave a stray fragment, clasp, or partial piece floating above or beside the jewelry.",
     "Cast shadow should match the lock image's shadow style, under the complete piece.",
     "If any earlier scene, mood, scale, or crop line conflicts with showing the full new jewelry, the full jewelry wins. The lock image wins only for the empty background.",

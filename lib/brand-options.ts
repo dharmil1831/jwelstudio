@@ -231,21 +231,49 @@ function logoPlacementInstruction(placement: LogoPlacement): string {
   }
 }
 
-export function buildBrandPromptLines(brand: BrandOptions): string {
-  const lines: string[] = [];
-  const fest = festivalById(brand.festivalId);
-  if (fest?.prompt) {
-    lines.push(fest.prompt);
-  } else if (brand.festivalId !== "none" && brand.festivalLabel) {
-    lines.push(
-      `FESTIVAL SCENE — ${brand.festivalLabel}: the backdrop, props, and lighting must clearly read as ${brand.festivalLabel}. Change only the setting. The jewelry must stay an exact copy of the upload.`,
-    );
+function resolveFestivalScenePrompt(
+  festivalId: string,
+  festivalLabel: string | null,
+): string | null {
+  if (!festivalId || festivalId === "none") return null;
+
+  const byId = festivalById(festivalId);
+  if (byId?.prompt) return byId.prompt;
+
+  const label = (festivalLabel || "").trim();
+  const n = label.toLowerCase();
+  if (/\b(dussehra|dushera|dasara|vijayadashami|vijaya dashami)\b/.test(n)) {
+    return festivalById("dussehra")?.prompt ?? null;
+  }
+  if (/\b(navratri|navaratri)\b/.test(n)) {
+    return festivalById("navratri")?.prompt ?? null;
+  }
+  for (const p of FESTIVAL_PRESETS) {
+    if (p.id === "none" || !p.prompt) continue;
+    const pl = p.label.toLowerCase();
+    if (n.includes(pl) || pl.includes(n) || n.includes(p.id)) return p.prompt;
   }
 
-  if (lines.length === 0) return "";
+  if (!label) return null;
+  return (
+    `FESTIVAL SCENE — ${label}: the photograph MUST clearly look festive for ${label}. ` +
+    `Use visible celebration props, warm festive lighting, flowers or festival cues appropriate to ${label}. ` +
+    `Never use a plain white or empty studio backdrop when this festival is selected. ` +
+    `Change only backdrop, props, and lighting. The jewelry must stay an exact copy of the upload.`
+  );
+}
+
+export function buildBrandPromptLines(brand: BrandOptions): string {
+  const scenePrompt = resolveFestivalScenePrompt(
+    brand.festivalId,
+    brand.festivalLabel,
+  );
+  if (!scenePrompt) return "";
+
   return [
     "FESTIVAL SETTING (change backdrop, props, and lighting only — never the jewelry):",
-    ...lines,
+    scenePrompt,
+    "PRIORITY: If any earlier instruction asked for a solid white, ivory, or flat studio fill, IGNORE it — the festival setting above wins and must be visible in the final photo.",
     "CRITICAL — PHOTO ONLY: do not paint, stamp, or generate any text, letters, numbers, store name, festival greeting, phone number, weight/gm badge, logo, watermark, flyer border, or advertisement graphics into the photograph. Keep a clean product photo with festive props and lighting only. Branding text is added later in a separate poster step.",
   ].join(" ");
 }

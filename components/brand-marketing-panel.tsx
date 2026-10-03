@@ -1,60 +1,28 @@
 "use client";
 
 import {
+  BRAND_ACCENT_PRESETS,
+  EMPTY_BRAND,
+  brandKitReady,
+  type BrandFormState,
+} from "@/lib/brand-form-state";
+import {
   getUpcomingFestivals,
   LOGO_PLACEMENT_LABELS,
   LOGO_PLACEMENTS,
   type LogoPlacement,
 } from "@/lib/brand-options";
-import {
-  POSTER_TEMPLATES,
-  type PosterTemplateId,
-} from "@/lib/poster-templates";
+import { POSTER_TEMPLATES } from "@/lib/poster-templates";
 import { useEffect, useState } from "react";
 
-export type BrandFormState = {
-  brandName: string;
-  marketingLine: string;
-  grams: string;
-  headline: string;
-  phone: string;
-  highlights: string;
-  address: string;
-  instagram: string;
-  whatsapp: string;
-  festivalId: string;
-  festivalLabel: string;
-  watermark: boolean;
-  logoPlacement: LogoPlacement;
-  posterTemplate: PosterTemplateId;
-  logoBase64: string | null;
-  logoMimeType: string | null;
-};
-
-export const EMPTY_BRAND: BrandFormState = {
-  brandName: "",
-  marketingLine: "",
-  grams: "",
-  headline: "",
-  phone: "",
-  highlights: "",
-  address: "",
-  instagram: "",
-  whatsapp: "",
-  festivalId: "none",
-  festivalLabel: "",
-  watermark: false,
-  logoPlacement: "corner_br",
-  posterTemplate: "classic",
-  logoBase64: null,
-  logoMimeType: null,
-};
+export type { BrandFormState };
+export { EMPTY_BRAND };
 
 export function BrandMarketingPanel({
   value,
   onChange,
   locked,
-  initialOpen = false,
+  initialOpen = true,
 }: {
   value: BrandFormState;
   onChange: (next: BrandFormState) => void;
@@ -62,6 +30,7 @@ export function BrandMarketingPanel({
   initialOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initialOpen);
+  const kitReady = brandKitReady(value);
   const [festivals, setFestivals] = useState<
     { id: string; label: string; date: string | null; country: string | null }[]
   >(() =>
@@ -131,11 +100,25 @@ export function BrandMarketingPanel({
       </button>
       {open ? (
         <div className="space-y-3 border-t border-primary/15 px-3 py-3">
-          <div>
-            <p className="mb-2 text-[11px] text-foreground/55">
-              Quick share card layout
+          <div className="rounded-xl bg-primary/10 px-3 py-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+              Marketing post (Scalio-style)
             </p>
-            <div className="grid gap-2">
+            <ol className="mt-1.5 space-y-1 text-[11px] leading-relaxed text-foreground/70">
+              <li>1. Add logo, brand, phone, Instagram</li>
+              <li>2. Pick festival + template pack</li>
+              <li>3. Generate jewelry photo</li>
+              <li>4. Share card stamps your brand on the result</li>
+            </ol>
+            <p className="mt-2 text-[10px] text-foreground/55">
+              {kitReady
+                ? "Brand details ready for the share card."
+                : "Add brand name or logo for a complete share card."}
+            </p>
+          </div>
+          <div>
+            <p className="mb-2 text-[11px] text-foreground/55">Template gallery</p>
+            <div className="grid grid-cols-1 gap-2">
               {POSTER_TEMPLATES.map((t) => {
                 const active = value.posterTemplate === t.id;
                 return (
@@ -151,18 +134,66 @@ export function BrandMarketingPanel({
                         : "border-primary/20 bg-background/30 text-foreground/75 hover:border-primary/40"
                     }`}
                   >
-                    <span className="block text-sm font-semibold">{t.label}</span>
-                    <span className="block text-[11px] text-foreground/55">
-                      {t.blurb}
+                    <span className="flex items-start gap-3">
+                      <span
+                        className="mt-0.5 flex h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-black/10"
+                        aria-hidden
+                      >
+                        <span
+                          className="h-full w-1/3"
+                          style={{ background: t.swatch[0] }}
+                        />
+                        <span
+                          className="h-full w-1/3"
+                          style={{ background: t.swatch[1] }}
+                        />
+                        <span
+                          className="h-full w-1/3"
+                          style={{ background: t.swatch[2] }}
+                        />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">
+                          {t.label}
+                        </span>
+                        <span className="block text-[11px] text-foreground/55">
+                          {t.blurb}
+                        </span>
+                      </span>
                     </span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-2 text-[10px] text-foreground/45">
-              For now this adds a simple branded share card. Designer WhatsApp
-              flyers will come later with blank templates.
+            <p className="mt-2 text-[10px] leading-relaxed text-foreground/45">
+              Same playbook as Scalio / Photoroom / Flyr: AI photo first, then a
+              branded template. Designer PSD flyers can plug in later as blank
+              packs.
             </p>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[11px] text-foreground/55">Brand accent</p>
+            <div className="flex flex-wrap gap-2">
+              {BRAND_ACCENT_PRESETS.map((hex) => {
+                const active =
+                  value.accentColor.toUpperCase() === hex.toUpperCase();
+                return (
+                  <button
+                    key={hex}
+                    type="button"
+                    title={hex}
+                    onClick={() => onChange({ ...value, accentColor: hex })}
+                    className={`h-7 w-7 rounded-full border-2 ${
+                      active
+                        ? "border-foreground scale-110"
+                        : "border-transparent"
+                    }`}
+                    style={{ background: hex }}
+                    aria-label={`Accent ${hex}`}
+                  />
+                );
+              })}
+            </div>
           </div>
           <input
             type="text"
@@ -194,9 +225,11 @@ export function BrandMarketingPanel({
             }
             className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
-          <p className="text-[10px] text-foreground/45">
-            Focus on a strong jewelry photo first. Brand text is only added on
-            the optional share card — not painted into the jewelry image.
+          <p className="text-[10px] leading-relaxed text-foreground/45">
+            Festival changes the photo scene (props &amp; light). Brand text,
+            grams, and logo never appear inside the AI photo — tap{" "}
+            <strong className="font-medium text-foreground/65">Preview share card</strong>{" "}
+            (or Share card on batch results) after generate.
           </p>
           <input
             type="text"
@@ -276,7 +309,7 @@ export function BrandMarketingPanel({
           </label>
           <div>
             <p className="text-[11px] text-foreground/55">
-              Logo placement on marketing poster
+              Logo placement on share card photo (bottom left, top right, etc.)
             </p>
             <select
               value={value.logoPlacement}

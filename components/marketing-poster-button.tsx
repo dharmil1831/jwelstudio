@@ -1,19 +1,29 @@
 "use client";
 
-import type { BrandFormState } from "@/components/brand-marketing-panel";
+import type { BrandFormState } from "@/lib/brand-form-state";
+import type { LogoPlacement } from "@/lib/brand-options";
 import {
   getPosterTemplate,
   type PosterTemplateId,
 } from "@/lib/poster-templates";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type MarketingPosterButtonProps = {
   imageUrl: string;
   brand: BrandFormState;
   className?: string;
+  /** Button label when idle (default: Preview share card). */
+  label?: string;
+  busyLabel?: string;
+  /** Increment to auto-open the share card (Scalio-style after generate). */
+  autoOpenToken?: number;
 };
 
-type IconKind = "shield" | "diamond" | "sparkle" | "gift" | "check";
+function accentOf(brand: BrandFormState): string {
+  return /^#[0-9a-fA-F]{6}$/.test(brand.accentColor || "")
+    ? brand.accentColor
+    : "#b8924a";
+}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -127,65 +137,6 @@ function drawTextBanner(
   ctx.fill();
 }
 
-function drawFeatureIcon(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  kind: IconKind,
-  gold: string,
-  cream: string,
-) {
-  ctx.fillStyle = gold;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 22, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = cream;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  if (kind === "diamond") {
-    ctx.moveTo(cx, cy - 10);
-    ctx.lineTo(cx + 10, cy);
-    ctx.lineTo(cx, cy + 10);
-    ctx.lineTo(cx - 10, cy);
-    ctx.closePath();
-  } else if (kind === "gift") {
-    ctx.strokeRect(cx - 8, cy - 4, 16, 12);
-    ctx.moveTo(cx, cy - 4);
-    ctx.lineTo(cx, cy + 8);
-    ctx.moveTo(cx - 8, cy + 2);
-    ctx.lineTo(cx + 8, cy + 2);
-  } else if (kind === "sparkle") {
-    for (const [dx, dy] of [
-      [0, -9],
-      [9, 0],
-      [0, 9],
-      [-9, 0],
-    ] as const) {
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + dx, cy + dy);
-    }
-  } else {
-    // shield / check
-    ctx.moveTo(cx, cy - 10);
-    ctx.lineTo(cx + 9, cy - 6);
-    ctx.lineTo(cx + 9, cy + 2);
-    ctx.lineTo(cx, cy + 11);
-    ctx.lineTo(cx - 9, cy + 2);
-    ctx.lineTo(cx - 9, cy - 6);
-    ctx.closePath();
-  }
-  ctx.stroke();
-  if (kind === "shield" || kind === "check") {
-    ctx.beginPath();
-    ctx.moveTo(cx - 5, cy);
-    ctx.lineTo(cx - 1, cy + 4);
-    ctx.lineTo(cx + 6, cy - 4);
-    ctx.stroke();
-  }
-}
-
-const ICON_CYCLE: IconKind[] = ["shield", "diamond", "sparkle", "gift", "check"];
-
 function pointsOf(brand: BrandFormState) {
   return brand.highlights
     .split("\n")
@@ -202,15 +153,125 @@ function drawLogoPlate(
   maxW: number,
   maxH: number,
   cream: string,
+  alpha = 1,
 ) {
   const scale = Math.min(maxW / logo.width, maxH / logo.height);
   const lw = logo.width * scale;
   const lh = logo.height * scale;
+  ctx.save();
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = cream;
   roundRect(ctx, x - 8, y - 8, lw + 16, lh + 16, 8);
   ctx.fill();
   ctx.drawImage(logo, x, y, lw, lh);
+  ctx.restore();
   return { lw, lh };
+}
+
+/** Place logo on the photo using the user's Logo placement setting. */
+function drawLogoOnPhoto(
+  ctx: CanvasRenderingContext2D,
+  logo: HTMLImageElement,
+  photoX: number,
+  photoY: number,
+  photoW: number,
+  photoH: number,
+  placement: LogoPlacement,
+  cream: string,
+  /** Keep clear of a bottom-right grams badge */
+  gramsAtBr = false,
+) {
+  const subtle = placement === "subtle";
+  const maxW = subtle ? 88 : 120;
+  const maxH = subtle ? 52 : 72;
+  const pad = 18;
+  const scale = Math.min(maxW / logo.width, maxH / logo.height);
+  const lw = logo.width * scale;
+  const lh = logo.height * scale;
+  const brClear = gramsAtBr ? 110 : 0;
+
+  let lx = photoX + pad;
+  let ly = photoY + pad;
+  switch (placement) {
+    case "corner_bl":
+      lx = photoX + pad;
+      ly = photoY + photoH - lh - pad;
+      break;
+    case "corner_br":
+      lx = photoX + photoW - lw - pad - brClear;
+      ly = photoY + photoH - lh - pad;
+      break;
+    case "corner_tr":
+      lx = photoX + photoW - lw - pad;
+      ly = photoY + pad;
+      break;
+    case "corner_tl":
+      lx = photoX + pad;
+      ly = photoY + pad;
+      break;
+    case "bottom_center":
+      lx = photoX + (photoW - lw) / 2;
+      ly = photoY + photoH - lh - pad;
+      break;
+    case "center":
+    case "jewelry_center":
+      lx = photoX + (photoW - lw) / 2;
+      ly = photoY + (photoH - lh) / 2;
+      break;
+    case "subtle":
+      lx = photoX + photoW - lw - pad - brClear;
+      ly = photoY + photoH - lh - pad;
+      break;
+    default:
+      lx = photoX + pad;
+      ly = photoY + photoH - lh - pad;
+  }
+
+  drawLogoPlate(ctx, logo, lx, ly, maxW, maxH, cream, subtle ? 0.72 : 1);
+}
+
+function contactLines(brand: BrandFormState): string[] {
+  const lines: string[] = [];
+  const phone = brand.phone.trim();
+  const wa = brand.whatsapp.trim();
+  const ig = brand.instagram.trim().replace(/^@/, "");
+  const address = brand.address.trim();
+  if (phone) lines.push(phone);
+  if (wa && wa !== phone) lines.push(`WhatsApp ${wa}`);
+  if (ig) lines.push(`Instagram @${ig}`);
+  if (address) lines.push(address.slice(0, 64));
+  return lines;
+}
+
+function drawContactFooter(
+  ctx: CanvasRenderingContext2D,
+  brand: BrandFormState,
+  w: number,
+  h: number,
+  ink: string,
+  cream: string,
+  gold: string,
+) {
+  const lines = contactLines(brand);
+  if (lines.length === 0) return 40;
+  const footerH = 36 + lines.length * 32 + 20;
+  const barY = h - footerH - 16;
+  ctx.fillStyle = ink;
+  roundRect(ctx, 48, barY, w - 96, footerH, 8);
+  ctx.fill();
+  ctx.fillStyle = gold;
+  ctx.fillRect(48, barY, w - 96, 3);
+  ctx.fillStyle = cream;
+  ctx.textAlign = "center";
+  lines.forEach((line, i) => {
+    const isPrimary = i === 0 && Boolean(brand.phone.trim());
+    ctx.font = isPrimary
+      ? "700 28px Manrope, sans-serif"
+      : "600 20px Manrope, sans-serif";
+    ctx.fillText(line, w / 2, barY + 40 + i * 32);
+  });
+  ctx.textAlign = "left";
+  return footerH + 24;
 }
 
 async function drawClassic(
@@ -223,208 +284,132 @@ async function drawClassic(
   const h = 1440;
   const cream = "#f4ebe0";
   const ink = "#2c2016";
-  const gold = "#b8924a";
-  const goldSoft = "#c9a45c";
-  const points = pointsOf(brand);
+  const gold = accentOf(brand);
+  const points = pointsOf(brand).slice(0, 3);
   const brandName = brand.brandName.trim();
   const headline = brand.headline.trim();
   const offer = brand.marketingLine.trim();
-  const hasFooter =
-    Boolean(brand.phone?.trim()) ||
-    Boolean(brand.address?.trim()) ||
-    Boolean(brand.instagram?.trim()) ||
-    Boolean(brand.whatsapp?.trim());
-  const footerH = hasFooter ? 188 : 56;
+  const grams = brand.grams.trim();
+  const placement = (brand.logoPlacement || "corner_br") as LogoPlacement;
+  const contacts = contactLines(brand);
+  const pointsH = points.length > 0 ? 56 : 0;
+  const footerH =
+    contacts.length > 0 ? 36 + contacts.length * 32 + 44 : 40;
 
-  // Page
+  // Page + frame
   ctx.fillStyle = cream;
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = gold;
-  ctx.lineWidth = 7;
-  ctx.strokeRect(20, 20, w - 40, h - 40);
+  ctx.lineWidth = 6;
+  ctx.strokeRect(22, 22, w - 44, h - 44);
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(32, 32, w - 64, h - 64);
+  ctx.strokeRect(34, 34, w - 68, h - 68);
 
-  // —— Header: logo + brand left | TIMELESS Elegance right ——
-  let logoH = 0;
-  if (logo) {
-    const box = drawLogoPlate(ctx, logo, 48, 44, 150, 95, "#fffdf9");
-    logoH = box.lh;
-  }
-  const leftX = logo ? 220 : 48;
-  ctx.textAlign = "left";
+  // Header: brand text only — logo follows Logo placement on the photo
+  let y = 56;
   if (brandName) {
     ctx.fillStyle = ink;
-    ctx.font = "700 44px Newsreader, Georgia, serif";
-    ctx.fillText(brandName, leftX, 78);
+    ctx.font = "700 42px Newsreader, Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brandName.slice(0, 32), w / 2, y + 28);
     ctx.fillStyle = gold;
-    ctx.font = "700 18px Manrope, sans-serif";
-    ctx.fillText("JEWELLERS", leftX, 108);
-    ctx.strokeStyle = goldSoft;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(leftX, 118);
-    ctx.lineTo(leftX + 160, 118);
-    ctx.stroke();
-    ctx.fillStyle = ink;
-    ctx.font = "600 14px Manrope, sans-serif";
-    ctx.fillText("TRUSTED LEGACY, TIMELESS ELEGANCE", leftX, 140);
+    ctx.font = "700 15px Manrope, sans-serif";
+    ctx.fillText("JEWELLERS", w / 2, y + 54);
+    ctx.textAlign = "left";
+    y += 78;
   }
 
-  ctx.textAlign = "right";
-  ctx.fillStyle = ink;
-  ctx.font = "600 20px Manrope, sans-serif";
-  ctx.fillText("TIMELESS", w - 48, 70);
-  ctx.fillStyle = gold;
-  ctx.font = "italic 700 52px Newsreader, Georgia, serif";
-  ctx.fillText("Elegance", w - 48, 120);
-  ctx.fillStyle = ink;
-  ctx.font = "400 18px Newsreader, Georgia, serif";
-  ctx.fillText("Crafted to shine. Made to be cherished.", w - 48, 150);
-  ctx.textAlign = "left";
-
-  const headerBottom = Math.max(168, 44 + logoH + 16);
-
-  // —— Offer + product title (clear, not overlapping script) ——
-  let cursorY = headerBottom + 8;
   if (offer) {
-    ctx.font = "700 24px Manrope, sans-serif";
-    const chip = offer.slice(0, 40);
-    const chipW = Math.min(520, ctx.measureText(chip).width + 40);
-    drawTextBanner(ctx, (w - chipW) / 2, cursorY, chipW, 40, ink);
+    ctx.font = "700 22px Manrope, sans-serif";
+    const chip = offer.slice(0, 36);
+    const chipW = Math.min(480, ctx.measureText(chip).width + 36);
+    drawTextBanner(ctx, (w - chipW) / 2, y, chipW, 38, ink);
     ctx.fillStyle = cream;
     ctx.textAlign = "center";
-    ctx.fillText(chip, w / 2, cursorY + 28);
+    ctx.fillText(chip, w / 2, y + 26);
     ctx.textAlign = "left";
-    cursorY += 56;
+    y += 52;
   }
+
   if (headline) {
     ctx.fillStyle = ink;
-    ctx.font = "700 34px Newsreader, Georgia, serif";
+    ctx.font = "700 36px Newsreader, Georgia, serif";
     ctx.textAlign = "center";
-    ctx.fillText(headline.toUpperCase(), w / 2, cursorY + 28);
-    ctx.textAlign = "left";
-    cursorY += 48;
-  }
-
-  // —— Body: left feature rail + large centered product ——
-  const bodyTop = cursorY + 8;
-  const bodyBottom = h - footerH - 12;
-  const railW = 280;
-  const photoX = 48 + railW + 12;
-  const photoY = bodyTop;
-  const photoW = w - photoX - 48;
-  const photoH = bodyBottom - bodyTop;
-
-  // Feature rail (matches WhatsApp refs)
-  let py = bodyTop + 8;
-  const railPoints =
-    points.length > 0
-      ? points
-      : ["Hallmarked Gold", "Exquisite Craftsmanship", "Trusted Quality"];
-  railPoints.slice(0, 4).forEach((point, i) => {
-    drawFeatureIcon(
-      ctx,
-      78,
-      py + 20,
-      ICON_CYCLE[i % ICON_CYCLE.length],
-      gold,
-      cream,
-    );
-    ctx.fillStyle = ink;
-    ctx.font = "600 20px Manrope, sans-serif";
-    const lines = wrapText(ctx, point, 170);
-    let ly = py + 12;
-    for (const line of lines.slice(0, 2)) {
-      ctx.fillText(line, 108, ly + 12);
-      ly += 24;
+    for (const line of wrapText(ctx, headline.toUpperCase(), w - 120).slice(0, 2)) {
+      ctx.fillText(line, w / 2, y + 30);
+      y += 40;
     }
-    py += 82;
-  });
-
-  if (brand.grams.trim()) {
-    const cx = 120;
-    const cy = Math.min(py + 50, bodyBottom - 70);
-    ctx.strokeStyle = gold;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 56, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = ink;
-    ctx.textAlign = "center";
-    ctx.font = "700 15px Manrope, sans-serif";
-    ctx.fillText("WEIGHT", cx, cy - 8);
-    ctx.font = "700 22px Newsreader, Georgia, serif";
-    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 18);
     ctx.textAlign = "left";
+    y += 8;
+  } else {
+    y += 4;
   }
 
-  // Product window — large, contain, padded from frame
+  const photoX = 56;
+  const photoY = y;
+  const photoW = w - 112;
+  const photoH = Math.max(420, h - photoY - pointsH - footerH - 28);
   ctx.fillStyle = "#fffdf8";
   ctx.fillRect(photoX, photoY, photoW, photoH);
-  ctx.strokeStyle = goldSoft;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(photoX, photoY, photoW, photoH);
-  drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 28);
-
-  if (brand.watermark && logo) {
-    ctx.save();
-    ctx.globalAlpha = 0.08;
-    const s = Math.min(260 / logo.width, 140 / logo.height);
-    ctx.drawImage(
-      logo,
-      photoX + (photoW - logo.width * s) / 2,
-      photoY + (photoH - logo.height * s) / 2,
-      logo.width * s,
-      logo.height * s,
-    );
-    ctx.restore();
-  }
-
-  // —— Footer contact card (reference-style framed box) ——
-  const barY = h - footerH;
   ctx.strokeStyle = gold;
   ctx.lineWidth = 2;
-  roundRect(ctx, 44, barY, w - 88, footerH - 28, 6);
-  ctx.stroke();
-  // Corner ticks
-  for (const [x, y] of [
-    [44, barY],
-    [w - 44, barY],
-    [44, barY + footerH - 28],
-    [w - 44, barY + footerH - 28],
-  ] as const) {
+  ctx.strokeRect(photoX, photoY, photoW, photoH);
+  drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 36);
+
+  if (grams) {
+    const cx = photoX + photoW - 64;
+    const cy = photoY + photoH - 64;
+    ctx.fillStyle = ink;
     ctx.beginPath();
-    ctx.moveTo(x - 10, y);
-    ctx.lineTo(x + 10, y);
-    ctx.moveTo(x, y - 10);
-    ctx.lineTo(x, y + 10);
+    ctx.arc(cx, cy, 48, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
+    ctx.fillStyle = cream;
+    ctx.textAlign = "center";
+    ctx.font = "700 20px Newsreader, Georgia, serif";
+    ctx.fillText(grams.slice(0, 10), cx, cy + 7);
+    ctx.textAlign = "left";
   }
 
-  ctx.fillStyle = ink;
-  ctx.font = "600 17px Manrope, sans-serif";
-  const ig = brand.instagram?.trim();
-  const wa = (brand.whatsapp || brand.phone || "").trim();
-  if (ig) {
+  if (logo) {
+    drawLogoOnPhoto(
+      ctx,
+      logo,
+      photoX,
+      photoY,
+      photoW,
+      photoH,
+      placement,
+      "#fffdf9",
+      Boolean(grams),
+    );
+  }
+
+  if (points.length > 0) {
+    const chipY = photoY + photoH + 14;
+    ctx.font = "600 18px Manrope, sans-serif";
+    const gap = 12;
+    const chipHs = 36;
+    const totalTextW = points.reduce(
+      (sum, p) => sum + ctx.measureText(p.slice(0, 22)).width + 28,
+      0,
+    );
+    let cx = Math.max(56, (w - (totalTextW + gap * (points.length - 1))) / 2);
+    for (const point of points) {
+      const label = point.slice(0, 22);
+      const tw = ctx.measureText(label).width + 28;
+      drawTextBanner(ctx, cx, chipY, tw, chipHs, ink);
+      ctx.fillStyle = cream;
+      ctx.textAlign = "center";
+      ctx.fillText(label, cx + tw / 2, chipY + 24);
+      cx += tw + gap;
+    }
     ctx.textAlign = "left";
-    ctx.fillText(`Follow us  @${ig.replace(/^@/, "")}`, 64, barY + 40);
   }
-  if (wa) {
-    ctx.textAlign = "right";
-    ctx.fillText(`WhatsApp  ${wa}`, w - 64, barY + 40);
-  }
-  if (brand.phone?.trim()) {
-    ctx.textAlign = "center";
-    ctx.font = "700 30px Manrope, sans-serif";
-    ctx.fillText(brand.phone.trim(), w / 2, barY + 88);
-  }
-  if (brand.address?.trim()) {
-    ctx.textAlign = "center";
-    ctx.font = "500 17px Manrope, sans-serif";
-    ctx.fillText(brand.address.trim().slice(0, 72), w / 2, barY + 122);
-  }
-  ctx.textAlign = "left";
+
+  drawContactFooter(ctx, brand, w, h, ink, cream, gold);
 }
 
 async function drawStory(
@@ -437,17 +422,46 @@ async function drawStory(
   const h = 1920;
   const cream = "#f6efe6";
   const ink = "#2c2016";
-  const gold = "#b8924a";
-  const points = pointsOf(brand);
+  const gold = accentOf(brand);
+  const points = pointsOf(brand).slice(0, 3);
+  const placement = (brand.logoPlacement || "corner_br") as LogoPlacement;
+  const contacts = contactLines(brand);
+  const footerH =
+    contacts.length > 0 ? 36 + contacts.length * 32 + 44 : 80;
+  const pointsH = points.length > 0 ? 50 : 0;
 
   ctx.fillStyle = cream;
   ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 5;
+  ctx.strokeRect(18, 18, w - 36, h - 36);
 
-  // Photo window with cream margins — jewelry contained & centered
+  ctx.fillStyle = ink;
+  ctx.font = "700 40px Newsreader, Georgia, serif";
+  ctx.textAlign = "center";
+  if (brand.brandName.trim()) {
+    ctx.fillText(brand.brandName.trim().slice(0, 28), w / 2, 70);
+  }
+  ctx.fillStyle = gold;
+  ctx.font = "700 36px Newsreader, Georgia, serif";
+  const head = (brand.headline.trim() || "TIMELESS ELEGANCE").toUpperCase();
+  let hy = 120;
+  for (const line of wrapText(ctx, head, w - 100).slice(0, 2)) {
+    ctx.fillText(line, w / 2, hy);
+    hy += 40;
+  }
+  if (brand.marketingLine.trim()) {
+    ctx.fillStyle = ink;
+    ctx.font = "italic 400 22px Newsreader, Georgia, serif";
+    ctx.fillText(brand.marketingLine.trim().slice(0, 48), w / 2, hy + 8);
+    hy += 36;
+  }
+  ctx.textAlign = "left";
+
   const photoX = 48;
-  const photoY = 210;
+  const photoY = Math.max(200, hy + 20);
   const photoW = w - 96;
-  const photoH = h - 450;
+  const photoH = h - photoY - pointsH - footerH - 24;
   ctx.fillStyle = "#fffdf8";
   ctx.fillRect(photoX, photoY, photoW, photoH);
   drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 40);
@@ -455,100 +469,60 @@ async function drawStory(
   ctx.lineWidth = 2;
   ctx.strokeRect(photoX, photoY, photoW, photoH);
 
-  // Top cream band for readable titles
-  ctx.fillStyle = cream;
-  ctx.fillRect(0, 0, w, 200);
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 5;
-  ctx.strokeRect(18, 18, w - 36, h - 36);
-
-  if (logo) {
-    drawLogoPlate(ctx, logo, 40, 40, 120, 72, "#fffdf8");
-  }
-
-  ctx.fillStyle = ink;
-  ctx.font = "700 42px Newsreader, Georgia, serif";
-  ctx.textAlign = "left";
-  const titleX = logo ? 180 : 40;
-  if (brand.brandName.trim()) ctx.fillText(brand.brandName.trim(), titleX, 78);
-  ctx.fillStyle = gold;
-  ctx.font = "700 44px Newsreader, Georgia, serif";
-  const head = (brand.headline.trim() || "TIMELESS ELEGANCE").toUpperCase();
-  for (const line of wrapText(ctx, head, w - titleX - 40).slice(0, 2)) {
-    ctx.fillText(line, titleX, 130);
-  }
-  if (brand.marketingLine.trim()) {
-    ctx.fillStyle = ink;
-    ctx.font = "italic 400 24px Newsreader, Georgia, serif";
-    ctx.fillText(brand.marketingLine.trim().slice(0, 50), titleX, 170);
-  }
-
-  points.slice(0, 4).forEach((point, i) => {
-    const py = photoY + 40 + i * 90;
-    ctx.fillStyle = "rgba(246, 239, 230, 0.94)";
-    roundRect(ctx, photoX + 24, py, 320, 70, 35);
-    ctx.fill();
-    drawFeatureIcon(
-      ctx,
-      photoX + 58,
-      py + 35,
-      ICON_CYCLE[i % ICON_CYCLE.length],
-      gold,
-      cream,
-    );
-    ctx.fillStyle = ink;
-    ctx.font = "600 22px Manrope, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(point.slice(0, 22), photoX + 90, py + 42);
-  });
-
-  if (brand.grams.trim()) {
-    const cx = photoX + photoW - 80;
-    const cy = photoY + photoH - 90;
+  const grams = brand.grams.trim();
+  if (grams) {
+    const cx = photoX + photoW - 70;
+    const cy = photoY + photoH - 80;
     ctx.fillStyle = "#2a1f18";
     ctx.beginPath();
-    ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 52, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = gold;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.fillStyle = cream;
-    ctx.font = "700 24px Newsreader, Georgia, serif";
+    ctx.font = "700 22px Newsreader, Georgia, serif";
     ctx.textAlign = "center";
-    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 8);
+    ctx.fillText(grams.slice(0, 12), cx, cy + 8);
+    ctx.textAlign = "left";
   }
 
-  if (brand.watermark && logo) {
-    ctx.save();
-    ctx.globalAlpha = 0.12;
-    const s = Math.min(280 / logo.width, 150 / logo.height);
-    ctx.drawImage(
+  if (logo) {
+    drawLogoOnPhoto(
+      ctx,
       logo,
-      photoX + (photoW - logo.width * s) / 2,
-      photoY + (photoH - logo.height * s) / 2,
-      logo.width * s,
-      logo.height * s,
+      photoX,
+      photoY,
+      photoW,
+      photoH,
+      placement,
+      "#fffdf8",
+      Boolean(grams),
     );
-    ctx.restore();
   }
 
-  ctx.fillStyle = cream;
-  ctx.fillRect(0, h - 220, w, 220);
-  ctx.fillStyle = ink;
-  ctx.fillRect(40, h - 200, w - 80, 160);
-  ctx.fillStyle = gold;
-  ctx.fillRect(40, h - 200, w - 80, 4);
-  ctx.fillStyle = cream;
-  ctx.font = "600 22px Manrope, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("FOR REQUIREMENT", w / 2, h - 150);
-  ctx.font = "700 40px Manrope, sans-serif";
-  ctx.fillText((brand.phone || brand.whatsapp || "").trim() || " ", w / 2, h - 100);
-  if (brand.address?.trim()) {
-    ctx.font = "500 20px Manrope, sans-serif";
-    ctx.fillText(brand.address.trim().slice(0, 64), w / 2, h - 60);
+  if (points.length > 0) {
+    const chipY = photoY + photoH + 12;
+    ctx.font = "600 18px Manrope, sans-serif";
+    const gap = 10;
+    const totalW = points.reduce(
+      (sum, p) => sum + ctx.measureText(p.slice(0, 20)).width + 28,
+      0,
+    );
+    let cx = Math.max(40, (w - (totalW + gap * (points.length - 1))) / 2);
+    for (const point of points) {
+      const label = point.slice(0, 20);
+      const tw = ctx.measureText(label).width + 28;
+      drawTextBanner(ctx, cx, chipY, tw, 34, ink);
+      ctx.fillStyle = cream;
+      ctx.textAlign = "center";
+      ctx.fillText(label, cx + tw / 2, chipY + 23);
+      cx += tw + gap;
+    }
+    ctx.textAlign = "left";
   }
-  ctx.textAlign = "left";
+
+  drawContactFooter(ctx, brand, w, h, ink, cream, gold);
 }
 
 async function drawFestival(
@@ -561,162 +535,342 @@ async function drawFestival(
   const h = 1440;
   const cream = "#f7f1e8";
   const ink = "#24180f";
-  const gold = "#b8924a";
-  const points = pointsOf(brand);
-  const phoneH = brand.phone?.trim() ? 88 : 0;
-
-  // Cream page — text and borders never sit on the busy photo
-  ctx.fillStyle = cream;
-  ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 8;
-  ctx.strokeRect(22, 22, w - 44, h - 44);
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(36, 36, w - 72, h - 72);
-
-  // Header band (solid cream for readable festival text)
+  const gold = accentOf(brand);
+  const points = pointsOf(brand).slice(0, 3);
+  const placement = (brand.logoPlacement || "corner_br") as LogoPlacement;
+  const contacts = contactLines(brand);
+  const footerH =
+    contacts.length > 0 ? 36 + contacts.length * 32 + 44 : 40;
+  const pointsH = points.length > 0 ? 52 : 0;
+  const grams = brand.grams.trim();
+  const offer = brand.marketingLine.trim();
+  const brandName = brand.brandName.trim();
   const festLabel =
     brand.headline.trim() ||
     brand.festivalLabel.trim() ||
     "HAPPY FESTIVAL";
-  ctx.font = "700 56px Newsreader, Georgia, serif";
-  const headLines = wrapText(ctx, festLabel.toUpperCase(), 720);
-  const offer = brand.marketingLine.trim();
-  const brandName = brand.brandName.trim();
-  const headerH =
-    48 +
-    (logo ? 90 : 0) +
-    (brandName ? 40 : 0) +
-    headLines.length * 60 +
-    (offer ? 36 : 0) +
-    28;
+
+  ctx.fillStyle = cream;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 6;
+  ctx.strokeRect(22, 22, w - 44, h - 44);
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(36, 36, w - 72, h - 72);
 
   let ty = 56;
-  if (logo) {
-    drawLogoPlate(ctx, logo, 52, 48, 140, 85, "#fffdf8");
-    ty = 48 + 95;
-  }
-  const textX = logo ? 220 : 56;
   if (brandName) {
     ctx.fillStyle = ink;
-    ctx.font = "700 30px Manrope, sans-serif";
+    ctx.font = "700 28px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brandName.slice(0, 28), w / 2, ty + 20);
     ctx.textAlign = "left";
-    ctx.fillText(brandName, textX, logo ? 78 : ty);
-    if (!logo) ty += 40;
+    ty += 48;
   }
-  ty = Math.max(ty, logo ? 150 : 90);
+
   ctx.fillStyle = gold;
-  ctx.font = "700 56px Newsreader, Georgia, serif";
-  for (const line of headLines) {
-    ctx.fillText(line, 56, ty);
-    ty += 60;
-  }
-  if (offer) {
-    // Offer chip — always readable
-    ctx.font = "700 26px Manrope, sans-serif";
-    const chipW = Math.min(420, ctx.measureText(offer).width + 48);
-    drawTextBanner(ctx, 56, ty - 8, chipW, 44, ink);
-    ctx.fillStyle = cream;
-    ctx.fillText(offer, 80, ty + 22);
+  ctx.font = "700 48px Newsreader, Georgia, serif";
+  ctx.textAlign = "center";
+  for (const line of wrapText(ctx, festLabel.toUpperCase(), w - 120).slice(0, 2)) {
+    ctx.fillText(line, w / 2, ty + 36);
     ty += 52;
   }
+  ctx.textAlign = "left";
+  if (offer) {
+    ctx.font = "700 22px Manrope, sans-serif";
+    const chipW = Math.min(420, ctx.measureText(offer).width + 40);
+    drawTextBanner(ctx, (w - chipW) / 2, ty, chipW, 40, ink);
+    ctx.fillStyle = cream;
+    ctx.textAlign = "center";
+    ctx.fillText(offer.slice(0, 40), w / 2, ty + 28);
+    ctx.textAlign = "left";
+    ty += 56;
+  } else {
+    ty += 12;
+  }
 
-  const photoY = Math.max(headerH, ty + 12);
   const photoX = 56;
+  const photoY = ty;
   const photoW = w - 112;
-  const photoH = h - photoY - phoneH - 48;
+  const photoH = Math.max(400, h - photoY - pointsH - footerH - 28);
 
-  // Soft mat behind jewelry; contain so piece stays centered and clear of borders
   ctx.fillStyle = "#1a120c";
   roundRect(ctx, photoX, photoY, photoW, photoH, 8);
   ctx.fill();
-  // Blurred cover as atmosphere, then sharp contain product on top
   ctx.save();
   ctx.beginPath();
   roundRect(ctx, photoX, photoY, photoW, photoH, 8);
   ctx.clip();
-  ctx.globalAlpha = 0.35;
-  drawCoverPhoto(ctx, photo, photoX, photoY, photoW, photoH);
-  ctx.globalAlpha = 1;
-  drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 48);
+  drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 40);
   ctx.restore();
   ctx.strokeStyle = gold;
   ctx.lineWidth = 2;
   roundRect(ctx, photoX, photoY, photoW, photoH, 8);
   ctx.stroke();
 
-  // Highlights as cream pills over the lower photo area (not colliding with border)
-  points.slice(0, 3).forEach((point, i) => {
-    const py = photoY + photoH - 40 - (points.slice(0, 3).length - i) * 52;
-    ctx.font = "600 22px Manrope, sans-serif";
-    const label = point.slice(0, 28);
-    const tw = ctx.measureText(label).width;
-    drawTextBanner(ctx, photoX + 20, py, tw + 48, 40, "rgba(247,241,232,0.95)");
-    ctx.fillStyle = ink;
-    ctx.fillText(label, photoX + 40, py + 27);
-  });
-
-  if (brand.grams.trim()) {
-    const cx = photoX + photoW - 78;
-    const cy = photoY + photoH - 78;
+  if (grams) {
+    const cx = photoX + photoW - 64;
+    const cy = photoY + photoH - 64;
     ctx.fillStyle = ink;
     ctx.beginPath();
-    ctx.arc(cx, cy, 58, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 48, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = gold;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.fillStyle = cream;
-    ctx.font = "700 24px Newsreader, Georgia, serif";
+    ctx.font = "700 20px Newsreader, Georgia, serif";
     ctx.textAlign = "center";
-    ctx.fillText(brand.grams.trim().slice(0, 12), cx, cy + 8);
+    ctx.fillText(grams.slice(0, 10), cx, cy + 7);
     ctx.textAlign = "left";
   }
 
-  // Logo placement on the photo mat (never clipped by outer frame)
   if (logo) {
-    const place = brand.logoPlacement || "corner_br";
-    const maxW = 130;
-    const maxH = 78;
-    const scale = Math.min(maxW / logo.width, maxH / logo.height);
-    const lw = logo.width * scale;
-    const lh = logo.height * scale;
-    let lx = photoX + 18;
-    let ly = photoY + 18;
-    if (place === "corner_br") {
-      lx = photoX + photoW - lw - 18;
-      ly = photoY + photoH - lh - 18;
-    } else if (place === "corner_tr") {
-      lx = photoX + photoW - lw - 18;
-      ly = photoY + 18;
-    } else if (place === "corner_bl") {
-      lx = photoX + 18;
-      ly = photoY + photoH - lh - 18;
-    } else if (place === "corner_tl") {
-      // Already drawn in header — skip duplicate on photo
-      lx = -1;
-    }
-    if (lx >= 0) {
-      ctx.fillStyle = "rgba(247,241,232,0.96)";
-      roundRect(ctx, lx - 8, ly - 8, lw + 16, lh + 16, 8);
-      ctx.fill();
-      ctx.drawImage(logo, lx, ly, lw, lh);
-    }
+    drawLogoOnPhoto(
+      ctx,
+      logo,
+      photoX,
+      photoY,
+      photoW,
+      photoH,
+      placement,
+      "#fffdf8",
+      Boolean(grams),
+    );
   }
 
-  if (brand.phone?.trim()) {
-    const barY = h - 28 - phoneH;
-    ctx.fillStyle = ink;
-    roundRect(ctx, 48, barY, w - 96, phoneH, 8);
-    ctx.fill();
-    ctx.fillStyle = gold;
-    ctx.fillRect(48, barY, w - 96, 3);
-    ctx.fillStyle = cream;
-    ctx.font = "700 32px Manrope, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(brand.phone.trim(), w / 2, barY + 54);
+  if (points.length > 0) {
+    const chipY = photoY + photoH + 12;
+    ctx.font = "600 18px Manrope, sans-serif";
+    const gap = 10;
+    const totalW = points.reduce(
+      (sum, p) => sum + ctx.measureText(p.slice(0, 22)).width + 28,
+      0,
+    );
+    let cx = Math.max(56, (w - (totalW + gap * (points.length - 1))) / 2);
+    for (const point of points) {
+      const label = point.slice(0, 22);
+      const tw = ctx.measureText(label).width + 28;
+      drawTextBanner(ctx, cx, chipY, tw, 34, ink);
+      ctx.fillStyle = cream;
+      ctx.textAlign = "center";
+      ctx.fillText(label, cx + tw / 2, chipY + 23);
+      cx += tw + gap;
+    }
     ctx.textAlign = "left";
   }
+
+  drawContactFooter(ctx, brand, w, h, ink, cream, gold);
+}
+
+async function drawOffer(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement,
+  logo: HTMLImageElement | null,
+  brand: BrandFormState,
+) {
+  const w = 1080;
+  const h = 1440;
+  const ink = "#120e0b";
+  const cream = "#fff8ee";
+  const gold = accentOf(brand);
+  const fest =
+    brand.festivalLabel.trim() ||
+    brand.headline.trim() ||
+    "SPECIAL OFFER";
+  const offer = brand.marketingLine.trim() || "Limited festive offer";
+
+  drawCoverPhoto(ctx, photo, 0, 0, w, h);
+  const grad = ctx.createLinearGradient(0, h * 0.35, 0, h);
+  grad.addColorStop(0, "rgba(18,14,11,0)");
+  grad.addColorStop(0.45, "rgba(18,14,11,0.55)");
+  grad.addColorStop(1, "rgba(18,14,11,0.92)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Festival pill
+  ctx.font = "700 22px Manrope, sans-serif";
+  const pill = fest.toUpperCase().slice(0, 36);
+  const pillW = Math.min(520, ctx.measureText(pill).width + 48);
+  drawTextBanner(ctx, 48, 48, pillW, 44, gold);
+  ctx.fillStyle = ink;
+  ctx.fillText(pill, 72, 78);
+
+  const placement = (brand.logoPlacement || "corner_br") as LogoPlacement;
+  if (logo) {
+    drawLogoOnPhoto(ctx, logo, 0, 0, w, h, placement, cream, false);
+  }
+
+  ctx.fillStyle = cream;
+  ctx.font = "700 64px Newsreader, Georgia, serif";
+  ctx.textAlign = "left";
+  const headLines = wrapText(
+    ctx,
+    (brand.headline.trim() || brand.brandName.trim() || "Festive Collection").toUpperCase(),
+    w - 96,
+  ).slice(0, 3);
+  const contacts = contactLines(brand);
+  const footerH = Math.max(72, 28 + contacts.length * 28);
+  let ty = h - 280 - footerH;
+  for (const line of headLines) {
+    ctx.fillText(line, 48, ty);
+    ty += 70;
+  }
+
+  // Big offer badge
+  ctx.font = "700 36px Manrope, sans-serif";
+  const offerW = Math.min(w - 96, ctx.measureText(offer).width + 64);
+  drawTextBanner(ctx, 48, ty + 8, offerW, 64, gold);
+  ctx.fillStyle = ink;
+  ctx.fillText(offer.slice(0, 42), 80, ty + 52);
+
+  if (brand.grams.trim()) {
+    ctx.fillStyle = cream;
+    ctx.font = "600 26px Manrope, sans-serif";
+    ctx.fillText(brand.grams.trim(), 48, ty + 120);
+  }
+
+  // Contact CTA — phone, WhatsApp, Instagram, address
+  ctx.fillStyle = gold;
+  roundRect(ctx, 40, h - footerH - 24, w - 80, footerH, 12);
+  ctx.fill();
+  ctx.fillStyle = ink;
+  ctx.textAlign = "center";
+  if (contacts.length === 0) {
+    ctx.font = "700 30px Manrope, sans-serif";
+    ctx.fillText(brand.brandName.trim() || "Shop now", w / 2, h - footerH / 2 - 10);
+  } else {
+    contacts.forEach((line, i) => {
+      ctx.font =
+        i === 0 ? "700 26px Manrope, sans-serif" : "600 18px Manrope, sans-serif";
+      ctx.fillText(line.slice(0, 48), w / 2, h - footerH + 8 + i * 28);
+    });
+  }
+  ctx.textAlign = "left";
+}
+
+async function drawLuxury(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement,
+  logo: HTMLImageElement | null,
+  brand: BrandFormState,
+) {
+  const w = 1080;
+  const h = 1440;
+  const bg = "#0f0d0b";
+  const cream = "#f5efe6";
+  const gold = accentOf(brand);
+  const points = pointsOf(brand);
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(36, 36, w - 72, h - 72);
+
+  const placement = (brand.logoPlacement || "corner_br") as LogoPlacement;
+
+  ctx.fillStyle = cream;
+  ctx.font = "700 28px Manrope, sans-serif";
+  ctx.textAlign = "left";
+  if (brand.brandName.trim()) {
+    ctx.fillText(brand.brandName.trim().slice(0, 28), 56, 88);
+  }
+  ctx.font = "600 16px Manrope, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(
+    (brand.festivalLabel || "PRIVATE COLLECTION").toUpperCase().slice(0, 28),
+    w - 56,
+    88,
+  );
+  ctx.textAlign = "left";
+
+  const photoX = 72;
+  const photoY = 130;
+  const photoW = w - 144;
+  const photoH = 780;
+  ctx.fillStyle = "#1a1612";
+  ctx.fillRect(photoX, photoY, photoW, photoH);
+  drawContainPhoto(ctx, photo, photoX, photoY, photoW, photoH, 40);
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(photoX, photoY, photoW, photoH);
+
+  if (logo) {
+    drawLogoOnPhoto(
+      ctx,
+      logo,
+      photoX,
+      photoY,
+      photoW,
+      photoH,
+      placement,
+      cream,
+      Boolean(brand.grams.trim()),
+    );
+  }
+
+  if (brand.grams.trim()) {
+    const cx = photoX + photoW - 70;
+    const cy = photoY + 70;
+    ctx.fillStyle = gold;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 48, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = bg;
+    ctx.font = "700 20px Newsreader, Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(brand.grams.trim().slice(0, 10), cx, cy + 7);
+    ctx.textAlign = "left";
+  }
+
+  ctx.fillStyle = cream;
+  ctx.font = "700 48px Newsreader, Georgia, serif";
+  const title =
+    brand.headline.trim() || brand.brandName.trim() || "Timeless Luxury";
+  let ty = photoY + photoH + 56;
+  for (const line of wrapText(ctx, title, w - 144).slice(0, 2)) {
+    ctx.fillText(line, 72, ty);
+    ty += 54;
+  }
+
+  if (brand.marketingLine.trim()) {
+    ctx.fillStyle = gold;
+    ctx.font = "italic 400 26px Newsreader, Georgia, serif";
+    ctx.fillText(brand.marketingLine.trim().slice(0, 56), 72, ty + 8);
+    ty += 40;
+  }
+
+  points.slice(0, 3).forEach((p, i) => {
+    ctx.fillStyle = "rgba(245,239,230,0.85)";
+    ctx.font = "500 20px Manrope, sans-serif";
+    ctx.fillText(`·  ${p.slice(0, 34)}`, 72 + i * 0, ty + 28 + i * 28);
+  });
+
+  const contacts = contactLines(brand);
+  ctx.fillStyle = gold;
+  ctx.fillRect(72, h - 36 - contacts.length * 28, w - 144, 1);
+  ctx.fillStyle = cream;
+  ctx.textAlign = "center";
+  if (contacts.length === 0) {
+    ctx.font = "600 22px Manrope, sans-serif";
+    ctx.fillText(brand.brandName.trim() || " ", w / 2, h - 48);
+  } else {
+    contacts.forEach((line, i) => {
+      ctx.font =
+        i === 0 ? "700 24px Manrope, sans-serif" : "500 18px Manrope, sans-serif";
+      ctx.fillText(line.slice(0, 52), w / 2, h - 28 - (contacts.length - 1 - i) * 28);
+    });
+  }
+  ctx.textAlign = "left";
+}
+
+/** Build the branded share-card JPEG (brand text, grams, points, festival). */
+export async function buildShareCardBlob(
+  imageUrl: string,
+  brand: BrandFormState,
+): Promise<Blob> {
+  return drawPoster(imageUrl, brand);
 }
 
 async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob> {
@@ -739,6 +893,8 @@ async function drawPoster(imageUrl: string, brand: BrandFormState): Promise<Blob
 
   if (id === "story") await drawStory(ctx, photo, logo, brand);
   else if (id === "festival") await drawFestival(ctx, photo, logo, brand);
+  else if (id === "offer") await drawOffer(ctx, photo, logo, brand);
+  else if (id === "luxury") await drawLuxury(ctx, photo, logo, brand);
   else await drawClassic(ctx, photo, logo, brand);
 
   const blob = await new Promise<Blob | null>((resolve) =>
@@ -752,10 +908,14 @@ export function MarketingPosterButton({
   imageUrl,
   brand,
   className,
+  label = "Preview share card",
+  busyLabel = "Building preview…",
+  autoOpenToken = 0,
 }: MarketingPosterButtonProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const lastAutoToken = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -780,6 +940,14 @@ export function MarketingPosterButton({
     }
   }
 
+  useEffect(() => {
+    if (!autoOpenToken || autoOpenToken === lastAutoToken.current) return;
+    if (!imageUrl) return;
+    lastAutoToken.current = autoOpenToken;
+    void openPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open on token bump only
+  }, [autoOpenToken, imageUrl]);
+
   function downloadPreview() {
     if (!previewUrl) return;
     const a = document.createElement("a");
@@ -803,7 +971,7 @@ export function MarketingPosterButton({
         onClick={() => void openPreview()}
         className={className}
       >
-        {busy ? "Building preview…" : "Preview share card"}
+        {busy ? busyLabel : label}
       </button>
       {error ? <span className="mt-1 text-xs text-red-600">{error}</span> : null}
 
