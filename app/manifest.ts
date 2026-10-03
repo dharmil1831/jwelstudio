@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "AI model shots for jewelry — upload, style, generate.",
     start_url: "/",
     display: "standalone",
-    background_color: "#faf8f5",
-    theme_color: "#d97706",
+    background_color: "#e8e0f0",
+    theme_color: "#7c5cbf",
     icons: [
       {
         src: "/icons/icon-192.png",
@@ -21,6 +21,12 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
+      },
+      {
+        src: "/icons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+        purpose: "any",
       },
     ],
   };

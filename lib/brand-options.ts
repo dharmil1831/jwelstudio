@@ -242,14 +242,10 @@ export function buildBrandPromptLines(brand: BrandOptions): string {
     );
   }
 
-  if (!fest?.prompt && !(brand.festivalId !== "none" && brand.festivalLabel)) {
-    return "";
-  }
-
   if (lines.length === 0) return "";
   return [
     "FESTIVAL SETTING (change backdrop, props, and lighting only — never the jewelry):",
     ...lines,
-    "The finished photograph must contain no store name, phone number, weight label, or logo. Those are added in the marketing poster.",
+    "CRITICAL — PHOTO ONLY: do not paint, stamp, or generate any text, letters, numbers, store name, festival greeting, phone number, weight/gm badge, logo, watermark, flyer border, or advertisement graphics into the photograph. Keep a clean product photo with festive props and lighting only. Branding text is added later in a separate poster step.",
   ].join(" ");
 }

@@ -22,6 +22,16 @@ export const metadata: Metadata = {
   title: "Jwelpixel — AI model shots for jewelry",
   description:
     "Upload jewelry, pick your style, and generate model shots. 5 free generations for new accounts.",
+  applicationName: "Jwelpixel",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
   appleWebApp: {
     capable: true,
     title: "Jwelpixel",

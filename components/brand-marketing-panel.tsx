@@ -197,10 +197,12 @@ export function BrandMarketingPanel({
                 onChange({ ...value, watermark: e.target.checked })
               }
             />
-            Watermark / logo on image
+            Soft watermark on marketing poster
           </label>
           <div>
-            <p className="text-[11px] text-foreground/55">Logo placement</p>
+            <p className="text-[11px] text-foreground/55">
+              Logo placement on marketing poster
+            </p>
             <select
               value={value.logoPlacement}
               onChange={(e) =>

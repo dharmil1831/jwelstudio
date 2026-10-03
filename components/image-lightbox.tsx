@@ -61,6 +61,8 @@ export function ImageLightbox({
 
   if (!open) return null;
 
+  const baseHeight = "calc(100vh - 8rem)";
+
   return (
     <div
       className="fixed inset-0 z-[100] flex flex-col bg-black/90"
@@ -72,22 +74,26 @@ export function ImageLightbox({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setZoom((z) => Math.max(z - 0.25, 1))}
+            onClick={() => setZoom((z) => Math.max(Number((z - 0.25).toFixed(2)), 1))}
             disabled={zoom <= 1}
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-40"
+            aria-label="Zoom out"
+            title="Zoom out"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg bg-white/10 text-2xl font-light leading-none hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Zoom out
+            −
           </button>
-          <span className="min-w-[3rem] text-center text-sm text-white/80">
+          <span className="min-w-[3.5rem] text-center text-sm text-white/80">
             {Math.round(zoom * 100)}%
           </span>
           <button
             type="button"
-            onClick={() => setZoom((z) => Math.min(z + 0.25, 3))}
+            onClick={() => setZoom((z) => Math.min(Number((z + 0.25).toFixed(2)), 3))}
             disabled={zoom >= 3}
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-40"
+            aria-label="Zoom in"
+            title="Zoom in"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg bg-white/10 text-2xl font-light leading-none hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Zoom in
+            +
           </button>
         </div>
 
@@ -96,14 +102,14 @@ export function ImageLightbox({
             type="button"
             disabled={downloading}
             onClick={() => void handleDownload()}
-            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-background hover:bg-accent hover:text-foreground disabled:opacity-50"
+            className="cursor-pointer rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-background hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             {downloading ? "Downloading…" : "Download"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
+            className="cursor-pointer rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
             aria-label="Close"
           >
             Close
@@ -115,26 +121,36 @@ export function ImageLightbox({
         <p className="px-4 text-center text-sm text-red-300">{downloadError}</p>
       ) : null}
 
-      <button
-        type="button"
-        className="relative flex-1 overflow-auto p-4"
+      <div
+        className="relative flex-1 overflow-auto"
         onClick={onClose}
-        aria-label="Close preview"
+        role="presentation"
       >
         <div
-          className="flex min-h-full min-w-full items-center justify-center"
+          className="flex items-center justify-center p-4"
+          style={{
+            minWidth: "100%",
+            minHeight: "100%",
+            width: zoom > 1 ? `${zoom * 100}%` : "100%",
+            height: zoom > 1 ? `${zoom * 100}%` : "100%",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={url}
             alt={alt}
-            style={{ transform: `scale(${zoom})` }}
-            className="max-h-[calc(100vh-8rem)] max-w-full origin-center object-contain transition-transform duration-150"
             draggable={false}
+            className="object-contain select-none"
+            style={{
+              height: zoom === 1 ? baseHeight : `calc((100vh - 8rem) * ${zoom})`,
+              width: "auto",
+              maxWidth: zoom === 1 ? "min(100%, 90vw)" : "none",
+              maxHeight: zoom === 1 ? baseHeight : "none",
+            }}
           />
         </div>
-      </button>
+      </div>
     </div>
   );
 }

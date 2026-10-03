@@ -1856,7 +1856,7 @@ export function StudioApp() {
                           setResultMime("image/jpeg");
                           setLightboxOpen(true);
                         }}
-                        className="block h-full w-full cursor-zoom-in"
+                        className="block h-full w-full cursor-pointer"
                         aria-label={`View ${item.file.name}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1971,7 +1971,7 @@ export function StudioApp() {
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  className="block h-full w-full cursor-zoom-in"
+                  className="block h-full w-full cursor-pointer"
                   aria-label="View full size"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1990,9 +1990,11 @@ export function StudioApp() {
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  className="rounded-xl border border-primary/25 bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/30"
+                  aria-label="Zoom in"
+                  title="Zoom in"
+                  className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-primary/25 bg-secondary text-xl font-light leading-none text-foreground hover:bg-accent/30"
                 >
-                  Zoom in
+                  +
                 </button>
               ) : null}
               {canThemes &&

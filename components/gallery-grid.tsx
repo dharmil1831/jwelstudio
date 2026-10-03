@@ -122,7 +122,7 @@ export function GalleryGrid() {
                 <button
                   type="button"
                   onClick={() => setLightboxItem(item)}
-                  className="relative block w-full cursor-zoom-in"
+                  className="relative block w-full cursor-pointer"
                   aria-label="View full size"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
