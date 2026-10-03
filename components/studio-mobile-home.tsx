@@ -260,7 +260,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   const [screen, setScreen] = useState<Screen>("home");
   const [feed, setFeed] = useState<Feed>("all");
   const [tool, setTool] = useState<Tool>("model");
-  const previewSlotRef = useRef<HTMLLabelElement>(null);
+  const previewSlotRef = useRef<HTMLElement | null>(null);
   const show = (id: Feed) => feed === "all" || feed === id;
   const isVideoResult =
     Boolean(props.resultMime?.startsWith("video/")) ||
@@ -477,64 +477,106 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
 
         {screen === "edit" ? (
           <div className="flex flex-col gap-3">
-            <label
-              ref={previewSlotRef}
-              className={`block overflow-hidden rounded-2xl border border-primary/15 bg-white ${
-                props.loading ? "pointer-events-none" : "cursor-pointer"
-              }`}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                disabled={props.loading}
-                onChange={(e) => props.onPickJewelry(e.target.files?.[0] ?? null)}
-              />
-              <span className="relative mx-auto block aspect-square w-full max-w-sm bg-secondary/35">
-                {props.loading ? (
-                  <GenerationPreviewPlaceholder
-                    aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
-                    label={
-                      tool === "video"
-                        ? "Creating your jewelry video…"
-                        : tool === "backdrop" || tool === "shadow"
-                          ? "Creating your background still…"
-                          : "Creating your model shot…"
-                    }
+            {(() => {
+              const showVideoPlayer = Boolean(
+                !props.loading && isVideoResult && props.resultUrl,
+              );
+              const showVideoIdle =
+                !props.loading &&
+                !showVideoPlayer &&
+                tool === "video";
+              const showLoader = props.loading || showVideoIdle;
+              const loaderLabel = props.loading
+                ? tool === "video"
+                  ? "Creating your jewelry video…"
+                  : tool === "backdrop" || tool === "shadow"
+                    ? "Creating your background still…"
+                    : "Creating your model shot…"
+                : props.previewUrl
+                  ? "Ready — tap Generate for video"
+                  : "Upload jewelry, then generate video";
+
+              // Video / loading must not sit inside a file <label> (steals taps + shows wrong poster).
+              if (showVideoPlayer || showLoader) {
+                return (
+                  <div
+                    ref={(node) => {
+                      previewSlotRef.current = node;
+                    }}
+                    className="block overflow-hidden rounded-2xl border border-primary/15 bg-white"
+                  >
+                    <span className="relative mx-auto block aspect-square w-full max-w-sm bg-secondary/35">
+                      {showVideoPlayer && props.resultUrl ? (
+                        <StudioResultVideo
+                          src={props.resultUrl}
+                          fillClassName="absolute inset-0"
+                          className="h-full w-full bg-[#1a1224] object-contain"
+                        />
+                      ) : (
+                        <GenerationPreviewPlaceholder
+                          aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
+                          label={loaderLabel}
+                        />
+                      )}
+                    </span>
+                    {showVideoIdle && !props.previewUrl ? (
+                      <label className="block cursor-pointer border-t border-primary/10 px-3 py-2.5 text-center text-sm font-semibold text-primary">
+                        Tap to upload jewelry
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) =>
+                            props.onPickJewelry(e.target.files?.[0] ?? null)
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              return (
+                <label
+                  ref={(node) => {
+                    previewSlotRef.current = node;
+                  }}
+                  className="block cursor-pointer overflow-hidden rounded-2xl border border-primary/15 bg-white"
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => props.onPickJewelry(e.target.files?.[0] ?? null)}
                   />
-                ) : piece ? (
-                  isVideoResult && props.resultUrl ? (
-                    <StudioResultVideo
-                      src={props.resultUrl}
-                      fillClassName="absolute inset-0"
-                      className="h-full w-full bg-secondary/35 object-contain p-2"
-                    />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={piece}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-contain p-2"
-                    />
-                  )
-                ) : (
-                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/mobile-looks/product-white.jpg"
-                      alt=""
-                      className="h-28 w-28 rounded-xl object-contain opacity-70"
-                    />
-                    <span className="text-sm font-semibold text-foreground">
-                      Tap to upload jewelry
-                    </span>
-                    <span className="text-[11px] text-foreground/55">
-                      Full piece stays visible — nothing gets cropped
-                    </span>
+                  <span className="relative mx-auto block aspect-square w-full max-w-sm bg-secondary/35">
+                    {piece ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={piece}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-contain p-2"
+                      />
+                    ) : (
+                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/mobile-looks/product-white.jpg"
+                          alt=""
+                          className="h-28 w-28 rounded-xl object-contain opacity-70"
+                        />
+                        <span className="text-sm font-semibold text-foreground">
+                          Tap to upload jewelry
+                        </span>
+                        <span className="text-[11px] text-foreground/55">
+                          Full piece stays visible — nothing gets cropped
+                        </span>
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-            </label>
+                </label>
+              );
+            })()}
             {props.resultUrl && !props.resultMime?.startsWith("video/") ? (
               <div className="grid grid-cols-2 gap-2">
                 <DownloadImageButton url={props.resultUrl} exportFormat={props.format} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20" />
