@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
   appName: "Jwelpixel",
   webDir: "www",
   server: {
-    url: "https://jwelstudio.vercel.app",
+    url: "https://jwel-pixel.vercel.app",
     cleartext: false,
   },
   android: {

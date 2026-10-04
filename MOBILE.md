@@ -14,7 +14,7 @@ The Android shell loads the **hosted** Next.js site (not a static export):
 
 - App id: `com.jwelpixel.app`
 - Config: [`capacitor.config.ts`](capacitor.config.ts)
-- Live URL (current): `https://jwelstudio.vercel.app`
+- Live URL (current): `https://jwel-pixel.vercel.app`
 
 ### One-time setup
 
