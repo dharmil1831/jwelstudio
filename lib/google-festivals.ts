@@ -112,7 +112,8 @@ async function fetchCalendar(
   url.searchParams.set("timeMax", timeMax);
   url.searchParams.set("singleEvents", "true");
   url.searchParams.set("orderBy", "startTime");
-  url.searchParams.set("maxResults", "40");
+  // India holiday feeds are dense Oct–Jan; 40 results cut off around mid-January.
+  url.searchParams.set("maxResults", "250");
 
   const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
   if (!res.ok) return [];
@@ -160,7 +161,8 @@ export async function listFestivals(): Promise<FestivalChoice[]> {
 
   const start = new Date();
   const end = new Date();
-  end.setMonth(end.getMonth() + 10);
+  // Cover this season through next year's major festivals (~18 months).
+  end.setMonth(end.getMonth() + 18);
   const timeMin = start.toISOString();
   const timeMax = end.toISOString();
 
@@ -170,16 +172,21 @@ export async function listFestivals(): Promise<FestivalChoice[]> {
     ),
   );
 
-  const byName = new Map<string, FestivalChoice>();
+  // Dedupe by name+date across countries (keep India when tied), but allow
+  // the same festival name in different years (Diwali 2026 and 2027).
+  const byKey = new Map<string, FestivalChoice>();
   for (const event of batches.flat()) {
-    const key = normName(event.label);
-    const prev = byName.get(key);
-    if (!prev || (event.date && prev.date && event.date < prev.date)) {
-      byName.set(key, event);
+    const key = `${normName(event.label)}|${event.date ?? ""}`;
+    const prev = byKey.get(key);
+    if (
+      !prev ||
+      (event.country === "India" && prev.country !== "India")
+    ) {
+      byKey.set(key, event);
     }
   }
 
-  const merged = mergePresets([...byName.values()]);
+  const merged = mergePresets([...byKey.values()]);
   merged.sort((a, b) => {
     if (a.date && b.date) return a.date.localeCompare(b.date);
     if (a.date) return -1;
@@ -195,7 +202,7 @@ export async function listFestivals(): Promise<FestivalChoice[]> {
       country: null,
       prompt: "",
     },
-    ...merged.slice(0, 160),
+    ...merged.slice(0, 400),
   ];
 
   if (merged.length === 0) return fallbackFestivals();
