@@ -1,3 +1,4 @@
+import { MarketingShowcase } from "@/components/marketing-showcase";
 import { StudioApp } from "@/components/studio-app";
 
 const STEPS = [
@@ -34,7 +35,9 @@ export default function Home() {
           ))}
         </section>
 
-        <section id="studio" className="scroll-mt-20 mt-0 lg:mt-16">
+        <MarketingShowcase />
+
+        <section id="studio" className="scroll-mt-20 mt-16 lg:mt-20">
           <StudioApp />
         </section>
       </main>
