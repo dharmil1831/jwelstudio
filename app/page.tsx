@@ -1,5 +1,6 @@
 import { MarketingShowcase } from "@/components/marketing-showcase";
 import { StudioApp } from "@/components/studio-app";
+import { getSessionUser } from "@/lib/session";
 
 const STEPS = [
   { n: "01", title: "Upload", body: "Add your jewelry photo" },
@@ -8,7 +9,10 @@ const STEPS = [
   { n: "04", title: "Gallery", body: "View past shots in your account" },
 ] as const;
 
-export default function Home() {
+export default async function Home() {
+  const user = await getSessionUser();
+  const showMarketing = !user;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto max-w-6xl px-6 pb-20 pt-10">
@@ -35,9 +39,9 @@ export default function Home() {
           ))}
         </section>
 
-        <MarketingShowcase />
+        {showMarketing ? <MarketingShowcase /> : null}
 
-        <section id="studio" className="scroll-mt-20 mt-16 lg:mt-20">
+        <section id="studio" className={`scroll-mt-20 ${showMarketing ? "mt-16 lg:mt-20" : "mt-0 lg:mt-16"}`}>
           <StudioApp />
         </section>
       </main>
