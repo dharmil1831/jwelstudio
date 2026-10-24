@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No account found." }, { status: 404 });
     }
 
-    if (isSuperAdminEmail(user.email)) {
+    if (await isSuperAdminEmail(user.email)) {
       return NextResponse.json(
         {
           error:

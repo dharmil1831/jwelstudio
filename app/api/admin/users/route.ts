@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (isSuperAdminEmail(email)) {
+  if (await isSuperAdminEmail(email)) {
     return NextResponse.json(
       {
         error:

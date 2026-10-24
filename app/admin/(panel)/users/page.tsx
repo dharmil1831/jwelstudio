@@ -1,11 +1,13 @@
 import { CreateUserForm } from "@/components/admin/create-user-form";
 import { UserRowActions } from "@/components/admin/user-row-actions";
-import { isSuperAdminEmail } from "@/lib/admin";
+import { getSuperAdminEmail } from "@/lib/admin";
+import { normalizeEmail } from "@/lib/auth-utils";
 import { listAdminUsers } from "@/lib/admin-data";
 import { normalizePlanId, PLAN_LABELS } from "@/lib/entitlements";
 
 export default async function AdminUsersPage() {
   const users = await listAdminUsers(500);
+  const superAdminEmail = await getSuperAdminEmail();
 
   return (
     <div>
@@ -35,7 +37,9 @@ export default async function AdminUsersPage() {
           <tbody className="divide-y divide-primary/10">
             {users.map((u) => {
               const plan = normalizePlanId(u.plan);
-              const superAdmin = isSuperAdminEmail(u.email);
+              const superAdmin =
+                superAdminEmail !== null &&
+                normalizeEmail(u.email) === superAdminEmail;
               return (
                 <tr key={u.id} className="align-top text-foreground/90">
                   <td className="px-4 py-3 font-medium">

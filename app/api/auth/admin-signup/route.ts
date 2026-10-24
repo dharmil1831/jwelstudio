@@ -1,4 +1,4 @@
-import { isSuperAdminEmail, setAdminSession } from "@/lib/admin";
+import { getSuperAdminEmail, setAdminSession, setSuperAdminEmail } from "@/lib/admin";
 import { normalizeEmail } from "@/lib/auth-utils";
 import {
   assertIdentityAvailable,
@@ -6,10 +6,10 @@ import {
 } from "@/lib/identity";
 import { validatePasswordStrength } from "@/lib/password";
 import { setSession } from "@/lib/session";
-import { createUser, getUserByEmailOrPhone } from "@/lib/users";
+import { createUser, getUserByEmailOrPhone, verifyUserPassword } from "@/lib/users";
 import { NextResponse } from "next/server";
 
-/** Create the single super-admin account (only SUPER_ADMIN_EMAIL allowed). */
+/** Create the admin account from the admin sign-up form. */
 export async function POST(req: Request) {
   let body: { email?: string; password?: string };
   try {
@@ -28,34 +28,50 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isSuperAdminEmail(email)) {
-    return NextResponse.json(
-      {
-        error:
-          "Only the configured SUPER_ADMIN_EMAIL can sign up here. Update .env if needed.",
-      },
-      { status: 403 },
-    );
-  }
-
   const passwordError = validatePasswordStrength(password);
   if (passwordError) {
     return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
+  const normalized = normalizeEmail(email);
+
   try {
-    const existing = await getUserByEmailOrPhone(email);
-    if (existing) {
-      return NextResponse.json(
-        { error: "Super admin already exists. Log in instead." },
-        { status: 409 },
-      );
+    const configured = await getSuperAdminEmail();
+    if (configured) {
+      const currentAdmin = await getUserByEmailOrPhone(configured);
+      if (currentAdmin) {
+        return NextResponse.json(
+          {
+            error:
+              "The admin login already exists. Log in, then change it under Settings.",
+          },
+          { status: 409 },
+        );
+      }
     }
 
-    await assertIdentityAvailable(email, null);
-    await recordIdentityFreeGrant(email, null);
-    const user = await createUser(email, password, null);
-    const normalized = normalizeEmail(email);
+    const existing = await getUserByEmailOrPhone(normalized);
+    if (existing) {
+      const matched = await verifyUserPassword(normalized, password);
+      if (!matched || matched.id !== existing.id) {
+        return NextResponse.json(
+          { error: "That email already has an account. Use its current password to make it the admin." },
+          { status: 401 },
+        );
+      }
+      await setSuperAdminEmail(normalized);
+      await setAdminSession(existing.id, normalized);
+      await setSession(existing.id, normalized);
+      return NextResponse.json({
+        ok: true,
+        user: { email: normalized },
+      });
+    }
+
+    await assertIdentityAvailable(normalized, null);
+    await recordIdentityFreeGrant(normalized, null);
+    const user = await createUser(normalized, password, null);
+    await setSuperAdminEmail(normalized);
     await setAdminSession(user.id, normalized);
     await setSession(user.id, normalized);
 

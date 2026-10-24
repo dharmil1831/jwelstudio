@@ -143,7 +143,7 @@ export function AdminLoginForm() {
       </form>
 
       <p className="mt-4 text-xs text-foreground/55">
-        Only the single email in <code>SUPER_ADMIN_EMAIL</code> can use this page.
+        The first sign-up on this page becomes the only admin login. After that, change it in Settings.
         Studio login at{" "}
         <Link href="/login" className="text-primary hover:underline">
           /login

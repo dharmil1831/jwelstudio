@@ -17,6 +17,16 @@
   --color-accent: #a78bfa;
   --font-sans: var(--font-sans-family), "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display-family), "Newsreader", ui-serif, Georgia, serif;
+  --animate-marquee: marquee 42s linear infinite;
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
 }
 
 body {

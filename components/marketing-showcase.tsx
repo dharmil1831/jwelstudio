@@ -1,141 +1,157 @@
+import type { HomePlaceholderSelection } from "@/lib/home-placeholders";
 import Link from "next/link";
 
-const GALLERY = [
-  "/mobile-looks/product-gold.jpg",
-  "/mobile-looks/look-bridal.jpg",
-  "/mobile-looks/product-portrait.jpg",
-  "/mobile-looks/product-black.jpg",
-  "/mobile-looks/product-blush.jpg",
-  "/mobile-looks/look-beauty.jpg",
-  "/mobile-looks/product-white.jpg",
-  "/mobile-looks/look-glamour.jpg",
-] as const;
+function marqueeSources(sources: string[]): string[] {
+  const base = sources.length > 0 ? sources : [];
+  const filled = [...base];
+  while (filled.length > 0 && filled.length < 8) filled.push(...base);
+  return [...filled, ...filled];
+}
 
-export function MarketingShowcase() {
+export function MarketingShowcase({ images }: { images: HomePlaceholderSelection }) {
+  const strip = marqueeSources(images.hero);
   return (
-    <div className="mt-16 space-y-20">
-      <section aria-label="Before and after" className="text-center">
-        <Link
-          href="#studio"
-          className="inline-flex rounded-md bg-primary px-6 py-3 text-xs font-bold tracking-[0.18em] text-white hover:bg-accent hover:text-foreground"
-        >
-          START CREATING
-        </Link>
-
-        <div className="mt-10 flex flex-col items-center justify-center gap-6 md:flex-row md:gap-8">
-          <figure className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-primary/10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/mobile-looks/product-white.jpg"
-              alt="Jewelry photo before styling"
-              className="aspect-[4/3] w-full object-cover"
-            />
-          </figure>
-
-          <div className="flex items-center gap-3 text-primary" aria-hidden>
-            <span className="text-2xl">→</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/jwelpixel-emblem-v4.png"
-              alt=""
-              className="h-24 w-24 object-contain"
-            />
-            <span className="text-2xl">→</span>
+    <div className="w-full min-w-0 bg-background text-foreground">
+      <section className="pt-10 text-center sm:pt-16">
+        <p className="px-4 text-[11px] font-semibold tracking-[0.18em] text-primary sm:tracking-[0.32em]">
+          AI JEWELLERY PHOTOS
+        </p>
+        <h1 className="mx-auto mt-5 max-w-4xl px-4 font-[family-name:var(--font-display)] text-[clamp(2rem,7vw,3.75rem)] leading-[1.08] font-normal text-balance text-foreground sm:px-6">
+          Turn one jewellery photo into a premium catalog.
+        </h1>
+        <div className="mt-8 overflow-hidden sm:mt-10">
+          <div className="flex w-max animate-marquee gap-3 sm:gap-4">
+            {strip.map((src, index) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${src}-${index}`}
+                src={src}
+                alt=""
+                className="h-36 w-52 shrink-0 rounded-2xl object-cover sm:h-52 sm:w-72 lg:h-64 lg:w-80"
+              />
+            ))}
           </div>
+        </div>
+        <p className="mx-auto mt-8 max-w-md px-4 text-sm leading-relaxed text-foreground/70 sm:px-6">
+          Upload one photograph. Receive a styled, catalog-ready photo in seconds.
+        </p>
+        <Link
+          href="/login"
+          className="mt-8 inline-flex rounded-full bg-primary px-8 py-3 text-sm font-semibold tracking-wide text-white hover:bg-primary/90"
+        >
+          Start creating
+        </Link>
+        <p className="mt-4 text-sm text-foreground/70">
+          Your first 5 generations are free · no card needed
+        </p>
 
-          <figure className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-primary/10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/mobile-looks/look-bridal.jpg"
-              alt="Styled jewelry result"
-              className="aspect-[4/3] w-full object-cover"
-            />
-          </figure>
+        <div className="mx-auto mt-10 flex w-full max-w-5xl flex-col items-center gap-4 px-4 sm:mt-14 sm:px-6 lg:flex-row lg:justify-center lg:gap-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={images.before}
+            alt="Plain jewellery photo"
+            className="h-44 w-full max-w-72 min-w-0 rounded-2xl object-cover shadow-sm ring-1 ring-primary/15 sm:h-52 lg:max-w-64"
+          />
+          <span aria-hidden className="text-2xl text-primary lg:hidden">
+            ↓
+          </span>
+          <span aria-hidden className="hidden text-2xl text-primary lg:inline">
+            →
+          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/jwelpixel-emblem-v4.png"
+            alt="Jwelpixel"
+            className="h-24 w-24 shrink-0 object-contain sm:h-28 sm:w-28"
+          />
+          <span aria-hidden className="text-2xl text-primary lg:hidden">
+            ↓
+          </span>
+          <span aria-hidden className="hidden text-2xl text-primary lg:inline">
+            →
+          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={images.after}
+            alt="Catalog-ready jewellery photo"
+            className="h-44 w-full max-w-72 min-w-0 rounded-2xl object-cover shadow-sm ring-1 ring-primary/15 sm:h-52 lg:max-w-64"
+          />
         </div>
       </section>
 
-      <section id="process" className="scroll-mt-24">
-        <h2 className="text-center font-[family-name:var(--font-display)] text-4xl font-normal text-foreground">
-          How It Works
+      <section id="process" className="mt-16 scroll-mt-20 bg-secondary px-4 py-12 sm:mt-20 sm:px-6 sm:py-16">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="text-center font-[family-name:var(--font-display)] text-[clamp(1.75rem,5vw,2.25rem)] font-normal text-balance text-foreground">
+            How it works
+          </h2>
+          <span className="mx-auto mt-3 block h-px w-16 bg-primary" />
+          <div className="mt-10 grid gap-10 sm:mt-14 lg:grid-cols-3 lg:gap-12">
+            <article>
+              <p className="font-[family-name:var(--font-display)] text-2xl text-accent">01</p>
+              <h3 className="mt-3 font-[family-name:var(--font-display)] text-2xl text-foreground">
+                Upload your photo
+              </h3>
+              <p className="mt-3 max-w-xs text-sm leading-relaxed text-foreground/70">
+                Take a plain photo of your piece. We handle the rest.
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={images.stepUpload}
+                alt=""
+                className="mt-6 aspect-[4/3] w-full rounded-lg object-cover"
+              />
+            </article>
+            <article>
+              <p className="font-[family-name:var(--font-display)] text-2xl text-accent">02</p>
+              <h3 className="mt-3 font-[family-name:var(--font-display)] text-2xl text-foreground">
+                Pick your style
+              </h3>
+              <p className="mt-3 max-w-xs text-sm leading-relaxed text-foreground/70">
+                Choose a model look or a clean backdrop, then the size.
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <figure className="rounded-lg bg-background p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={images.stepModel} alt="" className="aspect-square w-full rounded object-cover" />
+                  <figcaption className="px-1 pt-2 text-xs font-semibold text-foreground">Model</figcaption>
+                  <p className="px-1 pb-1 text-[11px] text-foreground/60">Worn on a model</p>
+                </figure>
+                <figure className="rounded-lg bg-background p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={images.stepBackdrop} alt="" className="aspect-square w-full rounded object-cover" />
+                  <figcaption className="px-1 pt-2 text-xs font-semibold text-foreground">Backdrop</figcaption>
+                  <p className="px-1 pb-1 text-[11px] text-foreground/60">Clean catalog background</p>
+                </figure>
+              </div>
+            </article>
+            <article>
+              <p className="font-[family-name:var(--font-display)] text-2xl text-accent">03</p>
+              <h3 className="mt-3 font-[family-name:var(--font-display)] text-2xl text-foreground">
+                Download and use
+              </h3>
+              <p className="mt-3 max-w-xs text-sm leading-relaxed text-foreground/70">
+                Ready in seconds. Post it anywhere you sell.
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={images.stepDownload}
+                alt=""
+                className="mt-6 aspect-[4/3] w-full rounded-lg object-cover"
+              />
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="gallery" className="scroll-mt-20 bg-background px-4 py-12 sm:px-6 sm:py-16">
+        <h2 className="text-center font-[family-name:var(--font-display)] text-[clamp(1.75rem,5vw,2.25rem)] font-normal text-balance text-foreground">
+          Gallery
         </h2>
-        <div className="mx-auto mt-3 h-px w-16 bg-primary" />
-        <div className="mt-12 grid gap-10 md:grid-cols-3">
-          <article>
-            <p className="font-[family-name:var(--font-display)] text-2xl text-primary">01</p>
-            <h3 className="mt-2 font-[family-name:var(--font-display)] text-2xl text-foreground">
-              Upload Your Photo
-            </h3>
-            <p className="mt-2 text-sm text-foreground/65">
-              Take a plain photo of your piece. We handle the rest.
-            </p>
-            <figure className="mt-4 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-primary/10">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/mobile-looks/product-portrait.jpg"
-                alt="Uploaded jewelry"
-                className="aspect-[4/3] w-full object-cover"
-              />
-            </figure>
-          </article>
-
-          <article>
-            <p className="font-[family-name:var(--font-display)] text-2xl text-primary">02</p>
-            <h3 className="mt-2 font-[family-name:var(--font-display)] text-2xl text-foreground">
-              Pick Your Style
-            </h3>
-            <p className="mt-2 text-sm text-foreground/65">
-              Choose model or background, tone, and size.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <figure className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-primary/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/mobile-looks/product-gold.jpg"
-                  alt="Studio backdrop style"
-                  className="aspect-square w-full object-cover"
-                />
-              </figure>
-              <figure className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-primary/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/mobile-looks/look-beauty.jpg"
-                  alt="Model look style"
-                  className="aspect-square w-full object-cover"
-                />
-              </figure>
-            </div>
-          </article>
-
-          <article>
-            <p className="font-[family-name:var(--font-display)] text-2xl text-primary">03</p>
-            <h3 className="mt-2 font-[family-name:var(--font-display)] text-2xl text-foreground">
-              Download &amp; Use
-            </h3>
-            <p className="mt-2 text-sm text-foreground/65">
-              Ready in seconds. Post it anywhere you sell.
-            </p>
-            <figure className="mt-4 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-primary/10">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/mobile-looks/look-glamour.jpg"
-                alt="Finished jewelry visual"
-                className="aspect-[4/3] w-full object-cover"
-              />
-            </figure>
-          </article>
-        </div>
-      </section>
-
-      <section id="looks" aria-label="Look gallery" className="scroll-mt-24">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {GALLERY.map((src) => (
-            <figure
-              key={src}
-              className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-primary/10"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="aspect-square w-full object-cover" />
-            </figure>
+        <span className="mx-auto mt-3 block h-px w-16 bg-primary" />
+        <div className="mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-2 sm:mt-10 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+          {images.gallery.map((src) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={src} src={src} alt="" className="aspect-square w-full rounded-xl object-cover" />
           ))}
         </div>
       </section>

@@ -58,15 +58,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid email." }, { status: 400 });
     }
     const normalized = normalizeEmail(email);
-    if (isSuperAdminEmail(existing.email) && !isSuperAdminEmail(normalized)) {
+    if (
+      (await isSuperAdminEmail(existing.email)) &&
+      !(await isSuperAdminEmail(normalized))
+    ) {
       return NextResponse.json(
-        { error: "Cannot change the super admin email away from SUPER_ADMIN_EMAIL." },
+        { error: "Change the super admin login from Settings, not from this user." },
         { status: 403 },
       );
     }
     if (
-      !isSuperAdminEmail(existing.email) &&
-      isSuperAdminEmail(normalized)
+      !(await isSuperAdminEmail(existing.email)) &&
+      (await isSuperAdminEmail(normalized))
     ) {
       return NextResponse.json(
         { error: "That email is reserved for the super admin." },
@@ -167,7 +170,7 @@ export async function DELETE(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  if (isSuperAdminEmail(existing.email)) {
+  if (await isSuperAdminEmail(existing.email)) {
     return NextResponse.json(
       { error: "Cannot delete the super admin account." },
       { status: 403 },

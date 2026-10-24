@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isSuperAdminEmail(email)) {
+  if (!(await isSuperAdminEmail(email))) {
     return NextResponse.json(
       { error: "This account is not the super admin." },
       { status: 403 },

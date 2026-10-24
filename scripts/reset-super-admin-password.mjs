@@ -25,21 +25,23 @@ async function hashPassword(password) {
   return `scrypt$${N}$${r}$${p}$${salt.toString("hex")}$${derived.toString("hex")}`;
 }
 
-const email =
-  normalizeEmail(process.env.SUPER_ADMIN_EMAIL) ||
-  normalizeEmail((process.env.ADMIN_EMAILS || "").split(",")[0]);
+const prisma = new PrismaClient();
+const saved = await prisma.appSetting.findUnique({
+  where: { key: "superAdminEmail" },
+});
+const email = normalizeEmail(saved?.value);
 
 if (!email) {
-  console.error("SUPER_ADMIN_EMAIL is not set in .env");
+  console.error("No admin login has been saved yet. Sign up at /admin/login.");
+  await prisma.$disconnect();
   process.exit(1);
 }
 
 const tempPassword = process.argv[2] || `Admin-${randomBytes(4).toString("hex")}!`;
 
-const prisma = new PrismaClient();
 const user = await prisma.user.findUnique({ where: { email } });
 if (!user) {
-  console.error("No user found for SUPER_ADMIN_EMAIL. Use Sign up on /admin/login instead.");
+  console.error("No user found for the saved admin email. Sign up at /admin/login.");
   await prisma.$disconnect();
   process.exit(1);
 }

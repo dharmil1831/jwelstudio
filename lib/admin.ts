@@ -18,24 +18,39 @@ export type AdminSessionUser = {
   plan: PlanId;
 };
 
-/** Single super-admin email from env. Falls back to first ADMIN_EMAILS entry. */
-export function getSuperAdminEmail(): string | null {
-  const single = process.env.SUPER_ADMIN_EMAIL?.trim();
-  if (single) return normalizeEmail(single);
-  const legacy = process.env.ADMIN_EMAILS?.trim();
-  if (!legacy) return null;
-  const first = legacy.split(",")[0]?.trim();
-  return first ? normalizeEmail(first) : null;
+const SUPER_ADMIN_SETTING_KEY = "superAdminEmail";
+
+/** The only admin login is the email saved from the site. */
+export async function getSuperAdminEmail(): Promise<string | null> {
+  try {
+    const row = await prisma.appSetting.findUnique({
+      where: { key: SUPER_ADMIN_SETTING_KEY },
+    });
+    const saved = row?.value?.trim();
+    if (saved?.includes("@")) return normalizeEmail(saved);
+  } catch (error) {
+    if (!isPrismaConnectivityError(error)) throw error;
+  }
+  return null;
 }
 
-export function isSuperAdminEmail(email: string): boolean {
-  const admin = getSuperAdminEmail();
+export async function setSuperAdminEmail(email: string): Promise<void> {
+  const value = normalizeEmail(email);
+  await prisma.appSetting.upsert({
+    where: { key: SUPER_ADMIN_SETTING_KEY },
+    create: { key: SUPER_ADMIN_SETTING_KEY, value },
+    update: { value },
+  });
+}
+
+export async function isSuperAdminEmail(email: string): Promise<boolean> {
+  const admin = await getSuperAdminEmail();
   if (!admin) return false;
   return normalizeEmail(email) === admin;
 }
 
 /** @deprecated Use isSuperAdminEmail — kept for any lingering callers */
-export function isAdminEmail(email: string): boolean {
+export async function isAdminEmail(email: string): Promise<boolean> {
   return isSuperAdminEmail(email);
 }
 
@@ -50,11 +65,11 @@ export async function getAdminSessionUser(): Promise<AdminSessionUser | null> {
     role?: string;
   }>(token);
   if (!payload?.userId || payload.role !== "super_admin") return null;
-  if (!isSuperAdminEmail(payload.email)) return null;
+  if (!(await isSuperAdminEmail(payload.email))) return null;
 
   try {
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user || !isSuperAdminEmail(user.email)) return null;
+    if (!user || !(await isSuperAdminEmail(user.email))) return null;
 
     return {
       id: user.id,
@@ -76,7 +91,7 @@ export async function setAdminSession(
   userId: string,
   email: string,
 ): Promise<void> {
-  if (!isSuperAdminEmail(email)) {
+  if (!(await isSuperAdminEmail(email))) {
     throw new Error("Not the configured super admin.");
   }
   const jar = await cookies();
