@@ -79,11 +79,11 @@ export function SiteHeader({
   const credits = session?.credits;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-primary/15 bg-background/90 backdrop-blur-sm">
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-40 w-full border-b border-primary/15 bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3">
         <Link
           href="/"
-          className="mr-auto flex min-w-0 shrink items-center hover:opacity-90"
+          className="flex min-w-0 flex-1 items-center overflow-hidden hover:opacity-90"
           aria-label="Jwelpixel home"
         >
           <Image
@@ -93,11 +93,11 @@ export function SiteHeader({
             width={1321}
             height={400}
             priority
-            className="h-12 w-auto max-w-[min(60vw,240px)] object-contain object-left sm:h-14 sm:max-w-[290px]"
+            className="h-8 w-auto max-w-full object-contain object-left sm:h-14"
           />
         </Link>
 
-        <nav className="flex shrink-0 items-center gap-3 text-sm text-foreground/70">
+        <nav className="flex shrink-0 items-center gap-2 text-xs text-foreground/70 sm:gap-3 sm:text-sm">
           <Link href="/pricing" className="hover:text-primary">
             Pricing
           </Link>

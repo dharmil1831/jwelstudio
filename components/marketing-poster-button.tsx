@@ -984,7 +984,7 @@ export function MarketingPosterButton({
         >
           <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
             <p className="text-sm text-white/80">
-              {(brand.posterTemplate || "classic").toUpperCase()} poster preview
+              Share card preview
             </p>
             <div className="flex items-center gap-2">
               <button

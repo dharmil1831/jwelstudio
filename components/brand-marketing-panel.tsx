@@ -12,7 +12,6 @@ import {
   LOGO_PLACEMENTS,
   type LogoPlacement,
 } from "@/lib/brand-options";
-import { POSTER_TEMPLATES } from "@/lib/poster-templates";
 import { useEffect, useState } from "react";
 
 export type { BrandFormState };
@@ -106,69 +105,13 @@ export function BrandMarketingPanel({
             </p>
             <ol className="mt-1.5 space-y-1 text-[11px] leading-relaxed text-foreground/70">
               <li>1. Add logo, brand, phone, Instagram</li>
-              <li>2. Pick festival + template pack</li>
-              <li>3. Generate jewelry photo</li>
-              <li>4. Share card stamps your brand on the result</li>
+              <li>2. Pick a festival on the calendar</li>
+              <li>3. Generate the jewelry photo</li>
             </ol>
             <p className="mt-2 text-[10px] text-foreground/55">
               {kitReady
-                ? "Brand details ready for the share card."
-                : "Add brand name or logo for a complete share card."}
-            </p>
-          </div>
-          <div>
-            <p className="mb-2 text-[11px] text-foreground/55">Template gallery</p>
-            <div className="grid grid-cols-1 gap-2">
-              {POSTER_TEMPLATES.map((t) => {
-                const active = value.posterTemplate === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() =>
-                      onChange({ ...value, posterTemplate: t.id })
-                    }
-                    className={`cursor-pointer rounded-xl border px-3 py-2 text-left transition ${
-                      active
-                        ? "border-primary bg-primary/15 text-foreground"
-                        : "border-primary/20 bg-background/30 text-foreground/75 hover:border-primary/40"
-                    }`}
-                  >
-                    <span className="flex items-start gap-3">
-                      <span
-                        className="mt-0.5 flex h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-black/10"
-                        aria-hidden
-                      >
-                        <span
-                          className="h-full w-1/3"
-                          style={{ background: t.swatch[0] }}
-                        />
-                        <span
-                          className="h-full w-1/3"
-                          style={{ background: t.swatch[1] }}
-                        />
-                        <span
-                          className="h-full w-1/3"
-                          style={{ background: t.swatch[2] }}
-                        />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold">
-                          {t.label}
-                        </span>
-                        <span className="block text-[11px] text-foreground/55">
-                          {t.blurb}
-                        </span>
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-foreground/45">
-              Same playbook as Scalio / Photoroom / Flyr: AI photo first, then a
-              branded template. Designer PSD flyers can plug in later as blank
-              packs.
+                ? "Brand details are saved on this account."
+                : "Add a brand name or logo to finish the kit."}
             </p>
           </div>
           <div>
@@ -226,10 +169,8 @@ export function BrandMarketingPanel({
             className="w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           <p className="text-[10px] leading-relaxed text-foreground/45">
-            Festival changes the photo scene (props &amp; light). Brand text,
-            grams, and logo never appear inside the AI photo — tap{" "}
-            <strong className="font-medium text-foreground/65">Preview share card</strong>{" "}
-            (or Share card on batch results) after generate.
+            Festival changes the photo scene (props and light). Brand name,
+            grams, and logo stay on your account and are not drawn onto the photo.
           </p>
           <input
             type="text"
@@ -309,7 +250,7 @@ export function BrandMarketingPanel({
           </label>
           <div>
             <p className="text-[11px] text-foreground/55">
-              Logo placement on share card photo (bottom left, top right, etc.)
+              Logo placement saved with the brand kit (bottom left, top right, etc.)
             </p>
             <select
               value={value.logoPlacement}

@@ -1,7 +1,7 @@
 "use client";
 
 import { downloadImage, filenameFromUrl } from "@/lib/download-image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ImageLightboxProps = {
   url: string;
@@ -9,6 +9,7 @@ type ImageLightboxProps = {
   open: boolean;
   onClose: () => void;
   filename?: string;
+  generationId?: string;
 };
 
 export function ImageLightbox({
@@ -17,13 +18,25 @@ export function ImageLightbox({
   open,
   onClose,
   filename,
+  generationId,
 }: ImageLightboxProps) {
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const stageRef = useRef<HTMLDivElement>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(
+    null,
+  );
 
   const reset = useCallback(() => {
+    zoomRef.current = 1;
+    panRef.current = { x: 0, y: 0 };
     setZoom(1);
+    setPan({ x: 0, y: 0 });
     setDownloadError(null);
   }, []);
 
@@ -35,8 +48,6 @@ export function ImageLightbox({
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
-      if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(z + 0.25, 3));
-      if (e.key === "-") setZoom((z) => Math.max(z - 0.25, 1));
     }
 
     document.body.style.overflow = "hidden";
@@ -46,6 +57,93 @@ export function ImageLightbox({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open, onClose, reset]);
+
+  const applyZoom = useCallback((next: number) => {
+    const clamped = Math.min(4, Math.max(1, next));
+    zoomRef.current = clamped;
+    setZoom(clamped);
+    if (clamped <= 1) {
+      panRef.current = { x: 0, y: 0 };
+      setPan({ x: 0, y: 0 });
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!open || !el) return;
+
+    let pinchStart: { distance: number; zoom: number } | null = null;
+    let dragStart: { x: number; y: number; panX: number; panY: number } | null = null;
+    let lastTap = 0;
+
+    function touchDistance(touches: TouchList) {
+      return Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY,
+      );
+    }
+
+    function onTouchStart(event: TouchEvent) {
+      if (event.touches.length >= 2) {
+        event.preventDefault();
+        pinchStart = {
+          distance: touchDistance(event.touches),
+          zoom: zoomRef.current,
+        };
+        dragStart = null;
+        return;
+      }
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        event.preventDefault();
+        applyZoom(zoomRef.current > 1 ? 1 : 2.5);
+        lastTap = 0;
+        dragStart = null;
+        return;
+      }
+      lastTap = now;
+      if (zoomRef.current > 1) {
+        dragStart = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+          panX: panRef.current.x,
+          panY: panRef.current.y,
+        };
+      }
+    }
+
+    function onTouchMove(event: TouchEvent) {
+      if (event.touches.length >= 2 && pinchStart && pinchStart.distance > 0) {
+        event.preventDefault();
+        applyZoom(pinchStart.zoom * (touchDistance(event.touches) / pinchStart.distance));
+        return;
+      }
+      if (event.touches.length === 1 && dragStart && zoomRef.current > 1) {
+        event.preventDefault();
+        panRef.current = {
+          x: dragStart.panX + (event.touches[0].clientX - dragStart.x),
+          y: dragStart.panY + (event.touches[0].clientY - dragStart.y),
+        };
+        setPan({ ...panRef.current });
+      }
+    }
+
+    function onTouchEnd(event: TouchEvent) {
+      if (event.touches.length < 2) pinchStart = null;
+      if (event.touches.length === 0) dragStart = null;
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [open, applyZoom]);
 
   async function handleDownload() {
     setDownloading(true);
@@ -61,43 +159,25 @@ export function ImageLightbox({
 
   if (!open) return null;
 
-  const baseHeight = "calc(100vh - 8rem)";
+  const fileHref = generationId ? `/api/generations/${generationId}/file` : null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col bg-black/90"
+      className="fixed inset-0 z-[100] flex flex-col bg-black/95 pt-[env(safe-area-inset-top)]"
       role="dialog"
       aria-modal="true"
       aria-label="Image preview"
     >
-      <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setZoom((z) => Math.max(Number((z - 0.25).toFixed(2)), 1))}
-            disabled={zoom <= 1}
-            aria-label="Zoom out"
-            title="Zoom out"
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg bg-white/10 text-2xl font-light leading-none hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+      <div className="flex shrink-0 items-center justify-end gap-2 bg-black px-3 py-2 text-white">
+        {fileHref ? (
+          <a
+            href={fileHref}
+            download={filename ?? `jwelpixel-${generationId}`}
+            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-background"
           >
-            −
-          </button>
-          <span className="min-w-[3.5rem] text-center text-sm text-white/80">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            type="button"
-            onClick={() => setZoom((z) => Math.min(Number((z + 0.25).toFixed(2)), 3))}
-            disabled={zoom >= 3}
-            aria-label="Zoom in"
-            title="Zoom in"
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg bg-white/10 text-2xl font-light leading-none hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            +
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
+            Download
+          </a>
+        ) : (
           <button
             type="button"
             disabled={downloading}
@@ -106,15 +186,15 @@ export function ImageLightbox({
           >
             {downloading ? "Downloading…" : "Download"}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="cursor-pointer rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
-            aria-label="Close"
-          >
-            Close
-          </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="cursor-pointer rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
+          aria-label="Close"
+        >
+          Close
+        </button>
       </div>
 
       {downloadError ? (
@@ -122,34 +202,54 @@ export function ImageLightbox({
       ) : null}
 
       <div
-        className="relative flex-1 overflow-auto"
-        onClick={onClose}
-        role="presentation"
+        ref={stageRef}
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
+        style={{ touchAction: "none" }}
+        onPointerDown={(e) => {
+          if (e.pointerType !== "mouse") return;
+          pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (zoomRef.current > 1) {
+            drag.current = {
+              x: e.clientX,
+              y: e.clientY,
+              panX: panRef.current.x,
+              panY: panRef.current.y,
+            };
+          }
+        }}
+        onPointerMove={(e) => {
+          if (e.pointerType !== "mouse" || !pointers.current.has(e.pointerId)) return;
+          pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (drag.current && zoomRef.current > 1) {
+            panRef.current = {
+              x: drag.current.panX + (e.clientX - drag.current.x),
+              y: drag.current.panY + (e.clientY - drag.current.y),
+            };
+            setPan(panRef.current);
+          }
+        }}
+        onPointerUp={(e) => {
+          if (e.pointerType !== "mouse") return;
+          pointers.current.delete(e.pointerId);
+          if (pointers.current.size === 0) drag.current = null;
+        }}
+        onPointerCancel={(e) => {
+          pointers.current.delete(e.pointerId);
+          drag.current = null;
+        }}
       >
-        <div
-          className="flex items-center justify-center p-4"
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={alt}
+          draggable={false}
+          className="max-h-full max-w-full object-contain select-none"
           style={{
-            minWidth: "100%",
-            minHeight: "100%",
-            width: zoom > 1 ? `${zoom * 100}%` : "100%",
-            height: zoom > 1 ? `${zoom * 100}%` : "100%",
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "center center",
+            touchAction: "none",
           }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={alt}
-            draggable={false}
-            className="object-contain select-none"
-            style={{
-              height: zoom === 1 ? baseHeight : `calc((100vh - 8rem) * ${zoom})`,
-              width: "auto",
-              maxWidth: zoom === 1 ? "min(100%, 90vw)" : "none",
-              maxHeight: zoom === 1 ? baseHeight : "none",
-            }}
-          />
-        </div>
+        />
       </div>
     </div>
   );

@@ -1,24 +1,74 @@
 import { getGeminiApiKey, getGeminiVideoModel } from "@/lib/env";
 
-type VeoOperation = {
-  name?: string;
-  done?: boolean;
-  error?: { message?: string };
-  response?: {
-    generateVideoResponse?: {
-      generatedSamples?: Array<{
-        video?: { uri?: string };
-      }>;
-    };
-    generatedVideos?: Array<{
-      video?: { uri?: string };
-    }>;
-  };
+const INTERACTIONS_URL =
+  "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+type VideoPart = {
+  type?: string;
+  mime_type?: string;
+  data?: string;
+  uri?: string;
 };
 
+type Interaction = {
+  id?: string;
+  status?: string;
+  error?: { message?: string } | string;
+  output_video?: VideoPart;
+  steps?: Array<{
+    content?: VideoPart[];
+  }>;
+};
+
+function errorMessage(body: Interaction, status: number): string {
+  if (typeof body.error === "string" && body.error) return body.error;
+  if (typeof body.error === "object" && body.error?.message) {
+    return body.error.message;
+  }
+  return `Video request failed (${status}). Check GEMINI_VIDEO_MODEL and API access.`;
+}
+
+function videoFromInteraction(
+  body: Interaction,
+): { data?: string; uri?: string; mimeType: string } | null {
+  const direct = body.output_video;
+  if (direct && (direct.data || direct.uri)) {
+    return {
+      data: direct.data,
+      uri: direct.uri,
+      mimeType: direct.mime_type || "video/mp4",
+    };
+  }
+  for (const step of body.steps ?? []) {
+    for (const part of step.content ?? []) {
+      if (part.type === "video" && (part.data || part.uri)) {
+        return {
+          data: part.data,
+          uri: part.uri,
+          mimeType: part.mime_type || "video/mp4",
+        };
+      }
+    }
+  }
+  return null;
+}
+
+async function readInteraction(res: Response): Promise<Interaction> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as Interaction;
+  } catch {
+    throw new Error(
+      res.ok
+        ? "Video API returned an invalid response."
+        : `Video request failed (${res.status}).`,
+    );
+  }
+}
+
 /**
- * Generate a short product video from jewelry image + preset prompt via Gemini Veo.
- * Polls the long-running operation until complete or timeout.
+ * Generate a short product video from a jewelry image via Gemini Omni Flash.
+ * Uses the Interactions API (image-to-video). Polls when the job is backgrounded.
  */
 export async function generateJewelryVideoWithGemini(params: {
   imageBase64: string;
@@ -33,116 +83,91 @@ export async function generateJewelryVideoWithGemini(params: {
     throw new Error("GEMINI_API_KEY is not configured");
   }
 
-  const model = getGeminiVideoModel();
-  const startUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:predictLongRunning`;
+  const prompt = params.negativePrompt
+    ? `${params.prompt}\nDo not include: ${params.negativePrompt}`
+    : params.prompt;
 
-  // Image-to-video: Veo only accepts allow_adult (or omit). dont_allow → 400.
-  const personGeneration =
-    params.personGeneration === "dont_allow"
-      ? "allow_adult"
-      : (params.personGeneration ?? "allow_adult");
-
-  const startRes = await fetch(startUrl, {
+  const startRes = await fetch(INTERACTIONS_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
-      instances: [
+      model: getGeminiVideoModel(),
+      input: [
         {
-          prompt: params.prompt,
-          image: {
-            bytesBase64Encoded: params.imageBase64,
-            mimeType: params.mimeType || "image/jpeg",
-          },
+          type: "image",
+          data: params.imageBase64,
+          mime_type: params.mimeType || "image/jpeg",
         },
+        { type: "text", text: prompt },
       ],
-      parameters: {
-        aspectRatio: params.aspectRatio ?? "9:16",
-        personGeneration,
-        sampleCount: 1,
-        ...(params.negativePrompt
-          ? { negativePrompt: params.negativePrompt }
-          : {}),
+      response_format: {
+        type: "video",
+        aspect_ratio: params.aspectRatio ?? "9:16",
+        resolution: "720p",
       },
+      generation_config: {
+        video_config: { task: "image_to_video" },
+      },
+      background: true,
+      store: true,
+      stream: false,
     }),
   });
 
-  const startText = await startRes.text();
-  let startJson: VeoOperation & { error?: { message?: string } };
-  try {
-    startJson = JSON.parse(startText) as typeof startJson;
-  } catch {
-    throw new Error(
-      startRes.ok
-        ? "Video API returned an invalid response."
-        : `Video request failed (${startRes.status}).`,
-    );
-  }
-
+  let last = await readInteraction(startRes);
   if (!startRes.ok) {
-    throw new Error(
-      startJson.error?.message ||
-        `Video request failed (${startRes.status}). Check GEMINI_VIDEO_MODEL and API access.`,
-    );
+    throw new Error(errorMessage(last, startRes.status));
   }
-
-  const opName = startJson.name;
-  if (!opName) {
-    throw new Error("Video API did not return an operation name.");
-  }
-
 
   const deadline = Date.now() + 240_000;
-  let last: VeoOperation = startJson;
-
-  while (Date.now() < deadline) {
-    if (last.done) break;
-    await new Promise((r) => setTimeout(r, 5_000));
-
-    const pollUrl = `https://generativelanguage.googleapis.com/v1beta/${opName}`;
-    const pollRes = await fetch(pollUrl, {
-      headers: { "x-goog-api-key": apiKey },
-    });
-    const pollText = await pollRes.text();
-    try {
-      last = JSON.parse(pollText) as VeoOperation;
-    } catch {
-      throw new Error("Video status poll returned invalid JSON.");
+  const waiting = () => {
+    const status = (last.status ?? "").toLowerCase();
+    return status === "in_progress" || status === "requires_action";
+  };
+  while (waiting()) {
+    if (Date.now() >= deadline) break;
+    if (!last.id) {
+      throw new Error("Video API did not return an interaction id.");
     }
+    await new Promise((r) => setTimeout(r, 5_000));
+    const pollRes = await fetch(
+      `${INTERACTIONS_URL}/${encodeURIComponent(last.id)}`,
+      { headers: { "x-goog-api-key": apiKey } },
+    );
+    last = await readInteraction(pollRes);
     if (!pollRes.ok) {
-      throw new Error(
-        last.error?.message || `Video status poll failed (${pollRes.status}).`,
-      );
+      throw new Error(errorMessage(last, pollRes.status));
     }
   }
 
-  if (!last.done) {
+  const status = (last.status ?? "").toLowerCase();
+  if (status === "in_progress" || status === "requires_action") {
     throw new Error("Video generation timed out. Please try again.");
   }
-  if (last.error?.message) {
-    throw new Error(last.error.message);
+  if (status === "failed" || status === "cancelled" || status === "incomplete") {
+    throw new Error(errorMessage(last, 500));
   }
 
-  const uri =
-    last.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ??
-    last.response?.generatedVideos?.[0]?.video?.uri;
-
-  if (!uri) {
-    throw new Error("Video API returned no video URI.");
+  const video = videoFromInteraction(last);
+  if (!video) {
+    throw new Error("Video API returned no video.");
+  }
+  if (video.data) {
+    return { videoBase64: video.data, mimeType: video.mimeType };
   }
 
-  const videoRes = await fetch(uri, {
+  const videoRes = await fetch(video.uri!, {
     headers: { "x-goog-api-key": apiKey },
   });
   if (!videoRes.ok) {
     throw new Error(`Failed to download generated video (${videoRes.status}).`);
   }
-
   const buf = Buffer.from(await videoRes.arrayBuffer());
   return {
     videoBase64: buf.toString("base64"),
-    mimeType: videoRes.headers.get("content-type") || "video/mp4",
+    mimeType: videoRes.headers.get("content-type") || video.mimeType,
   };
 }

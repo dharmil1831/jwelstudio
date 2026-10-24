@@ -51,11 +51,22 @@ export function getGoogleCalendarApiKey(): string | undefined {
   return normalizeKey(process.env.GOOGLE_CALENDAR_API_KEY);
 }
 
-/** Veo / Gemini video model. Override with GEMINI_VIDEO_MODEL. */
+const DEFAULT_GEMINI_VIDEO_MODEL = "gemini-omni-1.1-flash";
+
+/** Preview Veo ids shut down 22 Oct 2026. Ignore them if still set in the environment. */
+const RETIRED_GEMINI_VIDEO_MODELS = new Set([
+  "veo-3.1-fast-generate-preview",
+  "veo-3.1-generate-preview",
+  "veo-3.1-lite-generate-preview",
+]);
+
+/** Gemini video model. Override with GEMINI_VIDEO_MODEL. */
 export function getGeminiVideoModel(): string {
-  return (
-    process.env.GEMINI_VIDEO_MODEL?.trim() || "veo-3.1-fast-generate-preview"
-  );
+  const configured = process.env.GEMINI_VIDEO_MODEL?.trim();
+  if (!configured || RETIRED_GEMINI_VIDEO_MODELS.has(configured)) {
+    return DEFAULT_GEMINI_VIDEO_MODEL;
+  }
+  return configured;
 }
 
 export function isVideoGenerationConfigured(): boolean {

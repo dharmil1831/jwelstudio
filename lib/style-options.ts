@@ -93,6 +93,10 @@ export const OUTPUT_FORMATS = [
   "square",
   "catalog",
   "landscape",
+  "facebook_post",
+  "pinterest",
+  "x_landscape",
+  "line",
 ] as const;
 
 /** Formats shown in the studio UI (platform names only). */
@@ -101,6 +105,10 @@ export const STUDIO_OUTPUT_FORMATS = [
   "whatsapp_status",
   "instagram_post",
   "instagram_story",
+  "square",
+  "facebook_post",
+  "pinterest",
+  "x_landscape",
 ] as const;
 
 export type OpenAIImageSize = "1024x1024" | "1536x1024" | "1024x1536";
@@ -155,13 +163,13 @@ export type StudioStyle = {
 export const BACKDROP_COLOR_PRESETS = [
   { id: "white", label: "White", hex: "#FFFFFF" },
   { id: "ivory", label: "Ivory", hex: "#F5F0E8" },
-  { id: "black", label: "Black", hex: "#0A0A0A" },
-  { id: "charcoal", label: "Charcoal", hex: "#2B2B2B" },
-  { id: "maroon", label: "Maroon", hex: "#4A0E0E" },
-  { id: "navy", label: "Navy", hex: "#0F1C3F" },
-  { id: "forest", label: "Forest", hex: "#0F2A1F" },
-  { id: "blush", label: "Blush", hex: "#F3E4E7" },
-  { id: "gold", label: "Soft gold", hex: "#C9A227" },
+  { id: "black", label: "Black", hex: "#111111" },
+  { id: "charcoal", label: "Charcoal", hex: "#6B6B6B" },
+  { id: "maroon", label: "Maroon", hex: "#8E2438" },
+  { id: "navy", label: "Navy", hex: "#1E3A8A" },
+  { id: "forest", label: "Forest", hex: "#1B6B43" },
+  { id: "blush", label: "Blush", hex: "#F4C7D2" },
+  { id: "gold", label: "Soft gold", hex: "#E0B44A" },
 ] as const;
 
 export const DEFAULT_BACKDROP_HEX = "#FFFFFF";
@@ -263,13 +271,17 @@ export const VIBE_LABELS: Record<Vibe, string> = {
 };
 
 export const OUTPUT_FORMAT_LABELS: Record<OutputFormat, string> = {
-  whatsapp: "WhatsApp / chat (1080×1080)",
-  whatsapp_status: "WhatsApp Status (1080×1920)",
+  whatsapp: "WhatsApp square (1080×1080)",
+  whatsapp_status: "WhatsApp Story (1080×1920)",
   instagram_post: "Instagram post 4:5 (1080×1350)",
-  instagram_story: "Instagram Story / Reels (1080×1920)",
-  square: "Square catalog (1080×1080)",
-  catalog: "Catalog portrait (1080×1350)",
-  landscape: "Cover / landscape (1211×681)",
+  instagram_story: "Instagram Story (1080×1920)",
+  square: "Instagram Post (1080×1080)",
+  catalog: "Portrait (1080×1350)",
+  landscape: "Landscape (1211×681)",
+  facebook_post: "Facebook post (1200×630)",
+  pinterest: "Pinterest (1000×1500)",
+  x_landscape: "X Feed landscape (1200×675)",
+  line: "LINE (1040×1040)",
 };
 
 /** Exact export pixels for social platforms (download / share). */
@@ -284,6 +296,10 @@ export const OUTPUT_FORMAT_EXPORT_PX: Record<
   square: { width: 1080, height: 1080 },
   catalog: { width: 1080, height: 1350 },
   landscape: { width: 1211, height: 681 },
+  facebook_post: { width: 1200, height: 630 },
+  pinterest: { width: 1000, height: 1500 },
+  x_landscape: { width: 1200, height: 675 },
+  line: { width: 1040, height: 1040 },
 };
 
 export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
@@ -294,6 +310,10 @@ export const OUTPUT_FORMAT_SIZES: Record<OutputFormat, OpenAIImageSize> = {
   instagram_post: "1024x1536",
   instagram_story: "1024x1536",
   landscape: "1536x1024",
+  facebook_post: "1536x1024",
+  pinterest: "1024x1536",
+  x_landscape: "1536x1024",
+  line: "1024x1024",
 };
 
 /** Gemini native aspect ratios closest to each studio format. */
@@ -305,6 +325,10 @@ export const OUTPUT_FORMAT_GEMINI_ASPECT: Record<OutputFormat, string> = {
   instagram_post: "4:5",
   instagram_story: "9:16",
   landscape: "16:9",
+  facebook_post: "16:9",
+  pinterest: "2:3",
+  x_landscape: "16:9",
+  line: "1:1",
 };
 
 export const OUTPUT_FORMAT_ASPECT_CLASS: Record<OutputFormat, string> = {
@@ -315,6 +339,10 @@ export const OUTPUT_FORMAT_ASPECT_CLASS: Record<OutputFormat, string> = {
   instagram_post: "aspect-[4/5] max-w-md",
   instagram_story: "aspect-[9/16] max-w-[280px]",
   landscape: "aspect-video max-w-2xl",
+  facebook_post: "aspect-[1200/630] max-w-2xl",
+  pinterest: "aspect-[2/3] max-w-md",
+  x_landscape: "aspect-video max-w-2xl",
+  line: "aspect-square max-w-xl",
 };
 
 export function parseStudioStyle(body: Record<string, unknown>): StudioStyle {

@@ -33,11 +33,10 @@ export function downloadFilename(
   mimeHint?: string | null,
 ): string {
   const fromUrl = filenameFromUrl(url, "");
-  if (fromUrl && /\.(png|jpe?g|webp|mp4|webm)$/i.test(fromUrl)) {
-    return fromUrl;
-  }
+  const urlExt = /\.(png|jpe?g|webp|mp4|webm)$/i.exec(fromUrl)?.[1]?.toLowerCase();
+  const ext =
+    urlExt === "jpeg" ? "jpg" : urlExt || extensionFromMime(mimeHint) || "jpg";
   const base = preferredBase.replace(/\.(png|jpe?g|webp|mp4|webm)$/i, "");
-  const ext = extensionFromMime(mimeHint) || "jpg";
   return `${base}.${ext}`;
 }
 
@@ -132,12 +131,28 @@ export async function downloadImage(
     }
   }
 
-  const objectUrl = URL.createObjectURL(blob);
+  await saveBlob(blob, finalName);
+}
+
+/** Same-origin file route. The browser saves it; do not open the system share sheet. */
+export function downloadGenerationFile(id: string, filename: string): void {
   const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = finalName;
+  anchor.href = `/api/generations/${encodeURIComponent(id)}/file`;
+  anchor.download = filename || `jwelpixel-${id}`;
+  anchor.rel = "noopener";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(objectUrl);
+}
+
+function saveBlob(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }

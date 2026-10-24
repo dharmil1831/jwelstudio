@@ -84,6 +84,7 @@ async function runGemini(
   prompt: string,
   format: OutputFormat,
   extraImages?: GeminiExtraImage[],
+  wornOnModel?: boolean,
 ): Promise<{ imageBase64: string; mimeType: string }> {
   return generateJewelryWithGemini(
     imageBase64,
@@ -91,6 +92,7 @@ async function runGemini(
     prompt,
     format,
     extraImages,
+    wornOnModel,
   );
 }
 
@@ -105,8 +107,9 @@ export async function generateJewelryImage(params: {
   prompt: string;
   format: OutputFormat;
   extraImages?: GeminiExtraImage[];
+  wornOnModel?: boolean;
 }): Promise<GeneratedJewelryImage> {
-  const { imageBase64, mimeType, prompt, format, extraImages } = params;
+  const { imageBase64, mimeType, prompt, format, extraImages, wornOnModel } = params;
   const preference = getImageProviderPreference();
   const attempted: ImageProviderId[] = [];
 
@@ -140,6 +143,7 @@ export async function generateJewelryImage(params: {
         prompt,
         format,
         extraImages,
+        wornOnModel,
       );
       return { ...out, provider: "gemini", attempted };
     } catch (e) {
@@ -177,7 +181,14 @@ export async function generateJewelryImage(params: {
     const out =
       primary === "openai"
         ? await runOpenAI(imageBase64, mimeType, prompt, format)
-        : await runGemini(imageBase64, mimeType, prompt, format, extraImages);
+        : await runGemini(
+            imageBase64,
+            mimeType,
+            prompt,
+            format,
+            extraImages,
+            wornOnModel,
+          );
     return { ...out, provider: primary, attempted };
   } catch (primaryError) {
     if (!fallback || !isFallbackWorthy(primaryError)) {
@@ -189,7 +200,14 @@ export async function generateJewelryImage(params: {
       const out =
         fallback === "openai"
           ? await runOpenAI(imageBase64, mimeType, prompt, format)
-          : await runGemini(imageBase64, mimeType, prompt, format, extraImages);
+          : await runGemini(
+              imageBase64,
+              mimeType,
+              prompt,
+              format,
+              extraImages,
+              wornOnModel,
+            );
       return { ...out, provider: fallback, attempted };
     } catch (fallbackError) {
       throw sanitizeProviderError(fallbackError, fallback);

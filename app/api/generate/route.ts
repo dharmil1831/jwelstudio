@@ -49,7 +49,7 @@ function parseExtraImage(
   return { data, mimeType: mime };
 }
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 async function persistGeneration(data: {
   userId: string;
@@ -242,6 +242,12 @@ export async function POST(req: Request) {
   if (backgroundLock) {
     prompt = withSharedBackgroundLockPrompt(prompt);
   }
+  if (json.transparentBackdrop === true && style.mode === "background") {
+    prompt = [
+      prompt,
+      "CUTOUT BACKGROUND: flat pure white #FFFFFF in every pixel that is not metal or stone. That includes the outer background and every hole, gap, and openwork inside the jewelry. Do not fill those openings with a different white, gray, or cream. No gradient, no floor line, no horizon, no shadow, no reflection. Keep a margin of white around the piece so it does not touch the frame.",
+    ].join(" ");
+  }
 
   const extraImages: GeminiExtraImage[] = [];
   if (backgroundLock) {
@@ -292,6 +298,7 @@ export async function POST(req: Request) {
       prompt,
       format: style.format,
       extraImages: extraImages.length ? extraImages : undefined,
+      wornOnModel: style.mode === "model",
     });
     const buffer = Buffer.from(out.imageBase64, "base64");
     const resultUrl = await storeGenerationImage(

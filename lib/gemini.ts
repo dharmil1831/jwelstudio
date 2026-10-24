@@ -15,12 +15,19 @@ export type GeminiExtraImage = {
   label?: string;
 };
 
+const WORN_PRODUCT_LABEL =
+  "IMAGE — FLAT CATALOG PHOTO of the jewelry design only. Long ends in this photo may point upward for display. Do not paste this photo, its outline, or a second enlarged copy onto the person. Wear this design once: necklace at the neck and chest, long parts hanging down inside the body width. No gold above the head.";
+
+const PRODUCT_LABEL =
+  "IMAGE — NEW JEWELRY PRODUCT (use ONLY this jewelry design; do not redesign or invent pieces):";
+
 export async function generateJewelryWithGemini(
   imageBase64: string,
   mimeType: string,
   prompt: string,
   format: OutputFormat = "square",
   extraImages?: GeminiExtraImage[],
+  wornOnModel?: boolean,
 ): Promise<{ imageBase64: string; mimeType: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -34,7 +41,7 @@ export async function generateJewelryWithGemini(
   const parts: Array<Record<string, unknown>> = [
     { text: prompt },
     {
-      text: "IMAGE — NEW JEWELRY PRODUCT (use ONLY this jewelry design; do not redesign or invent pieces):",
+      text: wornOnModel ? WORN_PRODUCT_LABEL : PRODUCT_LABEL,
     },
     {
       inlineData: {
@@ -43,6 +50,11 @@ export async function generateJewelryWithGemini(
       },
     },
   ];
+  if (wornOnModel) {
+    parts.push({
+      text: "Reminder after the photo: wear that design once on the model. Do not paste the catalog layout. No second necklace. No tall gold bars above the head.",
+    });
+  }
   for (const extra of extraImages ?? []) {
     if (!extra.data) continue;
     if (extra.label) {
@@ -57,7 +69,7 @@ export async function generateJewelryWithGemini(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90_000);
+  const timeout = setTimeout(() => controller.abort(), 150_000);
 
   try {
     const res = await fetch(url, {

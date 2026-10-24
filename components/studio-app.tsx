@@ -3,18 +3,15 @@
 import { BrandMarketingPanel, EMPTY_BRAND, type BrandFormState } from "@/components/brand-marketing-panel";
 import { StudioMobileHome } from "@/components/studio-mobile-home";
 import { DownloadImageButton } from "@/components/download-image-button";
-import {
-  buildShareCardBlob,
-  MarketingPosterButton,
-} from "@/components/marketing-poster-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { StudioResultVideo } from "@/components/studio-result-video";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
-import { brandKitReady } from "@/lib/brand-form-state";
 import { prepareImageForUpload } from "@/lib/image-resize";
 import { downloadFilename } from "@/lib/download-image";
+import { finishProductImage } from "@/lib/product-finish";
+import { ReflectionControls } from "@/components/reflection-controls";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
 import { toUserFacingError } from "@/lib/user-facing-error";
 import type { ThemeStyleSnapshot } from "@/lib/themes";
@@ -94,14 +91,12 @@ type BatchItem = {
   previewUrl: string;
   status: BatchItemStatus;
   resultUrl?: string;
-  /** Branded share card with text/grams/points stamped on. */
-  posterUrl?: string;
   generationId?: string;
   error?: string;
 };
 
-/** After the first photo sets the look, remaining SKUs run together. */
-const BATCH_CONCURRENCY = 3;
+/** One photo at a time. Parallel calls were hitting the Vercel time limit after the first image. */
+const BATCH_CONCURRENCY = 1;
 
 type BatchBackdropMode = "white" | "soft_studio" | "scene";
 
@@ -185,7 +180,6 @@ export function StudioApp() {
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultMime, setResultMime] = useState<string | null>(null);
-  const [shareCardUrl, setShareCardUrl] = useState<string | null>(null);
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [tab, setTab] = useState<StudioTab>("model");
   const [mode, setMode] = useState<GenerationMode>("model");
@@ -208,14 +202,76 @@ export function StudioApp() {
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [jewelryShadow, setJewelryShadow] = useState<JewelryShadow>("soft");
+  const [jewelryShadow, setJewelryShadow] = useState<JewelryShadow>("off");
+  const [cutoutTransparent, setCutoutTransparent] = useState(false);
+  const [sceneBackdrop, setSceneBackdrop] = useState(false);
+  const [reflectionOn, setReflectionOn] = useState(false);
+  const [reflectionOpacity, setReflectionOpacity] = useState(80);
+  const [finishedUrl, setFinishedUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !resultUrl ||
+      mode !== "background" ||
+      resultMime?.startsWith("video/") ||
+      (!cutoutTransparent && !reflectionOn && jewelryShadow === "off")
+    ) {
+      setFinishedUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    let cancelled = false;
+    let tempUrl: string | null = null;
+    void (async () => {
+      let sourceUrl = resultUrl;
+      if (generationId) {
+        const res = await fetch(`/api/generations/${generationId}/file`);
+        if (!res.ok) throw new Error("Could not load image");
+        const fileBlob = await res.blob();
+        if (cancelled) return;
+        tempUrl = URL.createObjectURL(fileBlob);
+        sourceUrl = tempUrl;
+      }
+      const blob = await finishProductImage({
+        sourceUrl,
+        cutout: cutoutTransparent,
+        reflection: reflectionOn,
+        reflectionOpacity,
+        shadow: cutoutTransparent ? "off" : jewelryShadow,
+      });
+      if (cancelled) return;
+      const url = URL.createObjectURL(blob);
+      setFinishedUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+    })()
+      .catch(() => {
+        if (!cancelled) setFinishedUrl(null);
+      })
+      .finally(() => {
+        if (tempUrl) URL.revokeObjectURL(tempUrl);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    resultUrl,
+    resultMime,
+    mode,
+    cutoutTransparent,
+    reflectionOn,
+    reflectionOpacity,
+    jewelryShadow,
+    generationId,
+  ]);
   const [batchBackdropMode, setBatchBackdropMode] =
     useState<BatchBackdropMode>("white");
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [batchRunning, setBatchRunning] = useState(false);
   const batchAbortRef = useRef(false);
-  const [shareCardToken, setShareCardToken] = useState(0);
-
   useEffect(() => {
     try {
       window.localStorage.removeItem("jwelpixel-brand-kit-v1");
@@ -392,15 +448,10 @@ export function StudioApp() {
     });
   }, []);
 
-  const revokeShareCard = useCallback((url: string | null | undefined) => {
-    if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
-  }, []);
-
   const removeBatchItem = useCallback((id: string) => {
     setBatchItems((prev) => {
       const hit = prev.find((i) => i.id === id);
       if (hit?.previewUrl) URL.revokeObjectURL(hit.previewUrl);
-      if (hit?.posterUrl) URL.revokeObjectURL(hit.posterUrl);
       return prev.filter((i) => i.id !== id);
     });
   }, []);
@@ -409,7 +460,6 @@ export function StudioApp() {
     setBatchItems((prev) => {
       for (const i of prev) {
         if (i.previewUrl) URL.revokeObjectURL(i.previewUrl);
-        if (i.posterUrl) URL.revokeObjectURL(i.posterUrl);
       }
       return [];
     });
@@ -569,23 +619,20 @@ export function StudioApp() {
     }
   }, [resultUrl, resultMime, canThemes, themeSnapshot, applyTheme]);
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (modeOverride?: "model" | "background") => {
     if (!file) return;
+    const useMode = modeOverride ?? (mode === "background" ? "background" : "model");
     setLoading(true);
     setError(null);
     setResultUrl(null);
     setResultMime(null);
-    setShareCardUrl((prev) => {
-      revokeShareCard(prev);
-      return null;
-    });
     setGenerationId(null);
 
     try {
       const { base64, mimeType } = await prepareImageForUpload(file);
       let selfieBase64: string | undefined;
       let selfieMimeType: string | undefined;
-      if (selfieFile && mode === "model" && canSelfie) {
+      if (selfieFile && useMode === "model" && canSelfie) {
         const selfie = await prepareImageForUpload(selfieFile);
         selfieBase64 = selfie.base64;
         selfieMimeType = selfie.mimeType;
@@ -593,22 +640,24 @@ export function StudioApp() {
 
       const festivalOn = festivalSelected(brand);
       const backdrop =
-        mode === "background"
-          ? resolveBackdropPayload({
-              solidHex: backdropColor,
-              festivalOn,
-            })
+        useMode === "background"
+          ? sceneBackdrop && !festivalOn
+            ? { backdropMode: "scene" as const }
+            : resolveBackdropPayload({
+                solidHex: cutoutTransparent ? "#FFFFFF" : backdropColor,
+                festivalOn,
+              })
           : null;
 
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 120_000);
+      const timeout = window.setTimeout(() => controller.abort(), 200_000);
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           imageBase64: base64,
           mimeType,
-          mode,
+          mode: useMode,
           placement,
           subject,
           shot,
@@ -616,11 +665,16 @@ export function StudioApp() {
           scene: festivalOn ? "festive_indoor" : scene,
           vibe: festivalOn ? "festive" : vibe,
           format,
-          lookPreset: mode === "model" ? lookPreset : undefined,
+          lookPreset: useMode === "model" && !customPrompt.trim() ? lookPreset : undefined,
           backdropMode: backdrop?.backdropMode,
           backdropColor: backdrop?.backdropColor,
           jewelryShadow:
-            mode === "background" ? jewelryShadow : undefined,
+            useMode === "background"
+              ? cutoutTransparent
+                ? "off"
+                : jewelryShadow
+              : undefined,
+          transparentBackdrop: useMode === "background" && cutoutTransparent,
           customPrompt: customPrompt.trim() || undefined,
           brandName: brand.brandName || undefined,
           marketingLine: brand.marketingLine || undefined,
@@ -650,22 +704,7 @@ export function StudioApp() {
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       if (typeof data.credits === "number") setCredits(data.credits);
-      if (data.resultUrl) {
-        setResultUrl(data.resultUrl);
-        if (brandKitReady(brand)) {
-          try {
-            const blob = await buildShareCardBlob(data.resultUrl, brand);
-            const cardUrl = URL.createObjectURL(blob);
-            setShareCardUrl((prev) => {
-              revokeShareCard(prev);
-              return cardUrl;
-            });
-            setShareCardToken((t) => t + 1);
-          } catch {
-            setShareCardToken((t) => t + 1);
-          }
-        }
-      }
+      if (data.resultUrl) setResultUrl(data.resultUrl);
       if (typeof data.generationId === "string") setGenerationId(data.generationId);
       if (typeof data.mimeType === "string") setResultMime(data.mimeType);
       if (data.themeWarning) setError(toUserFacingError(data.themeWarning));
@@ -689,11 +728,12 @@ export function StudioApp() {
     format,
     lookPreset,
     backdropColor,
+    cutoutTransparent,
+    sceneBackdrop,
     jewelryShadow,
     customPrompt,
     brand,
     appliedThemeId,
-    revokeShareCard,
   ]);
 
   const runBatchIds = useCallback(
@@ -715,12 +755,10 @@ export function StudioApp() {
       setBatchItems((prev) =>
         prev.map((i) => {
           if (!ids.includes(i.id)) return i;
-          if (i.posterUrl) URL.revokeObjectURL(i.posterUrl);
           return {
             ...i,
             status: "queued" as const,
             resultUrl: undefined,
-            posterUrl: undefined,
             generationId: undefined,
             error: undefined,
           };
@@ -763,7 +801,7 @@ export function StudioApp() {
         try {
           const { base64, mimeType } = await prepareImageForUpload(item.file);
           const controller = new AbortController();
-          const timeout = window.setTimeout(() => controller.abort(), 120_000);
+          const timeout = window.setTimeout(() => controller.abort(), 200_000);
           const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -809,16 +847,6 @@ export function StudioApp() {
 
           if (data.generationId) lockGenerationId = lockGenerationId ?? data.generationId;
 
-          let posterUrl: string | undefined;
-          if (data.resultUrl && brandKitReady(brand)) {
-            try {
-              const blob = await buildShareCardBlob(data.resultUrl, brand);
-              posterUrl = URL.createObjectURL(blob);
-            } catch {
-              posterUrl = undefined;
-            }
-          }
-
           setBatchItems((prev) =>
             prev.map((i) =>
               i.id === id
@@ -826,7 +854,6 @@ export function StudioApp() {
                     ...i,
                     status: "done" as const,
                     resultUrl: data.resultUrl,
-                    posterUrl,
                     generationId: data.generationId,
                     error: undefined,
                   }
@@ -895,10 +922,9 @@ export function StudioApp() {
         ),
       );
 
-      if (lastBatchResultUrl && brandKitReady(brand)) {
+      if (lastBatchResultUrl) {
         setResultUrl(lastBatchResultUrl);
         setResultMime("image/jpeg");
-        setShareCardToken((t) => t + 1);
       }
 
       setBatchRunning(false);
@@ -917,7 +943,6 @@ export function StudioApp() {
       customPrompt,
       brand,
       appliedThemeId,
-      revokeShareCard,
     ],
   );
 
@@ -945,7 +970,7 @@ export function StudioApp() {
     try {
       const { base64, mimeType } = await prepareImageForUpload(file);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 260_000);
+      const timeout = window.setTimeout(() => controller.abort(), 290_000);
       const res = await fetch("/api/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1077,7 +1102,37 @@ export function StudioApp() {
           format={format}
           onFormat={setFormat}
           backdropColor={backdropColor}
+          cutoutTransparent={cutoutTransparent}
+          sceneBackdrop={sceneBackdrop}
+          onClassicBackdrop={(kind) => {
+            setMode("background");
+            setTab("background");
+            if (kind === "transparent") {
+              setCutoutTransparent(true);
+              setSceneBackdrop(false);
+              setBackdropColor("#FFFFFF");
+              setBackdropHexInput("#FFFFFF");
+              setJewelryShadow("off");
+              return;
+            }
+            setCutoutTransparent(false);
+            if (kind === "original") {
+              setSceneBackdrop(true);
+              return;
+            }
+            setSceneBackdrop(false);
+            const hex = kind === "black" ? "#111111" : "#FFFFFF";
+            setBackdropColor(hex);
+            setBackdropHexInput(hex);
+          }}
+          reflectionOn={reflectionOn}
+          reflectionOpacity={reflectionOpacity}
+          onReflectionOn={setReflectionOn}
+          onReflectionOpacity={setReflectionOpacity}
+          finishedPreviewUrl={finishedUrl}
           onBackdrop={(hex) => {
+            setCutoutTransparent(false);
+            setSceneBackdrop(false);
             setBackdropColor(hex);
             setBackdropHexInput(hex);
             setBatchBackdropMode("white");
@@ -1091,6 +1146,8 @@ export function StudioApp() {
               return;
             }
             setError(null);
+            setCutoutTransparent(false);
+            setSceneBackdrop(false);
             setBackdropColor(next);
             setBackdropHexInput(next);
             setBatchBackdropMode("white");
@@ -1108,9 +1165,7 @@ export function StudioApp() {
           selfiePreviewUrl={selfiePreviewUrl}
           onPickJewelry={applyFile}
           onPickSelfie={applySelfie}
-          onAddBatch={(files) => {
-            addBatchFiles(files);
-          }}
+          onAddBatch={addBatchFiles}
           onSelectJob={(job) => {
             if (job === "video" && !canVideo) {
               setError("Video unlocks on Diamond. See Pricing.");
@@ -1118,12 +1173,19 @@ export function StudioApp() {
             }
             selectTab(job);
           }}
-          onGenerate={() => {
-            void (batchItems.length > 0 && tab !== "video"
-              ? generateBatch()
-              : tab === "video"
-                ? generateVideo()
-                : generate());
+          onGenerate={(job) => {
+            const asVideo = job === "video" || (job == null && tab === "video");
+            if (asVideo) {
+              void generateVideo();
+              return;
+            }
+            const imageMode =
+              job === "background" ||
+              (job == null && (tab === "background" || tab === "batch"))
+                ? "background"
+                : "model";
+            if (job === "model" || job === "background") selectTab(imageMode);
+            void (batchItems.length > 0 ? generateBatch() : generate(imageMode));
           }}
           themeSnapshot={themeSnapshot}
           appliedThemeId={appliedThemeId}
@@ -1202,6 +1264,88 @@ export function StudioApp() {
           </button>
         </div>
 
+        {tab === "model" || tab === "background" ? (
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
+                Batch photos
+              </p>
+              {batchItems.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearBatch}
+                  className="text-[11px] text-primary underline"
+                >
+                  Clear all
+                </button>
+              ) : null}
+            </div>
+            <input
+              id="inline-batch-upload"
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                addBatchFiles(e.target.files);
+                try {
+                  e.target.value = "";
+                } catch {
+                  /* ignore */
+                }
+              }}
+            />
+            <label
+              htmlFor="inline-batch-upload"
+              className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-background/40 px-4 py-4 text-center text-sm text-foreground/70 hover:border-primary"
+            >
+              Add more pieces, up to {BATCH_MAX}
+              <span className="mt-1 block text-xs text-foreground/45">
+                {tab === "background"
+                  ? "Every photo uses the backdrop color and shadow on this tab."
+                  : "Every photo uses the model look on this tab."}
+              </span>
+            </label>
+            {batchItems.length > 0 ? (
+              <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+                {batchItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-2 rounded-lg bg-background/50 px-2 py-1.5"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.previewUrl}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] text-foreground/80">
+                        {item.file.name}
+                      </p>
+                      <p className="text-[10px] text-foreground/50">
+                        {item.status === "idle" && "Ready"}
+                        {item.status === "queued" && "Queued"}
+                        {item.status === "running" && "Generating…"}
+                        {item.status === "done" && "Done"}
+                        {item.status === "failed" && (item.error ?? "Failed")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={batchRunning}
+                      onClick={() => removeBatchItem(item.id)}
+                      className="text-[11px] text-primary underline disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
         {tab === "batch" ? (
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -1260,15 +1404,11 @@ export function StudioApp() {
             {festivalSelected(brand) ? (
               <p className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-[11px] leading-relaxed text-foreground/70">
                 Festival <strong className="font-medium text-foreground/85">{brand.festivalLabel || "selected"}</strong>{" "}
-                styles the photo scene. Brand name, grams, and offer text appear
-                on <strong className="font-medium text-foreground/85">Preview share card</strong>{" "}
-                after generate — not inside the batch thumbnails.
+                styles the photo scene. The download is the generated photo.
               </p>
             ) : (
               <p className="mt-2 text-[11px] leading-relaxed text-foreground/50">
-                Tip: pick a festival for a festive photo scene, then use{" "}
-                <strong className="font-medium text-foreground/65">Preview share card</strong>{" "}
-                on each result to add brand text.
+                Tip: pick a festival for a festive photo scene.
               </p>
             )}
             {batchItems.length > 0 ? (
@@ -1356,88 +1496,6 @@ export function StudioApp() {
             </label>
           </div>
         )}
-
-        {tab === "model" || tab === "background" ? (
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
-                Batch photos
-              </p>
-              {batchItems.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={clearBatch}
-                  className="text-[11px] text-primary underline"
-                >
-                  Clear all
-                </button>
-              ) : null}
-            </div>
-            <input
-              id="inline-batch-upload"
-              type="file"
-              accept="image/*"
-              multiple
-              className="sr-only"
-              onChange={(e) => {
-                addBatchFiles(e.target.files);
-                try {
-                  e.target.value = "";
-                } catch {
-                  /* ignore */
-                }
-              }}
-            />
-            <label
-              htmlFor="inline-batch-upload"
-              className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-background/40 px-4 py-4 text-center text-sm text-foreground/70 hover:border-primary"
-            >
-              Add more pieces, up to {BATCH_MAX}
-              <span className="mt-1 block text-xs text-foreground/45">
-                {tab === "background"
-                  ? "Every photo uses the backdrop color and shadow on this tab."
-                  : "Every photo uses the model look on this tab."}
-              </span>
-            </label>
-            {batchItems.length > 0 ? (
-              <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
-                {batchItems.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-2 rounded-lg bg-background/50 px-2 py-1.5"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={item.previewUrl}
-                      alt=""
-                      className="h-10 w-10 shrink-0 rounded object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[11px] text-foreground/80">
-                        {item.file.name}
-                      </p>
-                      <p className="text-[10px] text-foreground/50">
-                        {item.status === "idle" && "Ready"}
-                        {item.status === "queued" && "Queued"}
-                        {item.status === "running" && "Generating…"}
-                        {item.status === "done" && "Done"}
-                        {item.status === "failed" && (item.error ?? "Failed")}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={batchRunning}
-                      onClick={() => removeBatchItem(item.id)}
-                      className="text-[11px] text-primary underline disabled:opacity-40"
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
 
         {tab === "model" ? (
           <div>
@@ -1850,10 +1908,84 @@ export function StudioApp() {
                 customPrompt.trim() ? "pointer-events-none opacity-40" : undefined
               }
             >
+              <div className="mb-3 grid grid-cols-4 gap-2">
+                {(
+                  [
+                    ["white", "White", "#FFFFFF"],
+                    ["black", "Black", "#111111"],
+                    ["transparent", "Transparent", "transparent"],
+                    ["original", "Original", ""],
+                  ] as const
+                ).map(([id, label, swatch]) => {
+                  const active =
+                    id === "transparent"
+                      ? cutoutTransparent
+                      : id === "original"
+                        ? sceneBackdrop && !cutoutTransparent
+                        : !cutoutTransparent &&
+                          !sceneBackdrop &&
+                          backdropColor.toUpperCase() === swatch;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        if (id === "transparent") {
+                          setCutoutTransparent(true);
+                          setSceneBackdrop(false);
+                          setBackdropColor("#FFFFFF");
+                          setBackdropHexInput("#FFFFFF");
+                          setJewelryShadow("off");
+                          return;
+                        }
+                        setCutoutTransparent(false);
+                        if (id === "original") {
+                          setSceneBackdrop(true);
+                          return;
+                        }
+                        setSceneBackdrop(false);
+                        setBackdropColor(swatch);
+                        setBackdropHexInput(swatch);
+                      }}
+                      className={`rounded-xl border px-2 py-2 text-center text-[11px] font-semibold ${
+                        active
+                          ? "border-primary bg-primary/10"
+                          : "border-primary/20"
+                      }`}
+                    >
+                      <span
+                        className="mx-auto mb-1 block h-8 w-8 rounded-lg border border-black/10"
+                        style={
+                          swatch === "transparent"
+                            ? {
+                                backgroundImage:
+                                  "linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%)",
+                                backgroundSize: "8px 8px",
+                                backgroundPosition: "0 0,0 4px,4px -4px,-4px 0",
+                              }
+                            : swatch
+                              ? { background: swatch }
+                              : { background: "linear-gradient(135deg,#fff,#d9d3e6)" }
+                        }
+                      />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <ReflectionControls
+                enabled={reflectionOn}
+                opacity={reflectionOpacity}
+                onEnabled={setReflectionOn}
+                onOpacity={setReflectionOpacity}
+              />
+              <div className="mt-3">
               <BackdropColorField
                 value={backdropColor}
                 hexInput={backdropHexInput}
                 onSelectPreset={(hex) => {
+                  setCutoutTransparent(false);
+                  setSceneBackdrop(false);
                   setBackdropColor(hex);
                   setBackdropHexInput(hex);
                 }}
@@ -1865,10 +1997,13 @@ export function StudioApp() {
                     return;
                   }
                   setError(null);
+                  setCutoutTransparent(false);
+                  setSceneBackdrop(false);
                   setBackdropColor(next);
                   setBackdropHexInput(next);
                 }}
               />
+              </div>
             </div>
           </>
         )}
@@ -2001,7 +2136,6 @@ export function StudioApp() {
             Theme applied — new jewelry will reuse that look.
           </p>
         ) : null}
-
         {error ? (
           <p className="text-sm text-red-600" role="alert">
             {error}
@@ -2026,7 +2160,7 @@ export function StudioApp() {
                       <button
                         type="button"
                         onClick={() => {
-                          setResultUrl(item.posterUrl || item.resultUrl!);
+                          setResultUrl(item.resultUrl!);
                           setResultMime("image/jpeg");
                           setLightboxOpen(true);
                         }}
@@ -2035,7 +2169,7 @@ export function StudioApp() {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={item.posterUrl || item.resultUrl}
+                          src={item.resultUrl}
                           alt={item.file.name}
                           className="h-full w-full object-contain"
                         />
@@ -2072,31 +2206,16 @@ export function StudioApp() {
                     </p>
                     {item.resultUrl ? (
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        {item.posterUrl ? (
-                          <DownloadImageButton
-                            url={item.posterUrl}
-                            filename={`jwelpixel-card-${brand.posterTemplate || "classic"}.jpg`}
-                            className="shrink-0 text-[10px] font-semibold text-primary underline"
-                            label="Save card"
-                          />
-                        ) : null}
                         <DownloadImageButton
                           url={item.resultUrl}
+                          generationId={item.generationId}
                           filename={downloadFilename(
                             item.resultUrl,
                             `jwelpixel-batch-${format}`,
                             "image/jpeg",
                           )}
-                          exportFormat={format}
                           className="shrink-0 text-[10px] font-semibold text-primary underline"
-                          label="Photo"
-                        />
-                        <MarketingPosterButton
-                          imageUrl={item.resultUrl}
-                          brand={brand}
-                          label="Edit card"
-                          busyLabel="…"
-                          className="shrink-0 text-[10px] font-semibold text-primary underline"
+                          label="Download"
                         />
                       </div>
                     ) : item.status === "failed" && !batchRunning ? (
@@ -2119,20 +2238,7 @@ export function StudioApp() {
                     .length
                 }{" "}
                 of {batchItems.length} ready
-                {batchItems.some((i) => i.posterUrl)
-                  ? " — cards show your brand text, grams, and points. Save card to download."
-                  : " — add brand name / festival, then regenerate to stamp text on cards."}
               </p>
-            ) : null}
-            {resultUrl && tab === "batch" && !resultMime?.startsWith("video/") ? (
-              <div className="sr-only">
-                <MarketingPosterButton
-                  imageUrl={resultUrl}
-                  brand={brand}
-                  autoOpenToken={shareCardToken}
-                  label="Share card"
-                />
-              </div>
             ) : null}
             {resultUrl && lightboxOpen ? (
               <ImageLightbox
@@ -2177,7 +2283,11 @@ export function StudioApp() {
               </div>
             ) : (
               <div
-                className={`mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]}`}
+                className={`mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]} ${
+                  cutoutTransparent && finishedUrl
+                    ? "bg-[length:18px_18px] bg-[linear-gradient(45deg,#ddd4ea_25%,transparent_25%),linear-gradient(-45deg,#ddd4ea_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ddd4ea_75%),linear-gradient(-45deg,transparent_75%,#ddd4ea_75%)] bg-[position:0_0,0_9px,9px_-9px,-9px_0]"
+                    : "bg-secondary"
+                }`}
               >
                 <button
                   type="button"
@@ -2187,26 +2297,15 @@ export function StudioApp() {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={shareCardUrl || resultUrl}
+                    src={finishedUrl || resultUrl}
                     alt={
-                      shareCardUrl
-                        ? "Branded share card"
-                        : mode === "background"
-                          ? "Background still"
-                          : "Model shot"
+                      mode === "background" ? "Background still" : "Model shot"
                     }
                     className="h-full w-full bg-background/50 object-contain"
                   />
                 </button>
               </div>
             )}
-            {shareCardUrl &&
-            !(resultMime?.startsWith("video/") || tab === "video") ? (
-              <p className="max-w-md text-center text-[11px] text-foreground/60">
-                Showing your <strong className="font-medium text-foreground/75">share card</strong>{" "}
-                with brand text, grams, and points. Raw AI photo is still available below.
-              </p>
-            ) : null}
             <div className="flex flex-wrap items-center justify-center gap-3">
               {!(resultMime?.startsWith("video/") || tab === "video") ? (
                 <button
@@ -2230,53 +2329,36 @@ export function StudioApp() {
                   Save as look
                 </button>
               ) : null}
-              {shareCardUrl &&
-              !(resultMime?.startsWith("video/") || tab === "video") ? (
-                <DownloadImageButton
-                  url={shareCardUrl}
-                  filename={`jwelpixel-card-${brand.posterTemplate || "classic"}.jpg`}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
-                  label="Download card"
-                />
-              ) : null}
               <DownloadImageButton
-                url={resultUrl}
-                filename={downloadFilename(
-                  resultUrl,
-                  tab === "video" || resultMime?.startsWith("video/")
-                    ? `jwelpixel-video-${videoPurpose}-${videoAspect}`
-                    : mode === "background"
-                      ? `jwelpixel-background-${format}`
-                      : `jwelpixel-model-${format}`,
-                  resultMime,
-                )}
+                url={finishedUrl || resultUrl}
+                generationId={finishedUrl ? undefined : generationId ?? undefined}
+                filename={
+                  finishedUrl
+                    ? `jwelpixel-background-${format}.png`
+                    : downloadFilename(
+                        resultUrl,
+                        tab === "video" || resultMime?.startsWith("video/")
+                          ? `jwelpixel-video-${videoPurpose}-${videoAspect}`
+                          : mode === "background"
+                            ? `jwelpixel-background-${format}`
+                            : `jwelpixel-model-${format}`,
+                        resultMime,
+                      )
+                }
                 exportFormat={
-                  resultMime?.startsWith("video/") || tab === "video"
+                  finishedUrl ||
+                  resultMime?.startsWith("video/") ||
+                  tab === "video"
                     ? undefined
                     : format
                 }
-                className={
-                  shareCardUrl &&
-                  !(resultMime?.startsWith("video/") || tab === "video")
-                    ? "rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25"
-                    : "rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
-                }
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
                 label={
                   resultMime?.startsWith("video/") || tab === "video"
                     ? "Download video"
-                    : shareCardUrl
-                      ? "Download photo"
-                      : "Download image"
+                    : "Download image"
                 }
               />
-              {!(resultMime?.startsWith("video/") || tab === "video") ? (
-                <MarketingPosterButton
-                  imageUrl={resultUrl}
-                  brand={brand}
-                  autoOpenToken={shareCardToken}
-                  className="rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25"
-                />
-              ) : null}
               {!(resultMime?.startsWith("video/") || tab === "video") ? (
                 <ShareImageButton
                   generationId={generationId}
@@ -2293,19 +2375,13 @@ export function StudioApp() {
             ) : null}
             {!(resultMime?.startsWith("video/") || tab === "video") ? (
               <ImageLightbox
-                url={shareCardUrl || resultUrl}
-                alt={
-                  shareCardUrl
-                    ? "Branded share card"
-                    : mode === "background"
-                      ? "Background still"
-                      : "Model shot"
-                }
+                url={finishedUrl || resultUrl}
+                alt={mode === "background" ? "Background still" : "Model shot"}
                 open={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
                 filename={
-                  shareCardUrl
-                    ? `jwelpixel-card-${brand.posterTemplate || "classic"}.jpg`
+                  finishedUrl
+                    ? `jwelpixel-background-${format}.png`
                     : downloadFilename(
                         resultUrl,
                         mode === "background"
@@ -2332,6 +2408,16 @@ export function StudioApp() {
   );
 }
 
+function hexLooksLight(hex: string): boolean {
+  const raw = hex.replace("#", "");
+  if (raw.length !== 6) return false;
+  const n = Number.parseInt(raw, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return r * 0.299 + g * 0.587 + b * 0.114 > 170;
+}
+
 function BackdropColorField({
   value,
   hexInput,
@@ -2353,10 +2439,7 @@ function BackdropColorField({
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {BACKDROP_COLOR_PRESETS.map((preset) => {
           const selected = value === preset.hex;
-          const isLight =
-            preset.hex === "#FFFFFF" ||
-            preset.hex === "#F5F0E8" ||
-            preset.hex === "#F3E4E7";
+          const isLight = hexLooksLight(preset.hex);
           return (
             <button
               key={preset.id}

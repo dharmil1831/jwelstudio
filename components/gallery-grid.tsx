@@ -146,6 +146,7 @@ export function GalleryGrid() {
                 <div className="flex flex-wrap items-center gap-1">
                   <DownloadImageButton
                     url={item.resultUrl}
+                    generationId={item.id}
                     filename={`jwelpixel-${item.id}`}
                     label="Save"
                     className="shrink-0 rounded-md bg-background/50 px-2 py-1 text-[10px] font-semibold text-foreground hover:bg-accent/40"
@@ -172,6 +173,7 @@ export function GalleryGrid() {
         filename={
           lightboxItem ? `jwelpixel-${lightboxItem.id}` : undefined
         }
+        generationId={lightboxItem?.id}
       />
     </>
   );

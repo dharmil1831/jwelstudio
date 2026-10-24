@@ -136,7 +136,15 @@ const formatCopy: Record<StudioStyle["format"], string> = {
   instagram_story:
     "Output frame: vertical 9:16 (target 1080×1920). Place jewelry in the safe center without stretching; leave margin top and bottom. The complete jewelry piece must stay fully visible — never crop or clip it. Do not add Instagram/WhatsApp UI chrome. Brand text/logo only if brand overlay instructions request them.",
   landscape:
-    "Output frame: wide landscape 16:9 (target ~1211×681 WhatsApp Business cover / banners). Jewelry fully visible without stretching; do not crop sides of the product. Brand text/logo only if brand overlay instructions request them.",
+    "Output frame: wide landscape 16:9 (target ~1211×681). Jewelry fully visible without stretching; do not crop sides of the product. Brand text/logo only if brand overlay instructions request them.",
+  facebook_post:
+    "Output frame: wide landscape about 1.9:1 (target 1200×630) for a Facebook post. Keep the entire jewelry piece fully visible with side margin. Do not add social UI chrome.",
+  pinterest:
+    "Output frame: tall pin about 2:3 (target 1000×1500). Jewelry stays fully visible in the safe center with margin above and below. Do not add social UI chrome.",
+  x_landscape:
+    "Output frame: wide landscape 16:9 (target 1200×675) for an X feed card. Jewelry fully visible without stretching. Do not add social UI chrome.",
+  line:
+    "Output frame: square 1:1 (target 1040×1040). Center the full jewelry piece with even margins. Do not add social UI chrome.",
 };
 
 const polishedSkinRule =
@@ -144,6 +152,26 @@ const polishedSkinRule =
 
 const noCropRule =
   "FRAMING RULE: The selected output format sets the canvas aspect ratio only. Never cut, crop, clip, stretch, squash, or hide any part of the uploaded jewelry. Show the complete piece with correct proportions exactly as in the reference; use empty space / background / camera distance to fill the format — never reshape the product.";
+
+const modelShotRules = [
+  "WORN JEWELRY — THIS OVERRIDES THE PRODUCT PHOTO LAYOUT:",
+  "The upload is a flat catalog photo. Long ends are often stood up for display. Do not copy that pose, that outline, or that tall shape.",
+  "Wear the design once. A necklace closes at the neck and lies on the chest. Side chains and long panels hang down and stay inside the width of the body.",
+  "The highest gold is at the neck. No gold above the head. No tall bars beside the face.",
+  "Do not paste, overlay, or enlarge the catalog photo in front of the model. Do not show a second copy of the necklace.",
+  "Scale: about the width of the chest, smaller than the torso.",
+  "Keep the same motifs, metal color, stones, and strand design. Do not invent extra jewelry.",
+].join(" ");
+
+const modelFinalCheck =
+  "Final check: one model, the jewelry worn once, same motifs and metal as the upload. Reject a second enlarged copy, a floating catalog layout, and any gold standing above the head.";
+
+const fullViewRules = [
+  "FULL VIEW:",
+  "If the user asks for a full view, the whole model, or head to toe — including Hindi or Hinglish such as full view, poora model, or sir se pair — the photo includes the top of the head, both feet, and a little floor.",
+  "Do not crop at the chest, waist, hips, or knees. On a square canvas, make the model smaller so the whole body still fits.",
+  "A burkha, niqab, or abaya is a full-length garment to the feet, with the face covered the way that garment is worn. The jewelry stays visible on the chest at natural size.",
+].join(" ");
 
 const finalCheck =
   "Final check: jewelry must match the uploaded product image exactly — same piece, same stones, same metal, same proportions (no stretch/warp). Not a similar piece. No extra jewelry added. Exactly one product arrangement in the frame — no duplicated sets or collage panels.";
@@ -165,37 +193,35 @@ export function buildJewelryPrompt(style: StudioStyle): string {
 
   if (style.customPrompt) {
     return [
-      jewelryFidelityRules,
-      "Only change the model, pose, wardrobe, background, and lighting — never the jewelry identity.",
+      modelShotRules,
       "",
-      "Task: create one photorealistic photograph of a model wearing this exact jewelry piece from the upload.",
+      "Task: one photorealistic photograph of an adult model wearing that jewelry in the scene the user describes.",
       polishedSkinRule,
-      "Anatomy correct; jewelry sharp and true to the reference.",
+      "Anatomy correct. Adult model only.",
       "",
-      "Model / casting (still apply — wardrobe must match casting even with custom direction):",
-      subjectCopy[style.subject],
-      lookLine,
+      "The user direction decides casting, clothing, pose, framing, and background, including Hindi or mixed Hindi and English.",
+      "If they name a garment, the model wears that garment — for example a burkha, abaya, saree, or lehenga. Do not replace it with a bridal, western, or campaign outfit.",
+      "Do not switch this into a product-only shot and do not omit the model when the user asked for one.",
       "",
-      "User creative direction (follow for pose/set/mood unless it conflicts with jewelry fidelity or casting wardrobe):",
+      "User creative direction:",
       style.customPrompt,
       "",
-      noCropRule,
-      "Output format:",
+      fullViewRules,
+      "Output format (canvas shape only):",
       formatCopy[style.format],
       "",
-      finalCheck,
+      modelShotRules,
+      modelFinalCheck,
     ]
       .filter(Boolean)
       .join(" ");
   }
 
   return [
-    jewelryFidelityRules,
-    "Only change the model, pose, wardrobe, background, and lighting — never the jewelry identity.",
+    modelShotRules,
     "",
-    "Task: create one photorealistic photograph of a model wearing this exact jewelry piece from the upload.",
+    "Task: one photorealistic photograph of a model wearing this jewelry.",
     polishedSkinRule,
-    "Anatomy correct; jewelry sharp and true to the reference.",
     "",
     "Jewelry placement:",
     placementCopy[style.placement],
@@ -206,15 +232,15 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     "",
     "Shot & camera:",
     shotCopy[style.shot],
-    noCropRule,
-    "Output format:",
+    "Output format (canvas shape only):",
     formatCopy[style.format],
     "Scene:",
     sceneCopy[style.scene],
     "Mood:",
     vibeCopy[style.vibe],
     "",
-    finalCheck,
+    modelShotRules,
+    modelFinalCheck,
   ]
     .filter(Boolean)
     .join(" ");
@@ -227,12 +253,10 @@ function jewelryShadowLine(
     case "off":
       return "Shadow: no cast shadow under or beside the jewelry — flat, even lighting for a clean e-commerce cutout look.";
     case "hard":
-      return "Shadow: add a HARD, crisp directional cast shadow on the surface (Photoroom Hard style) — clear edge, higher contrast, single light direction. Do not invent a second light source.";
     case "floating":
-      return "Shadow: FLOATING product look (Photoroom Floating style) — jewelry slightly lifted above the surface; soft oval shadow separated below the piece, not touching the jewelry silhouette.";
     case "soft":
     default:
-      return "Shadow: soft diffused CONTACT shadow under the jewelry (Photoroom Soft style) — gentle, realistic falloff on the surface where the piece rests.";
+      return "Shadow: do not paint a cast shadow, floor shadow, contact shadow, or reflection. Keep the backdrop clean and even behind the jewelry.";
   }
 }
 
@@ -328,7 +352,7 @@ export function withSelfieTryOnPrompt(basePrompt: string): string {
 /** Primary prompt when swapping new jewelry onto a saved theme look. */
 export function buildThemeSwapPrompt(style: StudioStyle): string {
   return [
-    jewelryFidelityRules,
+    modelShotRules,
     "",
     "TASK: Jewelry swap using a saved theme look.",
     "You will receive labeled images: NEW JEWELRY PRODUCT, then STYLE REFERENCE (a previous generation).",
@@ -336,14 +360,14 @@ export function buildThemeSwapPrompt(style: StudioStyle): string {
     "Replace ONLY the jewelry with the NEW JEWELRY PRODUCT. Place it naturally:",
     placementCopy[style.placement],
     "Do NOT copy jewelry from the style reference. Do NOT invent matching set pieces.",
-    "If the style reference and jewelry product conflict, jewelry identity wins for the product; style reference wins for everything else.",
+    "If the style reference and jewelry product conflict, the worn design wins for the jewelry; the style reference wins for the person, clothes, and scene. Still wear it once. Do not paste the catalog layout.",
     "",
     polishedSkinRule,
-    noCropRule,
-    "Output format:",
+    "Output format (canvas shape only):",
     formatCopy[style.format],
     "",
-    finalCheck,
+    modelShotRules,
+    modelFinalCheck,
   ].join(" ");
 }
 
