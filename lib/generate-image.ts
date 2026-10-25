@@ -85,6 +85,7 @@ async function runGemini(
   format: OutputFormat,
   extraImages?: GeminiExtraImage[],
   wornOnModel?: boolean,
+  aspectRatio?: string,
 ): Promise<{ imageBase64: string; mimeType: string }> {
   return generateJewelryWithGemini(
     imageBase64,
@@ -93,6 +94,7 @@ async function runGemini(
     format,
     extraImages,
     wornOnModel,
+    aspectRatio,
   );
 }
 
@@ -108,8 +110,9 @@ export async function generateJewelryImage(params: {
   format: OutputFormat;
   extraImages?: GeminiExtraImage[];
   wornOnModel?: boolean;
+  aspectRatio?: string;
 }): Promise<GeneratedJewelryImage> {
-  const { imageBase64, mimeType, prompt, format, extraImages, wornOnModel } = params;
+  const { imageBase64, mimeType, prompt, format, extraImages, wornOnModel, aspectRatio } = params;
   const preference = getImageProviderPreference();
   const attempted: ImageProviderId[] = [];
 
@@ -144,6 +147,7 @@ export async function generateJewelryImage(params: {
         format,
         extraImages,
         wornOnModel,
+        aspectRatio,
       );
       return { ...out, provider: "gemini", attempted };
     } catch (e) {
@@ -188,6 +192,7 @@ export async function generateJewelryImage(params: {
             format,
             extraImages,
             wornOnModel,
+            aspectRatio,
           );
     return { ...out, provider: primary, attempted };
   } catch (primaryError) {
@@ -207,6 +212,7 @@ export async function generateJewelryImage(params: {
               format,
               extraImages,
               wornOnModel,
+              aspectRatio,
             );
       return { ...out, provider: fallback, attempted };
     } catch (fallbackError) {

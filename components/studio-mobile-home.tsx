@@ -1,6 +1,7 @@
 "use client";
 
 import { BrandMarketingPanel, type BrandFormState } from "@/components/brand-marketing-panel";
+import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { ReflectionControls } from "@/components/reflection-controls";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { DownloadImageButton } from "@/components/download-image-button";
@@ -44,6 +45,7 @@ import {
   type Subject,
   type Vibe,
 } from "@/lib/style-options";
+import type { CustomSize } from "@/lib/custom-size";
 import type { ThemeStyleSnapshot } from "@/lib/themes";
 import {
   VIDEO_ASPECT_HINTS,
@@ -184,6 +186,9 @@ export type StudioMobileHomeProps = {
   onFraming: (value: Framing) => void;
   format: OutputFormat;
   onFormat: (value: OutputFormat) => void;
+  customSize: CustomSize | null;
+  onCustomSize: (size: CustomSize) => void;
+  onClearCustomSize: () => void;
   backdropColor: string;
   cutoutTransparent: boolean;
   sceneBackdrop: boolean;
@@ -479,11 +484,14 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               </section>
             ) : null}
             {show("listing") ? (
-              <Section title="Sizes">
-                <SizeCard id="square" label="Square" src={jewelryCutout} onClick={() => openSize("square")} />
-                <SizeCard id="catalog" label="Portrait" src={jewelryCutout} onClick={() => openSize("catalog")} />
-                <SizeCard id="landscape" label="Landscape" src={jewelryCutout} onClick={() => openSize("landscape")} />
-              </Section>
+              <section className="mb-4">
+                <h3 className="mb-2 font-[family-name:var(--font-display)] text-xl font-medium">Sizes</h3>
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  <SizeCard id="square" label="Square" src={jewelryCutout} onClick={() => openSize("square")} />
+                  <SizeCard id="catalog" label="Portrait" src={jewelryCutout} onClick={() => openSize("catalog")} />
+                  <SizeCard id="landscape" label="Landscape" src={jewelryCutout} onClick={() => openSize("landscape")} />
+                </div>
+              </section>
             ) : null}
             {show("social") ? (
               <Section title="Social essentials">
@@ -660,11 +668,18 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     className="block w-full overflow-hidden rounded-2xl border border-primary/15 bg-white text-left"
                   >
                     <span
-                      className={`relative mx-auto block aspect-square w-full max-w-sm ${
+                      className={`relative mx-auto block w-full max-w-sm ${
+                        props.customSize ? "" : "aspect-square"
+                      } ${
                         props.cutoutTransparent && props.finishedPreviewUrl
                           ? "bg-[length:16px_16px] bg-[linear-gradient(45deg,#e4dced_25%,transparent_25%),linear-gradient(-45deg,#e4dced_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e4dced_75%),linear-gradient(-45deg,transparent_75%,#e4dced_75%)] bg-[position:0_0,0_8px,8px_-8px,-8px_0]"
                           : "bg-secondary/35"
                       }`}
+                      style={
+                        props.customSize
+                          ? { aspectRatio: `${props.customSize.width} / ${props.customSize.height}` }
+                          : undefined
+                      }
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -751,8 +766,17 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 <DownloadImageButton
                   url={props.finishedPreviewUrl || props.resultUrl}
                   generationId={props.finishedPreviewUrl ? undefined : props.generationId ?? undefined}
-                  filename={props.finishedPreviewUrl ? `jwelpixel-${props.format}.png` : undefined}
-                  exportFormat={props.finishedPreviewUrl ? undefined : props.format}
+                  filename={
+                    props.customSize
+                      ? `jwelpixel-${props.customSize.width}x${props.customSize.height}.jpg`
+                      : props.finishedPreviewUrl
+                        ? `jwelpixel-${props.format}.png`
+                        : undefined
+                  }
+                  exportFormat={
+                    props.customSize || props.finishedPreviewUrl ? undefined : props.format
+                  }
+                  exportPixels={props.customSize ?? undefined}
                   className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20"
                 />
                 <button type="button" onClick={props.onSaveTheme} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20">
@@ -886,38 +910,23 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                       }}
                     />
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {(
-                      [
-                        ["white", "White"],
-                        ["black", "Black"],
-                        ["transparent", "Transparent"],
-                        ["original", "Original"],
-                      ] as const
-                    ).map(([id, label]) => {
-                      const active =
-                        id === "transparent"
-                          ? props.cutoutTransparent
-                          : id === "original"
-                            ? props.sceneBackdrop && !props.cutoutTransparent
-                            : !props.cutoutTransparent &&
-                              !props.sceneBackdrop &&
-                              props.backdropColor.toUpperCase() ===
-                                (id === "black" ? "#111111" : "#FFFFFF");
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => props.onClassicBackdrop(id)}
-                          className={`rounded-xl border px-1 py-2 text-center text-[11px] font-semibold ${
-                            active ? "border-primary bg-primary/10" : "border-primary/20 bg-white"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <ClassicBackdropRow
+                    active={
+                      props.cutoutTransparent
+                        ? "transparent"
+                        : props.sceneBackdrop
+                          ? "original"
+                          : props.backdropColor.toUpperCase() === "#111111"
+                            ? "black"
+                            : props.backdropColor.toUpperCase() === "#FFFFFF"
+                              ? "white"
+                              : null
+                    }
+                    onSelect={props.onClassicBackdrop}
+                    customSize={props.customSize}
+                    onCustomSize={props.onCustomSize}
+                    onClearCustomSize={props.onClearCustomSize}
+                  />
                   <ReflectionControls
                     enabled={props.reflectionOn}
                     opacity={props.reflectionOpacity}

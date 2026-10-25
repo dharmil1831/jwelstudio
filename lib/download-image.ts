@@ -44,6 +44,60 @@ export function downloadFilename(
  * Resize a generated image to exact Instagram/WhatsApp pixel targets
  * (contain + soft plum letterbox so jewelry is never cropped).
  */
+async function loadImage(
+  sourceUrl: string,
+): Promise<{ img: HTMLImageElement; revoke: () => void }> {
+  const res = await fetch(sourceUrl);
+  if (!res.ok) throw new Error("Could not load image for export.");
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("Could not load image for export."));
+    el.src = objectUrl;
+  });
+  return { img, revoke: () => URL.revokeObjectURL(objectUrl) };
+}
+
+export async function exportExactSizeJpeg(
+  sourceUrl: string,
+  width: number,
+  height: number,
+): Promise<Blob> {
+  const { img, revoke } = await loadImage(sourceUrl);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  ctx.fillStyle = "#e8e0f0";
+  ctx.fillRect(0, 0, width, height);
+
+  const scale = Math.min(width / img.naturalWidth, height / img.naturalHeight);
+  const w = Math.round(img.naturalWidth * scale);
+  const h = Math.round(img.naturalHeight * scale);
+  const x = Math.round((width - w) / 2);
+  const y = Math.round((height - h) / 2);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, x, y, w, h);
+
+  try {
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Export failed"))),
+        "image/jpeg",
+        0.92,
+      );
+    });
+  } finally {
+    revoke();
+  }
+}
+
 export async function exportSocialSizedJpeg(
   sourceUrl: string,
   format: OutputFormat,
@@ -52,43 +106,7 @@ export async function exportSocialSizedJpeg(
     width: 1080,
     height: 1080,
   };
-
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.crossOrigin = "anonymous";
-    el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error("Could not load image for export."));
-    el.src = sourceUrl;
-  });
-
-  const canvas = document.createElement("canvas");
-  canvas.width = target.width;
-  canvas.height = target.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas not supported");
-
-  ctx.fillStyle = "#e8e0f0";
-  ctx.fillRect(0, 0, target.width, target.height);
-
-  const scale = Math.min(
-    target.width / img.naturalWidth,
-    target.height / img.naturalHeight,
-  );
-  const w = Math.round(img.naturalWidth * scale);
-  const h = Math.round(img.naturalHeight * scale);
-  const x = Math.round((target.width - w) / 2);
-  const y = Math.round((target.height - h) / 2);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, x, y, w, h);
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("Export failed"))),
-      "image/jpeg",
-      0.92,
-    );
-  });
+  return exportExactSizeJpeg(sourceUrl, target.width, target.height);
 }
 
 export async function downloadImage(

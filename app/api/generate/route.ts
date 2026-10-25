@@ -5,6 +5,7 @@ import {
   parseBrandOptions,
 } from "@/lib/brand-options";
 import { getAppSettings } from "@/lib/app-settings";
+import { nearestGeminiAspect, parseCustomSize } from "@/lib/custom-size";
 import { generateJewelryImage } from "@/lib/generate-image";
 import {
   buildBackgroundPrompt,
@@ -146,6 +147,7 @@ export async function POST(req: Request) {
   }
 
   const style = parseStudioStyle(json);
+  const customSize = parseCustomSize(json.customWidth, json.customHeight);
   const brand = parseBrandOptions(json);
   const settings = await getAppSettings();
 
@@ -297,6 +299,9 @@ export async function POST(req: Request) {
       mimeType,
       prompt,
       format: style.format,
+      aspectRatio: customSize
+        ? nearestGeminiAspect(customSize.width, customSize.height)
+        : undefined,
       extraImages: extraImages.length ? extraImages : undefined,
       wornOnModel: style.mode === "model",
     });

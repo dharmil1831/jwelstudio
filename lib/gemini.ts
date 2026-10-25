@@ -28,6 +28,7 @@ export async function generateJewelryWithGemini(
   format: OutputFormat = "square",
   extraImages?: GeminiExtraImage[],
   wornOnModel?: boolean,
+  aspectRatio?: string,
 ): Promise<{ imageBase64: string; mimeType: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -35,7 +36,7 @@ export async function generateJewelryWithGemini(
   }
 
   const model = getGeminiImageModel();
-  const aspectRatio = OUTPUT_FORMAT_GEMINI_ASPECT[format] ?? "1:1";
+  const resolvedAspect = aspectRatio || OUTPUT_FORMAT_GEMINI_ASPECT[format] || "1:1";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   const parts: Array<Record<string, unknown>> = [
@@ -89,7 +90,7 @@ export async function generateJewelryWithGemini(
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
           imageConfig: {
-            aspectRatio,
+            aspectRatio: resolvedAspect,
             // 2K ≈ social-ready; closer to 1080px targets than default 1K
             imageSize: "2K",
           },

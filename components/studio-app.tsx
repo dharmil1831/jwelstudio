@@ -2,6 +2,7 @@
 
 import { BrandMarketingPanel, EMPTY_BRAND, type BrandFormState } from "@/components/brand-marketing-panel";
 import { StudioMobileHome } from "@/components/studio-mobile-home";
+import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { StudioResultVideo } from "@/components/studio-result-video";
@@ -67,6 +68,7 @@ import {
   type Subject,
   type Vibe,
 } from "@/lib/style-options";
+import { nearestOutputFormat, type CustomSize } from "@/lib/custom-size";
 import { CREDIT_COST_PER_GENERATION } from "@/lib/users";
 import {
   LOOK_PRESET_HINTS,
@@ -191,6 +193,7 @@ export function StudioApp() {
   const [scene, setScene] = useState<Scene>("studio");
   const [vibe, setVibe] = useState<Vibe>("luxury");
   const [format, setFormat] = useState<OutputFormat>("whatsapp");
+  const [customSize, setCustomSize] = useState<CustomSize | null>(null);
   const [backdropColor, setBackdropColor] = useState<string>(DEFAULT_BACKDROP_HEX);
   const [backdropHexInput, setBackdropHexInput] = useState(DEFAULT_BACKDROP_HEX);
   const [videoPreset, setVideoPreset] = useState<VideoPresetId>("slow_orbit");
@@ -522,6 +525,7 @@ export function StudioApp() {
     setScene(style.scene);
     setVibe(style.vibe);
     setFormat(style.format);
+    setCustomSize(null);
     if (style.backdropColor) {
       setBackdropColor(style.backdropColor);
       setBackdropHexInput(style.backdropColor);
@@ -665,6 +669,8 @@ export function StudioApp() {
           scene: festivalOn ? "festive_indoor" : scene,
           vibe: festivalOn ? "festive" : vibe,
           format,
+          customWidth: customSize?.width,
+          customHeight: customSize?.height,
           lookPreset: useMode === "model" && !customPrompt.trim() ? lookPreset : undefined,
           backdropMode: backdrop?.backdropMode,
           backdropColor: backdrop?.backdropColor,
@@ -726,6 +732,7 @@ export function StudioApp() {
     scene,
     vibe,
     format,
+    customSize,
     lookPreset,
     backdropColor,
     cutoutTransparent,
@@ -813,6 +820,8 @@ export function StudioApp() {
               scene: batchScene,
               vibe: batchVibe,
               format,
+              customWidth: customSize?.width,
+              customHeight: customSize?.height,
               backdropMode: backdrop.backdropMode,
               backdropColor: backdrop.backdropColor,
               jewelryShadow,
@@ -938,6 +947,7 @@ export function StudioApp() {
       scene,
       vibe,
       format,
+      customSize,
       batchBackdropMode,
       jewelryShadow,
       customPrompt,
@@ -1100,7 +1110,16 @@ export function StudioApp() {
           framing={framing}
           onFraming={setFraming}
           format={format}
-          onFormat={setFormat}
+          onFormat={(next) => {
+            setCustomSize(null);
+            setFormat(next);
+          }}
+          customSize={customSize}
+          onCustomSize={(size) => {
+            setCustomSize(size);
+            setFormat(nearestOutputFormat(size.width, size.height));
+          }}
+          onClearCustomSize={() => setCustomSize(null)}
           backdropColor={backdropColor}
           cutoutTransparent={cutoutTransparent}
           sceneBackdrop={sceneBackdrop}
@@ -1908,70 +1927,45 @@ export function StudioApp() {
                 customPrompt.trim() ? "pointer-events-none opacity-40" : undefined
               }
             >
-              <div className="mb-3 grid grid-cols-4 gap-2">
-                {(
-                  [
-                    ["white", "White", "#FFFFFF"],
-                    ["black", "Black", "#111111"],
-                    ["transparent", "Transparent", "transparent"],
-                    ["original", "Original", ""],
-                  ] as const
-                ).map(([id, label, swatch]) => {
-                  const active =
-                    id === "transparent"
-                      ? cutoutTransparent
-                      : id === "original"
-                        ? sceneBackdrop && !cutoutTransparent
-                        : !cutoutTransparent &&
-                          !sceneBackdrop &&
-                          backdropColor.toUpperCase() === swatch;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => {
-                        if (id === "transparent") {
-                          setCutoutTransparent(true);
-                          setSceneBackdrop(false);
-                          setBackdropColor("#FFFFFF");
-                          setBackdropHexInput("#FFFFFF");
-                          setJewelryShadow("off");
-                          return;
-                        }
-                        setCutoutTransparent(false);
-                        if (id === "original") {
-                          setSceneBackdrop(true);
-                          return;
-                        }
-                        setSceneBackdrop(false);
-                        setBackdropColor(swatch);
-                        setBackdropHexInput(swatch);
-                      }}
-                      className={`rounded-xl border px-2 py-2 text-center text-[11px] font-semibold ${
-                        active
-                          ? "border-primary bg-primary/10"
-                          : "border-primary/20"
-                      }`}
-                    >
-                      <span
-                        className="mx-auto mb-1 block h-8 w-8 rounded-lg border border-black/10"
-                        style={
-                          swatch === "transparent"
-                            ? {
-                                backgroundImage:
-                                  "linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%)",
-                                backgroundSize: "8px 8px",
-                                backgroundPosition: "0 0,0 4px,4px -4px,-4px 0",
-                              }
-                            : swatch
-                              ? { background: swatch }
-                              : { background: "linear-gradient(135deg,#fff,#d9d3e6)" }
-                        }
-                      />
-                      {label}
-                    </button>
-                  );
-                })}
+              <div className="mb-3">
+                <ClassicBackdropRow
+                  active={
+                    cutoutTransparent
+                      ? "transparent"
+                      : sceneBackdrop
+                        ? "original"
+                        : backdropColor.toUpperCase() === "#111111"
+                          ? "black"
+                          : backdropColor.toUpperCase() === "#FFFFFF"
+                            ? "white"
+                            : null
+                  }
+                  onSelect={(id) => {
+                    if (id === "transparent") {
+                      setCutoutTransparent(true);
+                      setSceneBackdrop(false);
+                      setBackdropColor("#FFFFFF");
+                      setBackdropHexInput("#FFFFFF");
+                      setJewelryShadow("off");
+                      return;
+                    }
+                    setCutoutTransparent(false);
+                    if (id === "original") {
+                      setSceneBackdrop(true);
+                      return;
+                    }
+                    setSceneBackdrop(false);
+                    const hex = id === "black" ? "#111111" : "#FFFFFF";
+                    setBackdropColor(hex);
+                    setBackdropHexInput(hex);
+                  }}
+                  customSize={customSize}
+                  onCustomSize={(size) => {
+                    setCustomSize(size);
+                    setFormat(nearestOutputFormat(size.width, size.height));
+                  }}
+                  onClearCustomSize={() => setCustomSize(null)}
+                />
               </div>
               <ReflectionControls
                 enabled={reflectionOn}
@@ -2012,15 +2006,23 @@ export function StudioApp() {
             <Field
               label="Output format"
               value={format}
-              onChange={setFormat}
+              onChange={(next) => {
+                setCustomSize(null);
+                setFormat(next);
+              }}
               options={STUDIO_OUTPUT_FORMATS.map(
                 (k) => [k, OUTPUT_FORMAT_LABELS[k]] as const,
               )}
             />
-            <p className="text-[11px] leading-relaxed text-foreground/55">
-              Targets Instagram / WhatsApp sizes. Download exports exact pixels
-              (e.g. post 1080×1350, story 1080×1920, chat 1080×1080).
-            </p>
+            {customSize && mode !== "background" ? (
+              <p className="text-[11px] font-semibold text-primary">
+                Custom size {customSize.width}×{customSize.height} is on. Change it next to White, Black, Transparent, and Original.
+              </p>
+            ) : (
+              <p className="text-[11px] leading-relaxed text-foreground/55">
+                Presets target Instagram and WhatsApp.
+              </p>
+            )}
             {!selfieFile &&
             !appliedThemeId &&
             (tab === "batch"
@@ -2283,11 +2285,16 @@ export function StudioApp() {
               </div>
             ) : (
               <div
-                className={`mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 shadow-lg ${OUTPUT_FORMAT_ASPECT_CLASS[format]} ${
+                className={`mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 shadow-lg ${customSize ? "max-w-xl" : OUTPUT_FORMAT_ASPECT_CLASS[format]} ${
                   cutoutTransparent && finishedUrl
                     ? "bg-[length:18px_18px] bg-[linear-gradient(45deg,#ddd4ea_25%,transparent_25%),linear-gradient(-45deg,#ddd4ea_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ddd4ea_75%),linear-gradient(-45deg,transparent_75%,#ddd4ea_75%)] bg-[position:0_0,0_9px,9px_-9px,-9px_0]"
                     : "bg-secondary"
                 }`}
+                style={
+                  customSize
+                    ? { aspectRatio: `${customSize.width} / ${customSize.height}` }
+                    : undefined
+                }
               >
                 <button
                   type="button"
@@ -2346,11 +2353,18 @@ export function StudioApp() {
                       )
                 }
                 exportFormat={
+                  customSize ||
                   finishedUrl ||
                   resultMime?.startsWith("video/") ||
                   tab === "video"
                     ? undefined
                     : format
+                }
+                exportPixels={
+                  customSize &&
+                  !(resultMime?.startsWith("video/") || tab === "video")
+                    ? customSize
+                    : undefined
                 }
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-background hover:bg-accent hover:text-foreground"
                 label={
