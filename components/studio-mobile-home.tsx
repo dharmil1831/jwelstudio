@@ -160,6 +160,7 @@ export type StudioMobileHomeProps = {
   resultMime: string | null;
   generationId: string | null;
   loading: boolean;
+  savingTheme: boolean;
   error: string | null;
   canCustomPrompt: boolean;
   canBrand: boolean;
@@ -808,11 +809,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 />
                 <button
                   type="button"
-                  disabled={props.loading}
+                  disabled={props.loading || props.savingTheme}
                   onClick={props.onSaveTheme}
                   className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20 disabled:opacity-40"
                 >
-                  {props.loading ? "Saving…" : "Save theme"}
+                  {props.savingTheme ? "Saving…" : "Save theme"}
                 </button>
               </div>
             ) : null}
@@ -1209,6 +1210,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               type="button"
               disabled={
                 props.loading ||
+                props.savingTheme ||
                 props.generationReady === false ||
                 !props.previewUrl
               }

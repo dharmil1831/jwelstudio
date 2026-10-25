@@ -207,6 +207,7 @@ export function StudioApp() {
   const savingThemeRef = useRef(false);
   const savedResultUrlRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lookNotice, setLookNotice] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -568,7 +569,7 @@ export function StudioApp() {
     [releaseSavedLook],
   );
 
-  const applyTheme = useCallback((theme: ThemeListItem, style: ThemeStyleSnapshot) => {
+  const applyTheme = useCallback((theme: ThemeListItem, style: ThemeStyleSnapshot, keepResult = false) => {
     appliedThemeIdRef.current = theme.id;
     themePromptRef.current = style.customPrompt?.trim() ? style.customPrompt : null;
     setAppliedThemeId(theme.id);
@@ -593,8 +594,10 @@ export function StudioApp() {
     }
     setCustomPrompt(style.customPrompt ?? "");
     setLookNotice(null);
-    setResultUrl(null);
-    setResultMime(null);
+    if (!keepResult) {
+      setResultUrl(null);
+      setResultMime(null);
+    }
     setError(null);
   }, []);
 
@@ -652,7 +655,7 @@ export function StudioApp() {
       return;
     }
     savingThemeRef.current = true;
-    setLoading(true);
+    setSavingTheme(true);
     setError(null);
     try {
       const autoName = `Look ${new Date().toLocaleString("en-IN", {
@@ -679,7 +682,7 @@ export function StudioApp() {
       if (data.theme) {
         const { parseThemeStyleJson } = await import("@/lib/themes");
         const style = parseThemeStyleJson(data.theme.styleJson);
-        if (style) applyTheme(data.theme, style);
+        if (style) applyTheme(data.theme, style, true);
       }
       setError(null);
       window.alert(
@@ -689,7 +692,7 @@ export function StudioApp() {
       setError(friendlyClientError(err));
     } finally {
       savingThemeRef.current = false;
-      setLoading(false);
+      setSavingTheme(false);
     }
   }, [resultUrl, resultMime, canThemes, themeSnapshot, applyTheme]);
 
@@ -1170,6 +1173,7 @@ export function StudioApp() {
           resultMime={resultMime}
           generationId={generationId}
           loading={loading || batchRunning}
+          savingTheme={savingTheme}
           error={error}
           canCustomPrompt={canCustomPrompt}
           canBrand={canBrand}
@@ -2154,6 +2158,7 @@ export function StudioApp() {
           type="button"
           disabled={
             loading ||
+            savingTheme ||
             batchRunning ||
             generationReady === false ||
             (batchItems.length > 0 && tab !== "video"
@@ -2425,11 +2430,11 @@ export function StudioApp() {
               resultUrl ? (
                 <button
                   type="button"
-                  disabled={loading}
+                  disabled={savingTheme}
                   onClick={() => void saveCurrentResultAsTheme()}
                   className="rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25 disabled:opacity-40"
                 >
-                  {loading ? "Saving…" : "Save as look"}
+                  {savingTheme ? "Saving…" : "Save as look"}
                 </button>
               ) : null}
               <DownloadImageButton
