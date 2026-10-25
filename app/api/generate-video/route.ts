@@ -1,12 +1,15 @@
 import { getAppSettings } from "@/lib/app-settings";
 import { canUseFeature } from "@/lib/entitlements";
 import { isVideoGenerationConfigured } from "@/lib/env";
+import { generateJewelryWithGemini } from "@/lib/gemini";
 import { generateJewelryVideoWithGemini } from "@/lib/gemini-video";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { storeGenerationVideo } from "@/lib/storage";
 import {
+  buildVideoModelStillPrompt,
   buildVideoPrompt,
+  VIDEO_JEWELRY_LOCK,
   CREDIT_COST_PER_VIDEO,
   generationFormatForAspect,
   parseVideoAspect,
@@ -110,6 +113,7 @@ export async function POST(req: Request) {
     );
   }
 
+  const wantsWornFrame = cast === "model" && purpose !== "reveal";
   const prompt = buildVideoPrompt({
     purpose,
     preset,
@@ -118,6 +122,7 @@ export async function POST(req: Request) {
     subject,
     lookPreset,
     customPrompt,
+    lockedFrame: wantsWornFrame,
   });
 
   const deducted = await deductCredits(user.id, CREDIT_COST_PER_VIDEO);
@@ -130,14 +135,37 @@ export async function POST(req: Request) {
 
 
   try {
+    // Jewelry USP: a model video must not start from the catalog photo.
+    // That first glimpse is what gets redrawn, and the pendant changes.
+    // The worn still is the only picture sent to video. Do not revert this.
+    let videoImage = imageBase64;
+    let videoMime = mimeType;
+    if (wantsWornFrame) {
+      const still = await generateJewelryWithGemini(
+        imageBase64,
+        mimeType,
+        buildVideoModelStillPrompt({ purpose, aspect, subject, lookPreset }),
+        aspect === "horizontal" ? "landscape" : "instagram_story",
+        undefined,
+        true,
+        VIDEO_ASPECT_RATIO[aspect],
+        { imageSize: "2K", timeoutMs: 80_000 },
+      );
+      videoImage = still.imageBase64;
+      videoMime = still.mimeType;
+    }
     const out = await generateJewelryVideoWithGemini({
-      imageBase64,
-      mimeType,
+      imageBase64: videoImage,
+      mimeType: videoMime,
       prompt,
       aspectRatio: VIDEO_ASPECT_RATIO[aspect],
       personGeneration: veoPersonGeneration(cast),
       negativePrompt: videoNegativePrompt(purpose, cast),
       cast,
+      openingText: wantsWornFrame
+        ? `${VIDEO_JEWELRY_LOCK} This picture is already finished. Do not replace it with a catalog photo. Do not change the pendant.`
+        : undefined,
+      deadlineMs: wantsWornFrame ? 190_000 : undefined,
     });
     const buffer = Buffer.from(out.videoBase64, "base64");
     const ext = out.mimeType.includes("webm") ? "webm" : "mp4";

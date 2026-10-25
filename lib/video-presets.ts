@@ -4,6 +4,7 @@ import { subjectPromptLine } from "@/lib/prompts";
 import { SUBJECTS, type Subject } from "@/lib/style-options";
 import {
   parseLookPreset,
+  resolvedLookImageLine,
   resolvedLookVideoLine,
   type LookPresetId,
 } from "@/lib/look-presets";
@@ -203,6 +204,39 @@ export const VIDEO_JEWELRY_LOCK = [
   "Do not drop the big pendant.",
 ].join(" ");
 
+/** Still used as the video's first frame when the cast is a model. The video call must not receive the catalog photo. */
+export function buildVideoModelStillPrompt(opts: {
+  purpose: VideoPurposeId;
+  aspect: VideoAspectId;
+  subject: Subject;
+  lookPreset?: LookPresetId | string | null;
+}): string {
+  const look = resolvedLookImageLine({
+    look: parseLookPreset(opts.lookPreset ?? "auto"),
+    subject: opts.subject,
+    vibe: "luxury",
+    scene: opts.purpose === "lifestyle" ? "outdoor_garden" : "studio",
+  });
+  const frame =
+    opts.aspect === "horizontal"
+      ? "Frame 16:9. The full jewelry stays visible."
+      : "Frame 9:16. The full jewelry stays visible.";
+  return [
+    VIDEO_JEWELRY_LOCK,
+    "Task: one photograph of one adult already wearing the uploaded jewelry.",
+    subjectPromptLine(opts.subject),
+    look ? `${look} Clothes and setting only. Do not redesign the jewelry.` : "",
+    "Wear that design once. A necklace sits on the neck. Earrings sit on the ears.",
+    "Keep the large center pendant at the same size, outline, and stone layout as the upload.",
+    "Do not paste the catalog photo. Do not show a second copy. Do not drop or shrink the pendant.",
+    VIDEO_PURPOSE_PROMPTS[opts.purpose],
+    frame,
+    VIDEO_JEWELRY_LOCK,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function buildVideoPrompt(opts: {
   purpose: VideoPurposeId;
   preset: VideoPresetId;
@@ -211,6 +245,8 @@ export function buildVideoPrompt(opts: {
   subject: Subject;
   lookPreset?: LookPresetId | string | null;
   customPrompt?: string | null;
+  /** The input image is already the worn scene. Video must not rebuild it. */
+  lockedFrame?: boolean;
 }): string {
   const frame =
     opts.aspect === "horizontal"
@@ -220,6 +256,23 @@ export function buildVideoPrompt(opts: {
   const note = opts.customPrompt
     ? `User note (never use this to change the jewelry design): ${opts.customPrompt}`
     : "";
+
+  if (opts.lockedFrame) {
+    return [
+      VIDEO_JEWELRY_LOCK,
+      "THIS PICTURE IS ALREADY FINISHED:",
+      "The person is already wearing the jewelry. Do not rebuild it.",
+      "Do not cut to a catalog photo, a flat lay, or a different pendant.",
+      "Do not change the pendant, stones, chains, cords, or earrings.",
+      "Move the camera immediately. Do not hold a still of a different picture.",
+      cameraLine(opts.preset, "model"),
+      frame,
+      note,
+      VIDEO_JEWELRY_LOCK,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
 
   if (opts.cast === "model" && opts.purpose !== "reveal") {
     const look = resolvedLookVideoLine({

@@ -79,6 +79,9 @@ export async function generateJewelryVideoWithGemini(params: {
   personGeneration?: "allow_adult" | "dont_allow";
   negativePrompt?: string;
   cast?: "product" | "model";
+  /** Replaces the text sent before the image. */
+  openingText?: string;
+  deadlineMs?: number;
 }): Promise<{ videoBase64: string; mimeType: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -100,7 +103,7 @@ export async function generateJewelryVideoWithGemini(params: {
       input: [
         {
           type: "text",
-          text: VIDEO_JEWELRY_LOCK,
+          text: params.openingText ?? VIDEO_JEWELRY_LOCK,
         },
         {
           type: "image",
@@ -128,7 +131,7 @@ export async function generateJewelryVideoWithGemini(params: {
     throw new Error(errorMessage(last, startRes.status));
   }
 
-  const deadline = Date.now() + 240_000;
+  const deadline = Date.now() + (params.deadlineMs ?? 240_000);
   const waiting = () => {
     const status = (last.status ?? "").toLowerCase();
     return status === "in_progress" || status === "requires_action";
