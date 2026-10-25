@@ -221,16 +221,55 @@ async function ensureJpeg(blob: Blob): Promise<Blob> {
   }
 }
 
+/** JPEG cannot store a clear background. Keep a PNG only when pixels are actually transparent. */
+async function hasTransparentPixels(blob: Blob): Promise<boolean> {
+  if (!blob.type.includes("png")) return false;
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not read image"));
+      el.src = objectUrl;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx || !canvas.width || !canvas.height) return false;
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 3; i < data.length; i += 16) {
+      if (data[i] < 250) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function jpgName(filename: string): string {
   const base = filename.replace(/\.(png|jpe?g|webp|heic|heif)$/i, "");
-  return /\.jpe?g$/i.test(base) ? base : `${base}.jpg`;
+  return `${base}.jpg`;
+}
+
+function pngName(filename: string): string {
+  const base = filename.replace(/\.(png|jpe?g|webp|heic|heif)$/i, "");
+  return `${base}.png`;
 }
 
 export async function saveBlob(blob: Blob, filename: string): Promise<void> {
   const video = blob.type.startsWith("video/");
-  const fileBlob = video ? blob : await ensureJpeg(blob);
-  const name = video ? filename : jpgName(filename);
-  const mime = video ? fileBlob.type || "video/mp4" : "image/jpeg";
+  const transparent = !video && (await hasTransparentPixels(blob));
+  const fileBlob = video || transparent ? blob : await ensureJpeg(blob);
+  const name = video ? filename : transparent ? pngName(filename) : jpgName(filename);
+  const mime = video
+    ? fileBlob.type || "video/mp4"
+    : transparent
+      ? "image/png"
+      : "image/jpeg";
 
   const bridge = galleryBridge();
   if (bridge) {
