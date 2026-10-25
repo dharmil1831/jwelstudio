@@ -3,6 +3,8 @@ export type BrandVideoInput = {
   name: string;
   logoSrc: string | null;
   endCard: boolean;
+  /** A lid lifts off the jewelry. The jewelry pixels stay the clip underneath. */
+  unbox?: boolean;
 };
 
 export type BrandVideoResult = {
@@ -53,6 +55,27 @@ function contain(
   const w = srcW * scale;
   const h = srcH * scale;
   return { x: (boxW - w) / 2, y: (boxH - h) / 2, w, h };
+}
+
+/** Dark jewelry-box lid. It starts closed and lifts off over the first 2.4 seconds. */
+function paintUnboxLid(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  const duration = 2.4;
+  if (t >= duration) return;
+  const p = Math.max(0, t) / duration;
+  const eased = p * p * (3 - 2 * p);
+  const lift = eased * (h + 24);
+  ctx.save();
+  ctx.fillStyle = "#241910";
+  ctx.fillRect(0, -lift, w, h);
+  const lip = h - lift;
+  ctx.fillStyle = "#c4a46a";
+  ctx.fillRect(0, lip - 8, w, 8);
+  const shade = ctx.createLinearGradient(0, lip, 0, lip + 48);
+  shade.addColorStop(0, "rgba(0,0,0,0.4)");
+  shade.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, lip, w, 48);
+  ctx.restore();
 }
 
 function paintCorner(
@@ -150,7 +173,8 @@ function pickRecorderMime(): string {
  */
 export async function renderBrandedVideo(input: BrandVideoInput): Promise<BrandVideoResult> {
   const name = input.name.trim().slice(0, 40);
-  if (!name && !input.logoSrc) {
+  const unbox = Boolean(input.unbox);
+  if (!name && !input.logoSrc && !unbox) {
     throw new Error("Add a shop name or logo first.");
   }
   if (typeof document === "undefined" || typeof MediaRecorder === "undefined") {
@@ -265,6 +289,7 @@ export async function renderBrandedVideo(input: BrandVideoInput): Promise<BrandV
         }
         const alpha = Math.min(1, (video.currentTime || 0) / 1);
         paintCorner(ctx, canvas.width, canvas.height, alpha, logo, name);
+        if (unbox) paintUnboxLid(ctx, canvas.width, canvas.height, video.currentTime || 0);
         const known = Number.isFinite(video.duration) && video.duration > 0.4;
         if (video.ended || (known && video.currentTime >= video.duration - 0.05)) {
           if (input.endCard) {

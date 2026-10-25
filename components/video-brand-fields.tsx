@@ -91,6 +91,7 @@ type BrandedVideoStageProps = {
   endCard: boolean;
   /** Paint the mark on the player when it is not already in the file. */
   live: boolean;
+  unbox?: boolean;
   onDuration?: (seconds: number) => void;
 };
 
@@ -100,6 +101,7 @@ export function BrandedVideoStage({
   logoSrc,
   endCard,
   live,
+  unbox = false,
   onDuration,
 }: BrandedVideoStageProps) {
   const [card, setCard] = useState(false);
@@ -121,6 +123,7 @@ export function BrandedVideoStage({
         @keyframes jwel-brand-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         @keyframes jwel-card-logo { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: scale(1); } }
         @keyframes jwel-card-name { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        @keyframes jwel-lid-up { from { transform: translateY(0); } to { transform: translateY(-110%); } }
       `}</style>
       <StudioResultVideo
         src={src}
@@ -131,6 +134,12 @@ export function BrandedVideoStage({
           if (show && endCard) setCard(true);
         }}
       />
+      {live && unbox ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-full border-b-8 border-[#c4a46a] bg-[#241910]"
+          style={{ animation: "jwel-lid-up 2.4s ease forwards" }}
+        />
+      ) : null}
       {show && !card ? (
         <div
           className="pointer-events-none absolute bottom-3 right-3 flex max-w-[70%] items-center gap-2 rounded-xl bg-[#1a1224]/70 px-2.5 py-1.5"

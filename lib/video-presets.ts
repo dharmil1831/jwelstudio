@@ -81,7 +81,7 @@ export const VIDEO_PURPOSE_HINTS: Record<VideoPurposeId, string> = {
   editorial: "Magazine light moves across your piece.",
   festive: "Warmer light on your full set. Nothing covers the chains or stones.",
   lifestyle: "Softer daylight on your full set. The whole piece stays visible.",
-  reveal: "Light sweeps across your full set. Nothing covers it.",
+  reveal: "A lid lifts off in the first seconds. Your jewelry underneath stays the same.",
 };
 
 export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {

@@ -1121,7 +1121,8 @@ export function StudioApp() {
         typeof data.generationId === "string" ? data.generationId : null;
       if (generation) setGenerationId(generation);
       const wantsBrand = Boolean(videoShopName.trim() || videoLogoSrc);
-      if (data.resultUrl && wantsBrand) {
+      const wantsUnbox = videoPurpose === "reveal";
+      if (data.resultUrl && (wantsBrand || wantsUnbox)) {
         setLoading(false);
         setBrandingVideo(true);
         try {
@@ -1131,7 +1132,8 @@ export function StudioApp() {
               : data.resultUrl,
             name: videoShopName.trim(),
             logoSrc: videoLogoSrc,
-            endCard: videoEndCard,
+            endCard: videoEndCard && wantsBrand,
+            unbox: wantsUnbox,
           });
           if (brandedUrlRef.current) URL.revokeObjectURL(brandedUrlRef.current);
           const url = URL.createObjectURL(branded.blob);
@@ -1145,7 +1147,9 @@ export function StudioApp() {
           setResultMime(mime);
           setVideoBrandedFile(false);
           setLookNotice(
-            "Your video is ready. The shop name plays on screen. Download saves the jewelry clip.",
+            wantsUnbox
+              ? "Your video is ready. The lid plays on screen. Download saves the jewelry clip."
+              : "Your video is ready. The shop name plays on screen. Download saves the jewelry clip.",
           );
         } finally {
           setBrandingVideo(false);
@@ -2281,7 +2285,9 @@ export function StudioApp() {
           className="rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40 hover:bg-accent hover:text-foreground"
         >
           {brandingVideo
-            ? "Adding your brand…"
+            ? videoPurpose === "reveal" && !videoShopName.trim() && !videoLogoSrc
+              ? "Opening the box…"
+              : "Adding your brand…"
             : loading || batchRunning
             ? tab === "video"
               ? "Generating video…"
@@ -2467,7 +2473,9 @@ export function StudioApp() {
             }
             label={
               brandingVideo
-                ? "Adding your brand…"
+                ? videoPurpose === "reveal" && !videoShopName.trim() && !videoLogoSrc
+                  ? "Opening the box…"
+                  : "Adding your brand…"
                 : tab === "video"
                   ? "Creating your jewelry video…"
                   : mode === "background"
@@ -2486,6 +2494,7 @@ export function StudioApp() {
                   name={videoShopName}
                   logoSrc={videoLogoSrc}
                   endCard={videoEndCard}
+                  unbox={videoPurpose === "reveal"}
                   live={!videoBrandedFile}
                   onDuration={videoBrandedFile ? undefined : setVideoSeconds}
                 />

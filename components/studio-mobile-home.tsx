@@ -647,7 +647,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                         aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
                         label={
                           props.brandingVideo
-                            ? "Adding your brand…"
+                            ? props.videoPurpose === "reveal" &&
+                              !props.videoShopName.trim() &&
+                              !props.videoLogoSrc
+                              ? "Opening the box…"
+                              : "Adding your brand…"
                             : tool === "video"
                               ? "Creating your jewelry video…"
                               : tool === "backdrop" || tool === "shadow"
@@ -674,6 +678,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                         name={props.videoShopName}
                         logoSrc={props.videoLogoSrc}
                         endCard={props.videoEndCard}
+                        unbox={props.videoPurpose === "reveal"}
                         live={!props.videoBrandedFile}
                         onDuration={props.videoBrandedFile ? undefined : props.onVideoSeconds}
                       />
@@ -1268,7 +1273,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               className="rounded-full bg-primary py-3 text-sm font-bold text-white disabled:opacity-40"
             >
               {props.brandingVideo
-                ? "Adding your brand…"
+                ? props.videoPurpose === "reveal" &&
+                  !props.videoShopName.trim() &&
+                  !props.videoLogoSrc
+                  ? "Opening the box…"
+                  : "Adding your brand…"
                 : props.loading
                 ? tool === "video"
                   ? "Generating video…"
