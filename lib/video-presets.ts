@@ -1,7 +1,12 @@
 /** Diamond-only video options: aspect, purpose, cast, and camera motion. */
 
+import { subjectPromptLine } from "@/lib/prompts";
 import { SUBJECTS, type Subject } from "@/lib/style-options";
-import type { LookPresetId } from "@/lib/look-presets";
+import {
+  parseLookPreset,
+  resolvedLookVideoLine,
+  type LookPresetId,
+} from "@/lib/look-presets";
 
 export const VIDEO_ASPECT_IDS = ["vertical", "horizontal"] as const;
 export type VideoAspectId = (typeof VIDEO_ASPECT_IDS)[number];
@@ -37,12 +42,12 @@ export const VIDEO_CAST_LABELS: Record<VideoCastId, string> = {
 
 export const VIDEO_CAST_HINTS: Record<VideoCastId, string> = {
   product: "Product clip — no person",
-  model: "Your photo stays. A new model is not drawn, so the jewelry does not change.",
+  model: "One model wears your piece. The design stays as uploaded.",
 };
 
-/** Shown on the video screen. Campaign looks stay on still images. */
+/** Shown under the video campaign look. */
 export const VIDEO_PHOTO_LOCK_NOTE =
-  "Video keeps this photo. A campaign look is not used to redraw the jewelry.";
+  "The model wears this jewelry. Clothes and setting can change. The jewelry design does not.";
 
 export const VIDEO_PURPOSE_IDS = [
   "promotional",
@@ -72,7 +77,7 @@ export const VIDEO_PURPOSE_HINTS: Record<VideoPurposeId, string> = {
   product_shoot: "Even catalog light. The camera moves around your piece.",
   editorial: "Magazine light moves across your piece.",
   festive: "Warmer light on your full set. Nothing covers the chains or stones.",
-  lifestyle: "Softer light on this photo. The jewelry stays as uploaded.",
+  lifestyle: "Softer daylight. On a model, they wear the same piece.",
   reveal: "A case opens on this photo. The jewelry is not placed on a model, and the design stays as uploaded.",
 };
 
@@ -176,6 +181,18 @@ export function parseVideoPreset(raw: unknown): VideoPresetId | null {
   return VIDEO_PRESET_IDS.includes(id) ? id : null;
 }
 
+function cameraLine(preset: VideoPresetId, cast: VideoCastId): string {
+  if (cast === "model" && preset === "worn_turn") {
+    return "CAMERA: the model turns slowly. The jewelry stays on the body and the design does not change.";
+  }
+  const line = VIDEO_PRESET_PROMPTS[preset];
+  if (cast !== "model") return line;
+  return line
+    .replace(/ Do not add a person(?: or a new background)?\./g, "")
+    .replace(/,? or a person/g, "")
+    .replace(/ Do not turn the photo into a portrait\./g, "");
+}
+
 /** Sent on every video, before the options. The uploaded design is not restyled. */
 export const VIDEO_JEWELRY_LOCK = [
   "ORIGINAL JEWELRY STAYS AS IT IS:",
@@ -200,6 +217,33 @@ export function buildVideoPrompt(opts: {
       ? "Frame for widescreen 16:9. Keep the jewelry fully visible. No text, watermark, logo, or overlay."
       : "Frame for vertical 9:16. Keep the jewelry fully visible in the center. No text, watermark, logo, or overlay.";
 
+  const note = opts.customPrompt
+    ? `User note (never use this to change the jewelry design): ${opts.customPrompt}`
+    : "";
+
+  if (opts.cast === "model" && opts.purpose !== "reveal") {
+    const look = resolvedLookVideoLine({
+      look: parseLookPreset(opts.lookPreset ?? "auto"),
+      subject: opts.subject,
+      vibe: "luxury",
+      scene: opts.purpose === "lifestyle" ? "outdoor_garden" : "studio",
+    });
+    return [
+      VIDEO_JEWELRY_LOCK,
+      "PLACEMENT: one model wears that same jewelry. A necklace sits on the neck. Earrings sit on the ears. The white catalog copy leaves the frame. The design stays complete, including the large center pendant.",
+      "CAST: one adult wears the uploaded design once. Do not simplify it, do not drop the big pendant, and do not add a second necklace, a second pair, a tikka, bangles, or rings.",
+      subjectPromptLine(opts.subject),
+      look ? `${look} Wardrobe and setting only. Do not redesign the jewelry.` : "",
+      VIDEO_PURPOSE_PROMPTS[opts.purpose],
+      cameraLine(opts.preset, "model"),
+      frame,
+      note,
+      VIDEO_JEWELRY_LOCK,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
   return [
     VIDEO_JEWELRY_LOCK,
     "THE PHOTOGRAPH STAYS:",
@@ -208,11 +252,9 @@ export function buildVideoPrompt(opts: {
     "Do not move the jewelry onto a body. Do not redraw any pendant, drop, stone, chain, cord, or earring.",
     "Only camera and light may change. The jewelry design at the end matches the upload.",
     VIDEO_PURPOSE_PROMPTS[opts.purpose],
-    VIDEO_PRESET_PROMPTS[opts.preset],
+    cameraLine(opts.preset, "product"),
     frame,
-    opts.customPrompt
-      ? `User note (never use this to change the photo or the jewelry): ${opts.customPrompt}`
-      : "",
+    note,
     VIDEO_JEWELRY_LOCK,
   ]
     .filter(Boolean)
@@ -221,10 +263,12 @@ export function buildVideoPrompt(opts: {
 
 export function videoNegativePrompt(
   purpose: VideoPurposeId,
-  _cast: VideoCastId = "product",
+  cast: VideoCastId = "product",
 ): string {
   const design =
-    "added person, extra face, couple, bride, groom, hands, fingers, cloth, fabric, velvet, box, lid, new background, wedding portrait, double exposure, redesigned jewelry, different jewelry, morphing jewelry, missing center pendant, pendant removed, simplified jewelry, changed stone layout, second jewelry set, watermark, text, logo, subtitles";
+    cast === "model" && purpose !== "reveal"
+      ? "missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, changed stone layout, second necklace, duplicate jewelry, flat catalog copy beside the model, cloth covering the jewelry, hands covering the jewelry, watermark, text, logo, subtitles"
+      : "added person, extra face, couple, bride, groom, hands, fingers, cloth, fabric, velvet, box, lid, new background, wedding portrait, double exposure, redesigned jewelry, different jewelry, morphing jewelry, missing center pendant, pendant removed, simplified jewelry, changed stone layout, second jewelry set, watermark, text, logo, subtitles";
   return purpose === "festive" ? `${design}, flowers on top of the jewelry` : design;
 }
 
