@@ -188,19 +188,62 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+/** iPhone Photos and camera uploads only reliably accept a normal JPEG. */
+async function ensureJpeg(blob: Blob): Promise<Blob> {
+  if (blob.type.startsWith("video/")) return blob;
+  if (blob.type === "image/jpeg" || blob.type === "image/jpg") return blob;
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not read image"));
+      el.src = objectUrl;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !canvas.width || !canvas.height) throw new Error("Could not read image");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (out) => (out ? resolve(out) : reject(new Error("Could not read image"))),
+        "image/jpeg",
+        0.92,
+      );
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function jpgName(filename: string): string {
+  const base = filename.replace(/\.(png|jpe?g|webp|heic|heif)$/i, "");
+  return /\.jpe?g$/i.test(base) ? base : `${base}.jpg`;
+}
+
 export async function saveBlob(blob: Blob, filename: string): Promise<void> {
+  const video = blob.type.startsWith("video/");
+  const fileBlob = video ? blob : await ensureJpeg(blob);
+  const name = video ? filename : jpgName(filename);
+  const mime = video ? fileBlob.type || "video/mp4" : "image/jpeg";
+
   const bridge = galleryBridge();
   if (bridge) {
-    const data = await blobToBase64(blob);
-    const saved = bridge.saveBase64(data, filename, blob.type || "image/jpeg");
+    const data = await blobToBase64(fileBlob);
+    const saved = bridge.saveBase64(data, name, mime);
     if (!saved) throw new Error("Could not save image");
     return;
   }
 
-  const objectUrl = URL.createObjectURL(blob);
+  const objectUrl = URL.createObjectURL(fileBlob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;
-  anchor.download = filename;
+  anchor.download = name;
   anchor.rel = "noopener";
   document.body.appendChild(anchor);
   anchor.click();
