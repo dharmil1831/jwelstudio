@@ -1136,12 +1136,25 @@ export function StudioApp() {
             unbox: wantsUnbox,
           });
           if (brandedUrlRef.current) URL.revokeObjectURL(brandedUrlRef.current);
-          const url = URL.createObjectURL(branded.blob);
-          brandedUrlRef.current = url;
+          const localUrl = URL.createObjectURL(branded.blob);
+          brandedUrlRef.current = localUrl;
           setVideoSeconds(branded.clipSeconds);
           setResultMime(branded.blob.type || "video/webm");
-          setResultUrl(url);
+          setResultUrl(localUrl);
           setVideoBrandedFile(true);
+          if (generation) {
+            const form = new FormData();
+            const fileType = branded.blob.type || "video/webm";
+            form.append(
+              "file",
+              branded.blob,
+              fileType.includes("webm") ? "finish.webm" : "finish.mp4",
+            );
+            await fetch(`/api/generations/${encodeURIComponent(generation)}/finish`, {
+              method: "POST",
+              body: form,
+            }).catch(() => undefined);
+          }
         } catch {
           setResultUrl(data.resultUrl);
           setResultMime(mime);

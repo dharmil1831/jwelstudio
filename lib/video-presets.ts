@@ -49,7 +49,7 @@ export const VIDEO_CAST_PROMPTS: Record<VideoCastId, string> = {
   product:
     "CAST: jewelry-only product video. No person, no face, no hands, no fingers, no cloth, no box, no model. The uploaded jewelry is the only subject.",
   model:
-    "CAST: jewelry-on-model video. A photorealistic adult model wears ONLY the exact uploaded jewelry — no additional pieces. If the upload shows earrings only, the model wears earrings only. If the upload shows a necklace only, the model wears a necklace only. Do NOT invent extra matching jewelry (no tikka, no bangles, no rings, no nose ring unless in the upload). Place the uploaded piece naturally. Polished editorial skin. Do not change the jewelry design.",
+    "CAST: one adult model wears the uploaded jewelry once. A necklace in the photo is worn at the neck only. Earrings in the photo are worn on the ears only. Do not also leave those pieces lying on the white background. Do not show any piece twice. Do not add a second necklace, a second pair of earrings, a tikka, bangles, or rings.",
 };
 
 export const VIDEO_PURPOSE_IDS = [
@@ -213,20 +213,30 @@ export function buildVideoPrompt(opts: {
         })
       : null;
 
-  const lock = [
-    "CONTINUITY:",
-    "The uploaded photo is the first moment of the video.",
-    "Move forward from that photo at once.",
-    "Do not hold a frozen still and then cut, fade, or dissolve to a different shot.",
-    "The jewelry in every frame, including the last, is the same piece: same outline, same stone layout, same metal color, same chains, same cords, same earrings, same pendants.",
-    "Nothing may cover, crop, or remove any part that is visible in the photo.",
-    "Only the camera and the light may move.",
-  ].join(" ");
+  const lock =
+    opts.cast === "model"
+      ? [
+          "ONE WEARING:",
+          "The photo is a catalog layout, not a second set to keep on screen.",
+          "Show one model wearing each piece once, in its place.",
+          "The white background and the pieces lying flat must leave the frame.",
+          "Do not show the jewelry twice. No flat copy beside the worn piece.",
+          "Same metal, same stones, same design as the upload. Do not invent another necklace.",
+        ].join(" ")
+      : [
+          "CONTINUITY:",
+          "The uploaded photo is the first moment of the video.",
+          "Move forward from that photo at once.",
+          "Do not hold a frozen still and then cut, fade, or dissolve to a different shot.",
+          "The jewelry in every frame, including the last, is the same piece: same outline, same stone layout, same metal color, same chains, same cords, same earrings, same pendants.",
+          "Nothing may cover, crop, or remove any part that is visible in the photo.",
+          "Only the camera and the light may move.",
+        ].join(" ");
 
   const ending =
     opts.cast === "product"
       ? "ENDING: the full jewelry set is still visible, including every chain and cord from the photo. No hands, cloth, or new object enter the frame."
-      : "ENDING: the model still wears the same uploaded jewelry, including every chain and cord. The design has not been replaced.";
+      : "ENDING: one model, one wearing. The flat catalog jewelry is gone. No second necklace and no second pair of earrings.";
 
   return [
     lock,
@@ -252,7 +262,7 @@ export function videoNegativePrompt(
   const cover =
     cast === "product"
       ? "hands, fingers, cloth, fabric, velvet, box, lid, covering the jewelry, cropped chain, missing cord, missing chain, "
-      : "cloth covering the jewelry, missing chain, missing cord, ";
+      : "second necklace, second pair of earrings, duplicate jewelry, flat catalog copy beside the model, jewelry lying on white next to the person, ";
   const design = `${cover}frozen still then cut, crossfade, dissolve to a new shot, different jewelry, redesigned jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles`;
   return purpose === "festive" ? `${design}, flowers on top of the jewelry, diyas covering the chain` : design;
 }

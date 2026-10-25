@@ -77,6 +77,7 @@ export async function generateJewelryVideoWithGemini(params: {
   aspectRatio?: "9:16" | "16:9";
   personGeneration?: "allow_adult" | "dont_allow";
   negativePrompt?: string;
+  cast?: "product" | "model";
 }): Promise<{ videoBase64: string; mimeType: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -98,7 +99,10 @@ export async function generateJewelryVideoWithGemini(params: {
       input: [
         {
           type: "text",
-          text: "Animate this photo with camera and light only. Every chain, cord, earring, and pendant stays visible for the whole clip. Do not add hands, cloth, a box, or a new piece of jewelry.",
+          text:
+            params.cast === "model"
+              ? "One adult wears this jewelry once. A necklace goes on the neck only. Earrings go on the ears only. Remove the white catalog layout. Do not show any piece twice."
+              : "Animate this photo with camera and light only. Every chain, cord, earring, and pendant stays visible for the whole clip. Do not add hands, cloth, a box, or a new piece of jewelry.",
         },
         {
           type: "image",
