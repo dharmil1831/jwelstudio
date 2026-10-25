@@ -113,7 +113,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const wantsWornFrame = cast === "model" && purpose !== "reveal";
+  const wantsWornFrame = cast === "model";
   const prompt = buildVideoPrompt({
     purpose,
     preset,
@@ -136,8 +136,8 @@ export async function POST(req: Request) {
 
   try {
     // Jewelry USP: a model video must not start from the catalog photo.
-    // That first glimpse is what gets redrawn, and the pendant changes.
-    // The worn still is the only picture sent to video. Do not revert this.
+    // That includes unboxing. The model is already wearing the piece, then the case opens on top.
+    // Do not skip the model when the type is reveal.
     let videoImage = imageBase64;
     let videoMime = mimeType;
     if (wantsWornFrame) {

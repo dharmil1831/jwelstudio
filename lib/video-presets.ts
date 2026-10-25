@@ -79,7 +79,7 @@ export const VIDEO_PURPOSE_HINTS: Record<VideoPurposeId, string> = {
   editorial: "Magazine light moves across your piece.",
   festive: "Warmer light on your full set. Nothing covers the chains or stones.",
   lifestyle: "Softer daylight. On a model, they wear the same piece.",
-  reveal: "A case opens on this photo. The jewelry is not placed on a model, and the design stays as uploaded.",
+  reveal: "A case opens. On a model, that person is already wearing the jewelry.",
 };
 
 export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {
@@ -229,7 +229,9 @@ export function buildVideoModelStillPrompt(opts: {
     "Wear that design once. A necklace sits on the neck. Earrings sit on the ears.",
     "Keep the large center pendant at the same size, outline, and stone layout as the upload.",
     "Do not paste the catalog photo. Do not show a second copy. Do not drop or shrink the pendant.",
-    VIDEO_PURPOSE_PROMPTS[opts.purpose],
+    opts.purpose === "reveal"
+      ? "LOOK: clear studio light on the model wearing the jewelry. Do not draw a box, cloth, or hands."
+      : VIDEO_PURPOSE_PROMPTS[opts.purpose],
     frame,
     VIDEO_JEWELRY_LOCK,
   ]
@@ -319,8 +321,8 @@ export function videoNegativePrompt(
   cast: VideoCastId = "product",
 ): string {
   const design =
-    cast === "model" && purpose !== "reveal"
-      ? "missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, changed stone layout, second necklace, duplicate jewelry, flat catalog copy beside the model, cloth covering the jewelry, hands covering the jewelry, watermark, text, logo, subtitles"
+    cast === "model"
+      ? "missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, changed stone layout, second necklace, duplicate jewelry, flat catalog copy, cloth covering the jewelry, hands covering the jewelry, box, lid, watermark, text, logo, subtitles"
       : "added person, extra face, couple, bride, groom, hands, fingers, cloth, fabric, velvet, box, lid, new background, wedding portrait, double exposure, redesigned jewelry, different jewelry, morphing jewelry, missing center pendant, pendant removed, simplified jewelry, changed stone layout, second jewelry set, watermark, text, logo, subtitles";
   return purpose === "festive" ? `${design}, flowers on top of the jewelry` : design;
 }
