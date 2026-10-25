@@ -152,18 +152,51 @@ export async function downloadImage(
   await saveBlob(blob, finalName);
 }
 
-/** Same-origin file route. The browser saves it; do not open the system share sheet. */
-export function downloadGenerationFile(id: string, filename: string): void {
-  const anchor = document.createElement("a");
-  anchor.href = `/api/generations/${encodeURIComponent(id)}/file`;
-  anchor.download = filename || `jwelpixel-${id}`;
-  anchor.rel = "noopener";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
+/** Same-origin file route. Phones save it into the gallery; browsers download the file. */
+export async function downloadGenerationFile(id: string, filename: string): Promise<void> {
+  const res = await fetch(`/api/generations/${encodeURIComponent(id)}/file`);
+  if (!res.ok) throw new Error("Could not download image");
+  const blob = await res.blob();
+  let name = filename || `jwelpixel-${id}`;
+  if (!/\.(png|jpe?g|webp|mp4|webm)$/i.test(name)) {
+    name = `${name.replace(/\.$/, "")}.${extensionFromBlob(blob)}`;
+  }
+  await saveBlob(blob, name);
 }
 
-function saveBlob(blob: Blob, filename: string): void {
+type GalleryBridge = {
+  saveBase64: (data: string, filename: string, mime: string) => boolean;
+};
+
+function galleryBridge(): GalleryBridge | null {
+  if (typeof window === "undefined") return null;
+  const bridge = (window as Window & { JwelpixelDownload?: GalleryBridge }).JwelpixelDownload;
+  if (!bridge || typeof bridge.saveBase64 !== "function") return null;
+  return bridge;
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("Could not read image"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function saveBlob(blob: Blob, filename: string): Promise<void> {
+  const bridge = galleryBridge();
+  if (bridge) {
+    const data = await blobToBase64(blob);
+    const saved = bridge.saveBase64(data, filename, blob.type || "image/jpeg");
+    if (!saved) throw new Error("Could not save image");
+    return;
+  }
+
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;

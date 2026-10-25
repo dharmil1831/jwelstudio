@@ -1,6 +1,6 @@
 "use client";
 
-import { downloadImage, filenameFromUrl } from "@/lib/download-image";
+import { downloadGenerationFile, downloadImage, filenameFromUrl } from "@/lib/download-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type ImageLightboxProps = {
@@ -149,7 +149,11 @@ export function ImageLightbox({
     setDownloading(true);
     setDownloadError(null);
     try {
-      await downloadImage(url, filename ?? filenameFromUrl(url));
+      if (generationId) {
+        await downloadGenerationFile(generationId, filename ?? `jwelpixel-${generationId}`);
+      } else {
+        await downloadImage(url, filename ?? filenameFromUrl(url));
+      }
     } catch {
       setDownloadError("Download failed. Try again.");
     } finally {
@@ -159,8 +163,6 @@ export function ImageLightbox({
 
   if (!open) return null;
 
-  const fileHref = generationId ? `/api/generations/${generationId}/file` : null;
-
   return (
     <div
       className="fixed inset-0 z-[100] flex flex-col bg-black/95 pt-[env(safe-area-inset-top)]"
@@ -169,24 +171,14 @@ export function ImageLightbox({
       aria-label="Image preview"
     >
       <div className="flex shrink-0 items-center justify-end gap-2 bg-black px-3 py-2 text-white">
-        {fileHref ? (
-          <a
-            href={fileHref}
-            download={filename ?? `jwelpixel-${generationId}`}
-            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-background"
-          >
-            Download
-          </a>
-        ) : (
-          <button
-            type="button"
-            disabled={downloading}
-            onClick={() => void handleDownload()}
-            className="cursor-pointer rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-background hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {downloading ? "Downloading…" : "Download"}
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={downloading}
+          onClick={() => void handleDownload()}
+          className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-background disabled:opacity-50"
+        >
+          {downloading ? "Downloading…" : "Download"}
+        </button>
         <button
           type="button"
           onClick={onClose}

@@ -5,6 +5,7 @@ import {
   downloadImage,
   exportExactSizeJpeg,
   filenameFromUrl,
+  saveBlob,
 } from "@/lib/download-image";
 import { useState } from "react";
 
@@ -35,19 +36,6 @@ export function DownloadImageButton({
     className ??
     "rounded-lg bg-primary/90 px-3 py-1.5 text-xs font-semibold text-background shadow hover:bg-primary disabled:opacity-50";
 
-  if (generationId && !exportFormat && !exportPixels) {
-    return (
-      <a
-        href={`/api/generations/${generationId}/file`}
-        download={filename ?? `jwelpixel-${generationId}`}
-        onClick={(e) => e.stopPropagation()}
-        className={buttonClass}
-      >
-        {label}
-      </a>
-    );
-  }
-
   async function handleDownload(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -62,18 +50,11 @@ export function DownloadImageButton({
           exportPixels.width,
           exportPixels.height,
         );
-        const objectUrl = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = objectUrl;
         const base = (filename ?? `jwelpixel-${exportPixels.width}x${exportPixels.height}`).replace(
           /\.(png|jpe?g|webp)$/i,
           "",
         );
-        anchor.download = `${base}.jpg`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+        await saveBlob(blob, `${base}.jpg`);
       } else if (generationId) {
         await downloadGenerationFile(
           generationId,
