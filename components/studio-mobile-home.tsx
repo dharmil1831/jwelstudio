@@ -1,6 +1,7 @@
 "use client";
 
 import { BrandMarketingPanel, type BrandFormState } from "@/components/brand-marketing-panel";
+import { MobileStudioNav, type StudioScreen } from "@/components/mobile-studio-nav";
 import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { ReflectionControls } from "@/components/reflection-controls";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
@@ -68,7 +69,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
-type Screen = "home" | "tools" | "edit" | "profile";
+type Screen = StudioScreen;
 type Feed = "all" | "listing" | "editing" | "marketing" | "social";
 type ClassicBackdrop = "white" | "black" | "transparent" | "original";
 type Tool =
@@ -311,6 +312,18 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
       ? props.finishedPreviewUrl || props.resultUrl
       : null;
   const jewelryCutout = useJewelryCutout("/mobile-looks/product-white.jpg");
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("screen");
+    if (
+      requested === "home" ||
+      requested === "tools" ||
+      requested === "edit" ||
+      requested === "profile"
+    ) {
+      setScreen(requested);
+    }
+  }, []);
 
   useEffect(() => {
     if (!props.loading || screen !== "edit") return;
@@ -1233,31 +1246,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         ) : null}
       </div>
 
-      <nav className="grid grid-cols-4 gap-1 border-t border-primary/15 bg-white px-1 py-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))]">
-        {(
-          [
-            ["home", "Home"],
-            ["tools", "Tools"],
-            ["edit", "Edit"],
-            ["profile", "Profile"],
-          ] as const
-        ).map(([id, label]) => {
-          const active = screen === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setScreen(id)}
-              className={`flex flex-col items-center gap-0.5 rounded-2xl px-1 py-2 text-[10px] font-bold ${
-                active ? "bg-primary text-white" : "text-foreground/55"
-              }`}
-            >
-              <NavIcon id={id} active={active} />
-              {label}
-            </button>
-          );
-        })}
-      </nav>
+      <MobileStudioNav active={screen} onSelect={setScreen} />
       {stillResultUrl ? (
         <ImageLightbox
           url={stillResultUrl}
@@ -1382,48 +1371,6 @@ function ToolGlyph({ id }: { id: Tool }) {
     <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
       <path {...common} d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
       <circle {...common} cx="12" cy="12" r="3.5" />
-    </svg>
-  );
-}
-
-function NavIcon({ id, active }: { id: Screen; active: boolean }) {
-  const stroke = active ? "currentColor" : "currentColor";
-  const common = {
-    fill: "none" as const,
-    stroke,
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-  if (id === "home") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-        <path {...common} d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z" />
-      </svg>
-    );
-  }
-  if (id === "tools") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-        <rect {...common} x="3.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect {...common} x="13.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect {...common} x="3.5" y="13.5" width="7" height="7" rx="1.5" />
-        <rect {...common} x="13.5" y="13.5" width="7" height="7" rx="1.5" />
-      </svg>
-    );
-  }
-  if (id === "edit") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-        <path {...common} d="M4 20h4l11-11-4-4L4 16v4z" />
-        <path {...common} d="m13 7 4 4" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-      <circle {...common} cx="12" cy="8" r="3.5" />
-      <path {...common} d="M5 19.5c1.5-3.5 4-5 7-5s5.5 1.5 7 5" />
     </svg>
   );
 }
