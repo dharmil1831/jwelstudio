@@ -10,6 +10,7 @@ type StudioResultVideoProps = {
   label?: string;
   onDuration?: (seconds: number) => void;
   onEnded?: () => void;
+  onTime?: (seconds: number) => void;
 };
 
 /**
@@ -22,6 +23,7 @@ export function StudioResultVideo({
   fillClassName,
   onDuration,
   onEnded,
+  onTime,
 }: StudioResultVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -55,6 +57,7 @@ export function StudioResultVideo({
         onLoadedData={(e) => {
           void e.currentTarget.play().catch(() => undefined);
         }}
+        onTimeUpdate={(e) => onTime?.(e.currentTarget.currentTime)}
         onEnded={() => onEnded?.()}
         onCanPlay={(e) => {
           void e.currentTarget.play().catch(() => undefined);

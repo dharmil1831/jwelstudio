@@ -81,7 +81,7 @@ export const VIDEO_PURPOSE_HINTS: Record<VideoPurposeId, string> = {
   editorial: "Magazine light moves across your piece.",
   festive: "Warmer light on your full set. Nothing covers the chains or stones.",
   lifestyle: "Softer daylight on your full set. The whole piece stays visible.",
-  reveal: "The case opens from the center, then the frame fades. Your jewelry stays as uploaded.",
+  reveal: "A case opens on this photo. The jewelry is not placed on a model, and the design stays as uploaded.",
 };
 
 export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {
@@ -98,7 +98,7 @@ export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {
   festive:
     "LOOK: the light turns a little warmer and golden. Do not add flowers, lamps, cloth, or hands. Every chain, cord, earring, and pendant stays visible.",
   reveal:
-    "LOOK: a soft light sweep across the jewelry, like a reveal. Do not add a lid, cloth, box, velvet, or hands. Every chain, cord, earring, and pendant stays visible from the first moment to the last.",
+    "LOOK: the uploaded photograph stays the picture. Do not add a person, face, hands, cloth, box, or a second copy. A very small light change only. Every chain, cord, earring, and pendant stays where it is in the photo.",
 };
 
 export const VIDEO_PRESET_IDS = [
@@ -208,13 +208,34 @@ export function buildVideoPrompt(opts: {
       ? "Frame for widescreen 16:9. Keep the jewelry fully visible. No text, watermark, logo, or overlay."
       : "Frame for vertical 9:16. Keep the jewelry fully visible in the center. No text, watermark, logo, or overlay.";
 
+  if (opts.purpose === "reveal") {
+    return [
+      VIDEO_JEWELRY_LOCK,
+      "THE PHOTOGRAPH STAYS:",
+      "The uploaded photo is the picture in every frame, from the first moment to the last.",
+      "Do not add a person, a face, hands, a model, or a new background.",
+      "Do not fade the jewelry. Do not lay a second copy over a portrait.",
+      "Do not move the jewelry onto a body. Do not redraw the pendant.",
+      "Only a very small change in light is allowed.",
+      VIDEO_PURPOSE_PROMPTS.reveal,
+      "CAMERA: hold this framing. Do not zoom into a portrait and do not orbit into a new scene.",
+      frame,
+      opts.customPrompt
+        ? `User note (never use this to change the photo or the jewelry): ${opts.customPrompt}`
+        : "",
+      VIDEO_JEWELRY_LOCK,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
   const castLines =
     opts.cast === "model"
       ? [VIDEO_CAST_PROMPTS.model, subjectPromptLine(opts.subject)]
       : [VIDEO_CAST_PROMPTS.product];
 
   const look =
-    opts.cast === "model" && opts.purpose !== "festive" && opts.purpose !== "reveal"
+    opts.cast === "model" && opts.purpose !== "festive"
       ? resolvedLookVideoLine({
           look: parseLookPreset(opts.lookPreset ?? "auto"),
           subject: opts.subject,
@@ -249,6 +270,9 @@ export function videoNegativePrompt(
   purpose: VideoPurposeId,
   cast: VideoCastId = "product",
 ): string {
+  if (purpose === "reveal") {
+    return "person, face, portrait, model, hands, fingers, cloth, fabric, velvet, box, lid, double exposure, ghost image, faded face, second copy of the jewelry, jewelry floating over a person, missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles";
+  }
   const cover =
     cast === "product"
       ? "hands, fingers, cloth, fabric, velvet, box, lid, covering the jewelry, cropped chain, missing cord, missing chain, "

@@ -32,7 +32,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const type = file.type || "video/mp4";
   const ext = type.includes("webm") ? "webm" : "mp4";
   const buffer = Buffer.from(await file.arrayBuffer());
-  const resultUrl = await storeGenerationVideo(user.id, buffer, ext);
+  const resultUrl = await storeGenerationVideo(user.id, buffer, ext, "unbox-");
   await prisma.generation.update({
     where: { id },
     data: { resultUrl },

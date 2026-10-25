@@ -5,6 +5,7 @@ import { DownloadImageButton } from "@/components/download-image-button";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
 import { StudioResultVideo } from "@/components/studio-result-video";
+import { UnboxPlayback } from "@/components/video-brand-fields";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -42,6 +43,23 @@ function generationCaption(item: GenerationItem): string {
     .filter(Boolean)
     .join(" · ")
     .replace(/_/g, " ");
+}
+
+function GalleryVideo({ item }: { item: GenerationItem }) {
+  const [time, setTime] = useState(0);
+  const showCase = item.scene === "reveal" && !item.resultUrl.includes("unbox-");
+  return (
+    <div className="relative aspect-[4/5] w-full overflow-hidden bg-background/40">
+      <StudioResultVideo
+        src={item.resultUrl}
+        fillClassName="absolute inset-0"
+        className="h-full w-full object-cover"
+        label="Loading video…"
+        onTime={showCase ? setTime : undefined}
+      />
+      {showCase ? <UnboxPlayback time={time} /> : null}
+    </div>
+  );
 }
 
 function generationAlt(item: GenerationItem): string {
@@ -111,14 +129,7 @@ export function GalleryGrid() {
               className="group overflow-hidden rounded-xl border border-primary/20 bg-secondary shadow-sm"
             >
               {video ? (
-                <div className="relative aspect-[4/5] w-full overflow-hidden bg-background/40">
-                  <StudioResultVideo
-                    src={item.resultUrl}
-                    fillClassName="absolute inset-0"
-                    className="h-full w-full object-cover"
-                    label="Loading video…"
-                  />
-                </div>
+                <GalleryVideo item={item} />
               ) : (
                 <button
                   type="button"

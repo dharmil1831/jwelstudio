@@ -57,21 +57,50 @@ function contain(
   return { x: (boxW - w) / 2, y: (boxH - h) / 2, w, h };
 }
 
+const UNBOX_SHUT = 0.28;
+const UNBOX_OPEN_END = 2.05;
+const UNBOX_FADE_END = 2.55;
+
+export type UnboxMotion = {
+  /** Hinge angle in degrees. 0 is shut. */
+  openDeg: number;
+  /** 1 while the doors are drawn. */
+  door: number;
+  /** Gold frame opacity. */
+  frame: number;
+  face: number;
+  eased: number;
+  thickness: number;
+};
+
+/** Shared timing for the saved file and the on-screen case. */
+export function unboxMotion(t: number): UnboxMotion | null {
+  if (t >= UNBOX_FADE_END) return null;
+  const openT = Math.min(1, Math.max(0, (t - UNBOX_SHUT) / (UNBOX_OPEN_END - UNBOX_SHUT)));
+  const eased = openT * openT * (3 - 2 * openT);
+  const angle = eased * (Math.PI / 2) * 0.96;
+  const face = Math.cos(angle);
+  const door = face > 0.03 && t < UNBOX_OPEN_END + 0.05 ? 1 : 0;
+  const frame =
+    t < UNBOX_OPEN_END ? 1 : Math.max(0, 1 - (t - UNBOX_OPEN_END) / (UNBOX_FADE_END - UNBOX_OPEN_END));
+  return {
+    openDeg: (angle * 180) / Math.PI,
+    door,
+    frame,
+    face,
+    eased,
+    thickness: Math.sin(angle),
+  };
+}
+
 /**
  * Closed jewelry case, then the two sides hinge open from the center.
  * Nothing slides upward. The frame fades once the piece is visible.
  */
 function paintUnboxLid(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
-  const shut = 0.28;
-  const openEnd = 2.05;
-  const fadeEnd = 2.55;
-  if (t >= fadeEnd) return;
-
-  const openT = Math.min(1, Math.max(0, (t - shut) / (openEnd - shut)));
-  const eased = openT * openT * (3 - 2 * openT);
-  const angle = eased * (Math.PI / 2) * 0.96;
-  const face = Math.cos(angle);
-  const thickness = Math.sin(angle);
+  const motion = unboxMotion(t);
+  if (!motion) return;
+  const { face, eased, thickness } = motion;
 
   ctx.save();
 
@@ -82,7 +111,7 @@ function paintUnboxLid(ctx: CanvasRenderingContext2D, w: number, h: number, t: n
   }
 
   const doorW = (w / 2) * face;
-  if (doorW > 1.5 && t < openEnd + 0.05) {
+  if (motion.door > 0 && doorW > 1.5) {
     const lip = Math.max(3, w * 0.012);
     const depth = thickness * Math.min(w * 0.045, 28);
 
@@ -149,8 +178,7 @@ function paintUnboxLid(ctx: CanvasRenderingContext2D, w: number, h: number, t: n
     }
   }
 
-  const frameAlpha =
-    t < openEnd ? 1 : Math.max(0, 1 - (t - openEnd) / (fadeEnd - openEnd));
+  const frameAlpha = motion.frame;
   if (frameAlpha > 0.02) {
     ctx.save();
     ctx.globalAlpha = frameAlpha;
@@ -247,6 +275,40 @@ function paintEndCard(
   }
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
+  const duration = Number.isFinite(video.duration) ? video.duration : time;
+  const target = Math.max(0, Math.min(time, Math.max(0, duration - 0.04)));
+  if (Math.abs(video.currentTime - target) < 0.02 && video.readyState >= 2) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onError);
+      window.clearTimeout(timer);
+      if (ok) resolve();
+      else reject(new Error("Could not read the video."));
+    };
+    const onSeeked = () => finish(true);
+    const onError = () => finish(false);
+    const timer = window.setTimeout(() => finish(false), 4000);
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onError);
+    try {
+      video.currentTime = target;
+    } catch {
+      finish(false);
+    }
+  });
+}
+
 function pickRecorderMime(): string {
   if (typeof MediaRecorder === "undefined") return "";
   const types = ["video/mp4", "video/webm;codecs=vp8", "video/webm"];
@@ -293,6 +355,7 @@ export async function renderBrandedVideo(input: BrandVideoInput): Promise<BrandV
     throw new Error("Could not read the logo.");
   }
 
+  let canvasEl: HTMLCanvasElement | null = null;
   try {
     await new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -319,8 +382,12 @@ export async function renderBrandedVideo(input: BrandVideoInput): Promise<BrandV
     });
 
     const canvas = document.createElement("canvas");
+    canvasEl = canvas;
     canvas.width = video.videoWidth || 720;
     canvas.height = video.videoHeight || 1280;
+    canvas.style.cssText =
+      "position:fixed;left:0;top:0;width:8px;height:8px;opacity:0.02;pointer-events:none";
+    document.body.appendChild(canvas);
     const ctx = canvas.getContext("2d");
     const stream = canvas.captureStream?.(30);
     if (!ctx || !stream) throw new Error("This phone cannot add the shop mark to the file.");
@@ -334,12 +401,8 @@ export async function renderBrandedVideo(input: BrandVideoInput): Promise<BrandV
       if (event.data.size) chunks.push(event.data);
     };
 
-    let phase: "clip" | "card" | "done" = "clip";
-    let cardStart = 0;
-    let seen = 0;
-    let movedAt = performance.now();
-    let lastTime = -1;
     let failed: Error | null = null;
+    let stopped = false;
 
     const recorded = new Promise<Blob>((resolve, reject) => {
       recorder.onerror = () => reject(new Error("Could not write the shop mark."));
@@ -355,67 +418,59 @@ export async function renderBrandedVideo(input: BrandVideoInput): Promise<BrandV
     });
 
     const clipLength = () =>
-      Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Math.max(seen, 1);
+      Number.isFinite(video.duration) && video.duration > 0.4 ? video.duration : 0;
 
-    const finish = () => {
-      if (phase === "done") return;
-      phase = "done";
+    const stopRecorder = () => {
+      if (stopped) return;
+      stopped = true;
       if (recorder.state !== "inactive") recorder.stop();
     };
 
-    const draw = () => {
-      if (phase === "done") return;
-      if (phase === "clip") {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        if (video.currentTime !== lastTime) {
-          lastTime = video.currentTime;
-          movedAt = performance.now();
-          seen = Math.max(seen, video.currentTime);
-        } else if (performance.now() - movedAt > 8000) {
-          failed = new Error("Could not play the video.");
-          finish();
-          return;
-        }
-        const alpha = Math.min(1, (video.currentTime || 0) / 1);
-        paintCorner(ctx, canvas.width, canvas.height, alpha, logo, name);
-        if (unbox) paintUnboxLid(ctx, canvas.width, canvas.height, video.currentTime || 0);
-        const known = Number.isFinite(video.duration) && video.duration > 0.4;
-        if (video.ended || (known && video.currentTime >= video.duration - 0.05)) {
-          if (input.endCard) {
-            phase = "card";
-            cardStart = performance.now();
-          } else {
-            finish();
-            return;
-          }
-        }
-      } else {
-        const t = (performance.now() - cardStart) / 1000;
-        if (t >= 3) {
-          paintEndCard(ctx, canvas.width, canvas.height, 3, logo, name);
-          finish();
-          return;
-        }
-        paintEndCard(ctx, canvas.width, canvas.height, t, logo, name);
-      }
-      requestAnimationFrame(draw);
+    const paintClipFrame = (t: number) => {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      paintCorner(ctx, canvas.width, canvas.height, Math.min(1, t / 1), logo, name);
+      if (unbox) paintUnboxLid(ctx, canvas.width, canvas.height, t);
     };
 
-    const capMs = (clipLength() + (input.endCard ? 3 : 0) + 10) * 1000;
-    const cap = window.setTimeout(() => finish(), capMs);
+    video.pause();
     recorder.start(200);
-    try {
-      await video.play();
-    } catch {
-      failed = new Error("Could not play the video.");
-      finish();
+    const duration = clipLength();
+    if (!duration) {
+      failed = new Error("Could not read the video.");
+      stopRecorder();
+    } else {
+      const fps = 24;
+      const frameMs = 1000 / fps;
+      const frames = Math.max(1, Math.round(duration * fps));
+      try {
+        for (let i = 0; i < frames; i += 1) {
+          const started = performance.now();
+          const t = Math.min(duration - 0.04, i / fps);
+          await seekTo(video, t);
+          paintClipFrame(t);
+          const spent = performance.now() - started;
+          if (spent < frameMs) await wait(frameMs - spent);
+        }
+        if (input.endCard) {
+          const cardFrames = 3 * fps;
+          for (let i = 0; i < cardFrames; i += 1) {
+            const started = performance.now();
+            paintEndCard(ctx, canvas.width, canvas.height, i / fps, logo, name);
+            const spent = performance.now() - started;
+            if (spent < frameMs) await wait(frameMs - spent);
+          }
+        }
+      } catch (err) {
+        failed = err instanceof Error ? err : new Error("Could not write the shop mark.");
+      }
+      await wait(150);
+      stopRecorder();
     }
-    if (!failed) draw();
     const blob = await recorded;
-    window.clearTimeout(cap);
     stream.getTracks().forEach((track) => track.stop());
-    return { blob, clipSeconds: clipLength() };
+    return { blob, clipSeconds: duration || 1 };
   } finally {
+    canvasEl?.remove();
     video.pause();
     video.removeAttribute("src");
     video.load();

@@ -105,9 +105,10 @@ export async function storeGenerationVideo(
   userId: string,
   buffer: Buffer,
   ext: "mp4" | "webm" = "mp4",
+  namePrefix = "",
 ): Promise<string> {
   const id = randomId();
-  const filename = `${id}.${ext}`;
+  const filename = `${namePrefix}${id}.${ext}`;
   return storeImage(userId, buffer, filename, contentTypeForExt(ext));
 }
 
