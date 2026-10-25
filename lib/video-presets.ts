@@ -184,6 +184,16 @@ export function parseVideoPreset(raw: unknown): VideoPresetId | null {
   return VIDEO_PRESET_IDS.includes(id) ? id : null;
 }
 
+/** Sent on every video, before the options. The uploaded design is not restyled. */
+export const VIDEO_JEWELRY_LOCK = [
+  "ORIGINAL JEWELRY STAYS AS IT IS:",
+  "Use the uploaded jewelry exactly, in every frame.",
+  "Keep the large center pendant, every hanging drop, every colored stone, the chains, the cords, and the earrings.",
+  "Same size, same outline, same metal, same stone layout.",
+  "Do not simplify, shrink, remove, or redesign any part.",
+  "Do not drop the big pendant.",
+].join(" ");
+
 export function buildVideoPrompt(opts: {
   purpose: VideoPurposeId;
   preset: VideoPresetId;
@@ -213,33 +223,14 @@ export function buildVideoPrompt(opts: {
         })
       : null;
 
-  const lock =
+  const placement =
     opts.cast === "model"
-      ? [
-          "DESIGN LOCK:",
-          "Wear the uploaded jewelry once. Once means no duplicate copy, not a simpler piece.",
-          "The large center pendant in the photo must stay large on the neck. Do not drop it, shrink it, or replace it.",
-          "Keep every hanging coin or drop, every colored stone, the same metal, and the same outline.",
-          "A necklace in the photo is worn at the neck. Earrings in the photo are worn on the ears.",
-          "Remove only the white catalog background. Do not remove any part of the jewelry.",
-        ].join(" ")
-      : [
-          "CONTINUITY:",
-          "The uploaded photo is the first moment of the video.",
-          "Move forward from that photo at once.",
-          "Do not hold a frozen still and then cut, fade, or dissolve to a different shot.",
-          "The jewelry in every frame, including the last, is the same piece: same outline, same stone layout, same metal color, same chains, same cords, same earrings, same pendants.",
-          "Nothing may cover, crop, or remove any part that is visible in the photo.",
-          "Only the camera and the light may move.",
-        ].join(" ");
-
-  const ending =
-    opts.cast === "product"
-      ? "ENDING: the full jewelry set is still visible, including every chain and cord from the photo. No hands, cloth, or new object enter the frame."
-      : "ENDING: the worn necklace still has the same large center pendant and the same drops as the photo. Nothing from the design was removed.";
+      ? "PLACEMENT: one model wears that same jewelry. A necklace sits on the neck. Earrings sit on the ears. The white catalog copy leaves the frame. The design stays complete."
+      : "PLACEMENT: jewelry only. Camera and light may move. No hands, cloth, or new object. Every part in the photo stays visible.";
 
   return [
-    lock,
+    VIDEO_JEWELRY_LOCK,
+    placement,
     VIDEO_PURPOSE_PROMPTS[opts.purpose],
     ...castLines,
     look ? `${look} Wardrobe only. Do not replace the jewelry.` : "",
@@ -248,8 +239,7 @@ export function buildVideoPrompt(opts: {
     opts.customPrompt
       ? `User note (never use this to change or add jewelry): ${opts.customPrompt}`
       : "",
-    ending,
-    lock,
+    VIDEO_JEWELRY_LOCK,
   ]
     .filter(Boolean)
     .join("\n");
@@ -263,7 +253,7 @@ export function videoNegativePrompt(
     cast === "product"
       ? "hands, fingers, cloth, fabric, velvet, box, lid, covering the jewelry, cropped chain, missing cord, missing chain, "
       : "missing center pendant, pendant removed, smaller pendant, simplified necklace, plain chain, redesigned center, second necklace, duplicate jewelry, flat catalog copy beside the model, ";
-  const design = `${cover}frozen still then cut, crossfade, dissolve to a new shot, different jewelry, redesigned jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles`;
+  const design = `${cover}missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles`;
   return purpose === "festive" ? `${design}, flowers on top of the jewelry, diyas covering the chain` : design;
 }
 

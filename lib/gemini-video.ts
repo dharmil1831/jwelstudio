@@ -1,4 +1,5 @@
 import { getGeminiApiKey, getGeminiVideoModel } from "@/lib/env";
+import { VIDEO_JEWELRY_LOCK } from "@/lib/video-presets";
 
 const INTERACTIONS_URL =
   "https://generativelanguage.googleapis.com/v1beta/interactions";
@@ -99,10 +100,7 @@ export async function generateJewelryVideoWithGemini(params: {
       input: [
         {
           type: "text",
-          text:
-            params.cast === "model"
-              ? "One adult wears this exact jewelry. Keep the large center pendant and every hanging drop. Do not simplify the design or remove the pendant. Remove only the white background, not any part of the jewelry.",
-              : "Animate this photo with camera and light only. Every chain, cord, earring, and pendant stays visible for the whole clip. Do not add hands, cloth, a box, or a new piece of jewelry.",
+          text: VIDEO_JEWELRY_LOCK,
         },
         {
           type: "image",
