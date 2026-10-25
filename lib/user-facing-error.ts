@@ -28,6 +28,7 @@ const SAFE_EXACT = new Set([
   "Phone and verification code are required.",
   "Verification code is required.",
   "Choose a valid video motion preset.",
+  "Could not prepare this photo. Please try again.",
   "Photo is too large. Try a smaller JPG.",
   "Photo is too large. Please try a smaller JPG, or crop closer to the jewelry.",
   "Public sharing is temporarily disabled.",
@@ -99,7 +100,7 @@ export function toUserFacingError(
   fallback: string = GENERIC_ERROR,
 ): string {
   if (err instanceof DOMException && err.name === "AbortError") {
-    return "Request timed out. Please try again with a smaller JPG photo.";
+    return "This is taking too long. Please try again.";
   }
 
   const message = normalizeMessage(
@@ -116,12 +117,16 @@ export function toUserFacingError(
     return "Could not read this photo. On iPhone, use JPG: Settings → Camera → Formats → Most Compatible, or share as JPG.";
   }
 
+  if (/Payload Too Large|413/i.test(message)) {
+    return "Could not prepare this photo. Please try again.";
+  }
+
   if (
-    /Unexpected token|is not valid JSON|JSON\.parse|FUNCTION_INVOCATION_TIMEOUT|Payload Too Large|413/i.test(
+    /Unexpected token|is not valid JSON|JSON\.parse|FUNCTION_INVOCATION_TIMEOUT/i.test(
       message,
     )
   ) {
-    return "Generation took too long or the photo was too large. Please try a smaller JPG.";
+    return "This is taking too long. Please try again.";
   }
 
   if (/failed to fetch|networkerror|load failed|net::err/i.test(message)) {
@@ -129,7 +134,7 @@ export function toUserFacingError(
   }
 
   if (/timeout|timed out|deadline/i.test(message)) {
-    return "This is taking too long. Please try again with a smaller photo.";
+    return "This is taking too long. Please try again.";
   }
 
   if (

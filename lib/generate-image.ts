@@ -61,7 +61,7 @@ export function sanitizeProviderError(
 
   if (/timeout|timed out|abort/i.test(message)) {
     return new Error(
-      "Generation timed out. Please try again with a smaller JPG photo.",
+      "This is taking too long. Please try again.",
     );
   }
 

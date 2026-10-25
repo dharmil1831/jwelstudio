@@ -19,9 +19,7 @@ export async function readApiJson<T extends Record<string, unknown>>(
       ) ||
       res.status >= 500
     ) {
-      throw new Error(
-        "Generation took too long or the photo was too large. Please try a smaller JPG.",
-      );
+      throw new Error("This is taking too long. Please try again.");
     }
     throw new Error(
       "Could not generate right now. Please try again in a moment.",

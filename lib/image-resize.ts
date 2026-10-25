@@ -22,8 +22,8 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 /**
- * Prefer the original photo (no recompress). Only downscale if the payload
- * would exceed the API size limit — then use the largest size that still fits.
+ * Fit any photo for generation. Callers never ask the user to check file size.
+ * A small photo is kept. A large one is reduced until it is safe to send.
  */
 export async function prepareImageForUpload(
   file: File,
@@ -37,24 +37,23 @@ export async function prepareImageForUpload(
       type.startsWith("image/webp") ||
       type === "image/jpg");
 
-  if (canSendOriginal) {
-    try {
-      const base64 = await fileToBase64(file);
-      if (base64.length <= maxBase64Chars) {
-        return {
-          base64,
-          mimeType: type === "image/jpg" ? "image/jpeg" : type || "image/jpeg",
-        };
-      }
-    } catch {
-      /* fall through to canvas path */
-    }
-  }
-
   let decoded: { source: CanvasImageSource; width: number; height: number };
   try {
     decoded = await decodeImage(file);
   } catch (e) {
+    if (canSendOriginal) {
+      try {
+        const base64 = await fileToBase64(file);
+        if (base64.length > 0 && base64.length <= maxBase64Chars) {
+          return {
+            base64,
+            mimeType: type === "image/jpg" ? "image/jpeg" : type || "image/jpeg",
+          };
+        }
+      } catch {
+        /* fall through */
+      }
+    }
     if (isHeicLike(file)) throw new Error(UNREADABLE_IMAGE);
     throw e instanceof Error ? e : new Error(UNREADABLE_IMAGE);
   }
@@ -63,10 +62,26 @@ export async function prepareImageForUpload(
     throw new Error(UNREADABLE_IMAGE);
   }
 
-  // Quality-first, then compress harder if still over payload limit (demo-safe).
-  const edges = [2048, 1920, 1600, 1536, 1280, 1024, 900, 768];
-  const qualities = [0.92, 0.85, 0.78, 0.7];
-  let lastError: Error | null = null;
+  const longest = Math.max(decoded.width, decoded.height);
+  if (canSendOriginal && longest <= 2048 && file.size > 0 && file.size <= 700_000) {
+    try {
+      const base64 = await fileToBase64(file);
+      if (base64.length > 0 && base64.length <= maxBase64Chars) {
+        if ("close" in decoded.source && typeof decoded.source.close === "function") {
+          decoded.source.close();
+        }
+        return {
+          base64,
+          mimeType: type === "image/jpg" ? "image/jpeg" : type || "image/jpeg",
+        };
+      }
+    } catch {
+      /* fit below */
+    }
+  }
+
+  const edges = [2048, 1920, 1600, 1536, 1280, 1024, 768, 512];
+  const qualities = [0.9, 0.82, 0.74, 0.66];
   let lastResult: { base64: string; mimeType: string } | null = null;
 
   try {
@@ -79,8 +94,8 @@ export async function prepareImageForUpload(
           if (result.base64.length <= maxBase64Chars) {
             return result;
           }
-        } catch (e) {
-          lastError = e instanceof Error ? e : new Error(UNREADABLE_IMAGE);
+        } catch {
+          /* try a smaller fit */
         }
       }
     }
@@ -90,16 +105,12 @@ export async function prepareImageForUpload(
     }
   }
 
-  if (lastResult && lastResult.base64.length <= maxBase64Chars) {
-    return lastResult;
-  }
+  if (lastResult && lastResult.base64.length <= maxBase64Chars) return lastResult;
 
   throw new Error(
-    lastResult
-      ? "This photo is too large to upload. Please use a JPG under ~4 MB, or take a closer shot of the jewelry."
-      : isHeicLike(file)
-        ? UNREADABLE_IMAGE
-        : (lastError?.message ?? UNREADABLE_IMAGE),
+    isHeicLike(file)
+      ? UNREADABLE_IMAGE
+      : "Could not prepare this photo. Please try again.",
   );
 }
 
@@ -253,6 +264,8 @@ function drawScaled(
   if (!ctx) {
     throw new Error("Canvas not supported");
   }
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(decoded.source, 0, 0, width, height);

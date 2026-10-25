@@ -139,8 +139,7 @@ export async function POST(req: Request) {
   if (imageBase64.length > 6_000_000) {
     return NextResponse.json(
       {
-        error:
-          "Photo is too large. Please try a smaller JPG, or crop closer to the jewelry.",
+        error: "Could not prepare this photo. Please try again.",
       },
       { status: 413 },
     );

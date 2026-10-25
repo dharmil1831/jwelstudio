@@ -99,7 +99,7 @@ export async function POST(req: Request) {
   }
   if (imageBase64.length > 6_000_000) {
     return NextResponse.json(
-      { error: "Photo is too large. Try a smaller JPG." },
+      { error: "Could not prepare this photo. Please try again." },
       { status: 413 },
     );
   }
