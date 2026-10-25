@@ -98,7 +98,7 @@ export async function generateJewelryVideoWithGemini(params: {
       input: [
         {
           type: "text",
-          text: "The attached photo is the jewelry that must appear for the whole video. Start moving from this photo immediately. Do not hold it as a still and then change the jewelry.",
+          text: "Animate this photo with camera and light only. Every chain, cord, earring, and pendant stays visible for the whole clip. Do not add hands, cloth, a box, or a new piece of jewelry.",
         },
         {
           type: "image",

@@ -47,7 +47,7 @@ export const VIDEO_CAST_HINTS: Record<VideoCastId, string> = {
 
 export const VIDEO_CAST_PROMPTS: Record<VideoCastId, string> = {
   product:
-    "CAST: jewelry-only product video. No person, no face, no model, no mannequin, no body. The uploaded jewelry is the sole subject.",
+    "CAST: jewelry-only product video. No person, no face, no hands, no fingers, no cloth, no box, no model. The uploaded jewelry is the only subject.",
   model:
     "CAST: jewelry-on-model video. A photorealistic adult model wears ONLY the exact uploaded jewelry — no additional pieces. If the upload shows earrings only, the model wears earrings only. If the upload shows a necklace only, the model wears a necklace only. Do NOT invent extra matching jewelry (no tikka, no bangles, no rings, no nose ring unless in the upload). Place the uploaded piece naturally. Polished editorial skin. Do not change the jewelry design.",
 };
@@ -79,9 +79,9 @@ export const VIDEO_PURPOSE_HINTS: Record<VideoPurposeId, string> = {
   marketing: "A gentle camera move around your piece.",
   product_shoot: "Even catalog light. The camera moves around your piece.",
   editorial: "Magazine light moves across your piece.",
-  festive: "Warm light and a few flowers beside your piece. The design stays the same.",
-  lifestyle: "Soft daylight on your piece. The design stays the same.",
-  reveal: "A cover lifts off your piece. The design stays the same.",
+  festive: "Warmer light on your full set. Nothing covers the chains or stones.",
+  lifestyle: "Softer daylight on your full set. The whole piece stays visible.",
+  reveal: "Light sweeps across your full set. Nothing covers it.",
 };
 
 export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {
@@ -96,9 +96,9 @@ export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {
   lifestyle:
     "LOOK: soft daylight on the same jewelry. No gift box, no diyas. Do not move the piece onto a new tray.",
   festive:
-    "LOOK: warm amber light, and a few marigold flowers may sit beside the jewelry. If a model is already being asked for, festive Indian clothes are allowed. The jewelry design stays the uploaded piece.",
+    "LOOK: the light turns a little warmer and golden. Do not add flowers, lamps, cloth, or hands. Every chain, cord, earring, and pendant stays visible.",
   reveal:
-    "ACTION: a dark lid or soft cloth lifts away from the jewelry that is already in the photo. Hands may lift that cover. The metal, stones, clasp, and shape stay identical while the cover moves.",
+    "LOOK: a soft light sweep across the jewelry, like a reveal. Do not add a lid, cloth, box, velvet, or hands. Every chain, cord, earring, and pendant stays visible from the first moment to the last.",
 };
 
 export const VIDEO_PRESET_IDS = [
@@ -199,16 +199,9 @@ export function buildVideoPrompt(opts: {
       : "Frame for vertical 9:16. Keep the jewelry fully visible in the center. No text, watermark, logo, or overlay.";
 
   const castLines =
-    opts.purpose === "reveal"
-      ? [
-          opts.cast === "model"
-            ? "CAST: one adult may lift the cover. They do not bring extra jewelry."
-            : "CAST: no face and no full body. Hands may lift the cover only. No extra jewelry.",
-          opts.cast === "model" ? subjectPromptLine(opts.subject) : "",
-        ]
-      : opts.cast === "model"
-        ? [VIDEO_CAST_PROMPTS.model, subjectPromptLine(opts.subject)]
-        : [VIDEO_CAST_PROMPTS.product];
+    opts.cast === "model"
+      ? [VIDEO_CAST_PROMPTS.model, subjectPromptLine(opts.subject)]
+      : [VIDEO_CAST_PROMPTS.product];
 
   const look =
     opts.cast === "model" && opts.purpose !== "festive" && opts.purpose !== "reveal"
@@ -225,17 +218,15 @@ export function buildVideoPrompt(opts: {
     "The uploaded photo is the first moment of the video.",
     "Move forward from that photo at once.",
     "Do not hold a frozen still and then cut, fade, or dissolve to a different shot.",
-    "The jewelry in every frame, including the last, is the same piece: same outline, same stone layout, same metal color, same number of parts.",
-    "Camera, light, and a cover may move. The jewelry design may not.",
-    "Do not invent a matching set.",
+    "The jewelry in every frame, including the last, is the same piece: same outline, same stone layout, same metal color, same chains, same cords, same earrings, same pendants.",
+    "Nothing may cover, crop, or remove any part that is visible in the photo.",
+    "Only the camera and the light may move.",
   ].join(" ");
 
   const ending =
-    opts.purpose === "reveal"
-      ? "ENDING: the cover has lifted. The jewelry is still the uploaded design, not a new one."
-      : opts.purpose === "festive"
-        ? "ENDING: warm light may remain. The jewelry is still the uploaded design, not a new one."
-        : "ENDING: the jewelry is still the uploaded design. The camera move happened around that same piece.";
+    opts.cast === "product"
+      ? "ENDING: the full jewelry set is still visible, including every chain and cord from the photo. No hands, cloth, or new object enter the frame."
+      : "ENDING: the model still wears the same uploaded jewelry, including every chain and cord. The design has not been replaced.";
 
   return [
     lock,
@@ -254,16 +245,16 @@ export function buildVideoPrompt(opts: {
     .join("\n");
 }
 
-export function videoNegativePrompt(purpose: VideoPurposeId): string {
-  const design =
-    "frozen still then cut, crossfade, dissolve to a new shot, different jewelry, redesigned jewelry, second design, morphing jewelry, melting metal, warped stones, added stones, removed stones, changed metal color, different stone count, invented matching set, watermark, text, logo, subtitles";
-  if (purpose === "reveal") {
-    return `${design}, replacement necklace, replacement earrings, jewelry swapping after the opening`;
-  }
-  if (purpose === "festive") {
-    return `${design}, new jewelry after the flowers appear`;
-  }
-  return design;
+export function videoNegativePrompt(
+  purpose: VideoPurposeId,
+  cast: VideoCastId = "product",
+): string {
+  const cover =
+    cast === "product"
+      ? "hands, fingers, cloth, fabric, velvet, box, lid, covering the jewelry, cropped chain, missing cord, missing chain, "
+      : "cloth covering the jewelry, missing chain, missing cord, ";
+  const design = `${cover}frozen still then cut, crossfade, dissolve to a new shot, different jewelry, redesigned jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles`;
+  return purpose === "festive" ? `${design}, flowers on top of the jewelry, diyas covering the chain` : design;
 }
 
 /** What the video model must not do. Sent separately so it is not buried in the main prompt. */

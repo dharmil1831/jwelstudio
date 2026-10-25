@@ -136,7 +136,7 @@ export async function POST(req: Request) {
       prompt,
       aspectRatio: VIDEO_ASPECT_RATIO[aspect],
       personGeneration: veoPersonGeneration(cast),
-      negativePrompt: videoNegativePrompt(purpose),
+      negativePrompt: videoNegativePrompt(purpose, cast),
     });
     const buffer = Buffer.from(out.videoBase64, "base64");
     const ext = out.mimeType.includes("webm") ? "webm" : "mp4";
