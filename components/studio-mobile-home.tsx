@@ -894,22 +894,24 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               ) : null}
               {tool === "backdrop" ? (
                 <div className="flex flex-col gap-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Batch on this color</p>
-                  <p className="text-xs text-foreground/60">Extra photos use this same backdrop.</p>
-                  <label className="block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
-                    Add photos
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="sr-only"
-                      onChange={(e) => {
-                        props.onSelectJob("background");
-                        props.onAddBatch(e.target.files);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
+                  <Chips
+                    label="Framing"
+                    value={props.framing}
+                    options={FRAMINGS}
+                    labels={FRAMING_LABELS}
+                    onChange={props.onFraming}
+                    disabled={Boolean(props.customPrompt.trim())}
+                  />
+                  <Chips
+                    label="Jewelry shadow"
+                    value={props.jewelryShadow}
+                    options={JEWELRY_SHADOWS}
+                    labels={JEWELRY_SHADOW_LABELS}
+                    onChange={props.onShadow}
+                  />
+                  <p className="text-[11px] text-foreground/55">
+                    {JEWELRY_SHADOW_HINTS[props.jewelryShadow]}
+                  </p>
                   <ClassicBackdropRow
                     active={
                       props.cutoutTransparent
@@ -933,24 +935,6 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     onEnabled={props.onReflectionOn}
                     onOpacity={props.onReflectionOpacity}
                   />
-                  <Chips
-                    label="Framing"
-                    value={props.framing}
-                    options={FRAMINGS}
-                    labels={FRAMING_LABELS}
-                    onChange={props.onFraming}
-                    disabled={Boolean(props.customPrompt.trim())}
-                  />
-                  <Chips
-                    label="Jewelry shadow"
-                    value={props.jewelryShadow}
-                    options={JEWELRY_SHADOWS}
-                    labels={JEWELRY_SHADOW_LABELS}
-                    onChange={props.onShadow}
-                  />
-                  <p className="text-[11px] text-foreground/55">
-                    {JEWELRY_SHADOW_HINTS[props.jewelryShadow]}
-                  </p>
                   <div className={props.customPrompt.trim() ? "pointer-events-none opacity-40" : undefined}>
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">Background color</p>
                     <div className="mb-3 flex flex-wrap gap-2">
@@ -1021,6 +1005,22 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     labels={OUTPUT_FORMAT_LABELS}
                     onChange={props.onFormat}
                   />
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Batch on this color</p>
+                  <p className="text-xs text-foreground/60">Extra photos use this same backdrop.</p>
+                  <label className="block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
+                    Add photos
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="sr-only"
+                      onChange={(e) => {
+                        props.onSelectJob("background");
+                        props.onAddBatch(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
                 </div>
               ) : null}
               {tool === "video" ? (
