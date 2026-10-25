@@ -352,22 +352,23 @@ export function withSelfieTryOnPrompt(basePrompt: string): string {
 /** Primary prompt when swapping new jewelry onto a saved theme look. */
 export function buildThemeSwapPrompt(style: StudioStyle): string {
   return [
-    modelShotRules,
+    jewelryFidelityRules,
     "",
-    "TASK: Jewelry swap using a saved theme look.",
-    "You will receive labeled images: NEW JEWELRY PRODUCT, then STYLE REFERENCE (a previous generation).",
-    "Recreate the STYLE REFERENCE as closely as possible — same person/model look, pose, wardrobe, lighting, background, framing, and mood.",
-    "Replace ONLY the jewelry with the NEW JEWELRY PRODUCT. Place it naturally:",
+    "TASK: Keep the saved look. Replace the jewelry.",
+    "The first photo is a STYLE REFERENCE. Copy only the person, face, hair, pose, wardrobe, lighting, background, and framing.",
+    "Jewelry in that reference photo is the OLD piece. Remove it completely. Do not keep its design, metal color, stone count, stone color, or shape.",
+    "The LAST photo is the new jewelry and the only jewelry allowed in the result. Wear that exact design, naturally:",
     placementCopy[style.placement],
-    "Do NOT copy jewelry from the style reference. Do NOT invent matching set pieces.",
-    "If the style reference and jewelry product conflict, the worn design wins for the jewelry; the style reference wins for the person, clothes, and scene. Still wear it once. Do not paste the catalog layout.",
-    "",
+    "If the new photo shows only a necklace, remove earrings from the saved look. If it shows only earrings, remove the necklace. If it shows a set, wear that set once and nothing else.",
+    "Do not invent a matching set from the old look. Do not blend the old jewelry with the new piece.",
+    "When the two photos disagree, the last photo wins for every metal and stone. The first photo wins only for the person, clothes, and scene.",
+    modelShotRules,
     polishedSkinRule,
     "Output format (canvas shape only):",
     formatCopy[style.format],
     "",
-    modelShotRules,
-    modelFinalCheck,
+    jewelryFidelityRules,
+    finalCheck,
   ].join(" ");
 }
 
@@ -398,8 +399,8 @@ export function withThemeReferencePrompt(basePrompt: string): string {
     basePrompt,
     "",
     "STYLE REFERENCE IMAGE (labeled):",
-    "Match that look's composition, model, wardrobe, lighting, and mood closely.",
-    "The jewelry must still be the NEW product from the jewelry upload — never copy jewelry from the style reference.",
+    "Match that look's composition, lighting, and mood closely.",
+    "Ignore the jewelry in the style reference. The last product photo is the only jewelry allowed.",
   ].join(" ");
 }
 

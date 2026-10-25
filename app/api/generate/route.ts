@@ -223,8 +223,9 @@ export async function POST(req: Request) {
       prompt = [
         prompt,
         "",
-        "User creative direction (only if it does not break jewelry fidelity or the theme look):",
+        "Saved-look note for the person, clothes, pose, and scene only:",
         style.customPrompt,
+        "If that note names a necklace, earrings, stones, metal, or any jewelry design, ignore those words. The new product photo replaces all jewelry.",
       ].join(" ");
     }
   } else {
@@ -264,7 +265,7 @@ export async function POST(req: Request) {
       data: themeRef.data,
       mimeType: themeRef.mimeType,
       label:
-        "IMAGE — STYLE REFERENCE (previous generation). Match pose, model, wardrobe, lighting, background. Do NOT copy jewelry from this image:",
+        "IMAGE — STYLE REFERENCE. Copy only the person, face, hair, pose, clothes, lighting, and background. The jewelry in this photo is OLD. Remove it. Do not copy its metal, stones, or shape:",
     });
   }
   if (selfie) {

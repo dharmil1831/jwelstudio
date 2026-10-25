@@ -39,8 +39,7 @@ export async function generateJewelryWithGemini(
   const resolvedAspect = aspectRatio || OUTPUT_FORMAT_GEMINI_ASPECT[format] || "1:1";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
-  const parts: Array<Record<string, unknown>> = [
-    { text: prompt },
+  const productParts: Array<Record<string, unknown>> = [
     {
       text: wornOnModel ? WORN_PRODUCT_LABEL : PRODUCT_LABEL,
     },
@@ -51,22 +50,31 @@ export async function generateJewelryWithGemini(
       },
     },
   ];
-  if (wornOnModel) {
-    parts.push({
-      text: "Reminder after the photo: wear that design once on the model. Do not paste the catalog layout. No second necklace. No tall gold bars above the head.",
-    });
-  }
-  for (const extra of extraImages ?? []) {
-    if (!extra.data) continue;
-    if (extra.label) {
-      parts.push({ text: extra.label });
+  const extras = (extraImages ?? []).filter((extra) => extra.data);
+  const parts: Array<Record<string, unknown>> = [{ text: prompt }];
+  if (extras.length) {
+    for (const extra of extras) {
+      if (extra.label) parts.push({ text: extra.label });
+      parts.push({
+        inlineData: {
+          mimeType: extra.mimeType || "image/png",
+          data: extra.data,
+        },
+      });
     }
+    parts.push(...productParts);
     parts.push({
-      inlineData: {
-        mimeType: extra.mimeType || "image/png",
-        data: extra.data,
-      },
+      text: wornOnModel
+        ? "The photo immediately above is the ONLY jewelry. Remove the jewelry worn in the earlier style photo and wear this exact design once. Same metal, same stones, same count, same shape. Do not keep the old necklace or earrings."
+        : "The photo immediately above is the ONLY jewelry. Do not copy jewelry from any earlier image.",
     });
+  } else {
+    parts.push(...productParts);
+    if (wornOnModel) {
+      parts.push({
+        text: "Reminder after the photo: wear that design once on the model. Do not paste the catalog layout. No second necklace. No tall gold bars above the head.",
+      });
+    }
   }
 
   const controller = new AbortController();
