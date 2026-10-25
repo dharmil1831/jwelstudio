@@ -58,6 +58,7 @@ import {
   VIDEO_CAST_LABELS,
   VIDEO_PRESET_IDS,
   VIDEO_PRESET_LABELS,
+  VIDEO_PURPOSE_HINTS,
   VIDEO_PURPOSE_IDS,
   VIDEO_PURPOSE_LABELS,
   type VideoAspectId,
@@ -1142,6 +1143,9 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     labels={VIDEO_PURPOSE_LABELS}
                     onChange={props.onVideoPurpose}
                   />
+                  <p className="text-[11px] text-foreground/55">
+                    {VIDEO_PURPOSE_HINTS[props.videoPurpose]}
+                  </p>
                   <Chips
                     label="Camera / motion"
                     value={props.videoPreset}

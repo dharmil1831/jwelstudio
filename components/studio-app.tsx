@@ -28,6 +28,7 @@ import {
   VIDEO_CAST_LABELS,
   VIDEO_PRESET_IDS,
   VIDEO_PRESET_LABELS,
+  VIDEO_PURPOSE_HINTS,
   VIDEO_PURPOSE_IDS,
   VIDEO_PURPOSE_LABELS,
   type VideoAspectId,
@@ -1889,6 +1890,9 @@ export function StudioApp() {
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-[11px] text-foreground/55">
+                    {VIDEO_PURPOSE_HINTS[videoPurpose]}
+                  </p>
                 </div>
 
                 <div>

@@ -29,6 +29,7 @@ export async function generateJewelryWithGemini(
   extraImages?: GeminiExtraImage[],
   wornOnModel?: boolean,
   aspectRatio?: string,
+  options?: { imageSize?: "1K" | "2K"; timeoutMs?: number },
 ): Promise<{ imageBase64: string; mimeType: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -78,7 +79,10 @@ export async function generateJewelryWithGemini(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 150_000);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    options?.timeoutMs ?? 150_000,
+  );
 
   try {
     const res = await fetch(url, {
@@ -100,7 +104,7 @@ export async function generateJewelryWithGemini(
           imageConfig: {
             aspectRatio: resolvedAspect,
             // 2K ≈ social-ready; closer to 1080px targets than default 1K
-            imageSize: "2K",
+            imageSize: options?.imageSize ?? "2K",
           },
         },
       }),

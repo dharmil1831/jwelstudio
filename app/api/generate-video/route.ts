@@ -1,12 +1,14 @@
 import { getAppSettings } from "@/lib/app-settings";
 import { canUseFeature } from "@/lib/entitlements";
 import { isVideoGenerationConfigured } from "@/lib/env";
+import { generateJewelryWithGemini } from "@/lib/gemini";
 import { generateJewelryVideoWithGemini } from "@/lib/gemini-video";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { storeGenerationVideo } from "@/lib/storage";
 import {
   buildVideoPrompt,
+  buildVideoStartFramePrompt,
   CREDIT_COST_PER_VIDEO,
   generationFormatForAspect,
   parseVideoAspect,
@@ -16,7 +18,8 @@ import {
   parseVideoSubject,
   veoPersonGeneration,
   VIDEO_ASPECT_RATIO,
-  VIDEO_JEWELRY_NEGATIVE_PROMPT,
+  videoNeedsStartFrame,
+  videoNegativePrompt,
 } from "@/lib/video-presets";
 import { deductCredits, refundCredits } from "@/lib/users";
 import { toUserFacingError } from "@/lib/user-facing-error";
@@ -129,14 +132,40 @@ export async function POST(req: Request) {
   }
 
 
+  let frameBase64 = imageBase64;
+  let frameMime = mimeType;
+  if (videoNeedsStartFrame(purpose)) {
+    try {
+      const frame = await generateJewelryWithGemini(
+        imageBase64,
+        mimeType,
+        buildVideoStartFramePrompt({ purpose, cast, subject }),
+        aspect === "horizontal" ? "landscape" : "instagram_story",
+        undefined,
+        cast === "model" && purpose !== "reveal",
+        VIDEO_ASPECT_RATIO[aspect],
+        { imageSize: "1K", timeoutMs: 30_000 },
+      );
+      if (frame.imageBase64) {
+        frameBase64 = frame.imageBase64;
+        frameMime = frame.mimeType || mimeType;
+      }
+    } catch (frameError) {
+      console.error(
+        "[generate-video] start frame skipped",
+        frameError instanceof Error ? frameError.message : frameError,
+      );
+    }
+  }
+
   try {
     const out = await generateJewelryVideoWithGemini({
-      imageBase64,
-      mimeType,
+      imageBase64: frameBase64,
+      mimeType: frameMime,
       prompt,
       aspectRatio: VIDEO_ASPECT_RATIO[aspect],
       personGeneration: veoPersonGeneration(cast),
-      negativePrompt: VIDEO_JEWELRY_NEGATIVE_PROMPT,
+      negativePrompt: videoNegativePrompt(purpose),
     });
     const buffer = Buffer.from(out.videoBase64, "base64");
     const ext = out.mimeType.includes("webm") ? "webm" : "mp4";
