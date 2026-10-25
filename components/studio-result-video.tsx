@@ -8,6 +8,8 @@ type StudioResultVideoProps = {
   fillClassName?: string;
   /** Kept for call-site compatibility; unused — video starts directly. */
   label?: string;
+  onDuration?: (seconds: number) => void;
+  onEnded?: () => void;
 };
 
 /**
@@ -18,6 +20,8 @@ export function StudioResultVideo({
   src,
   className,
   fillClassName,
+  onDuration,
+  onEnded,
 }: StudioResultVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -44,9 +48,14 @@ export function StudioResultVideo({
         preload="auto"
         // Transparent poster — never paint the jewelry still as a thumbnail.
         poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+        onLoadedMetadata={(e) => {
+          const seconds = e.currentTarget.duration;
+          if (Number.isFinite(seconds) && seconds > 0) onDuration?.(seconds);
+        }}
         onLoadedData={(e) => {
           void e.currentTarget.play().catch(() => undefined);
         }}
+        onEnded={() => onEnded?.()}
         onCanPlay={(e) => {
           void e.currentTarget.play().catch(() => undefined);
         }}

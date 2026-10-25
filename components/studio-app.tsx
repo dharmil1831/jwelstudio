@@ -5,7 +5,8 @@ import { StudioMobileHome } from "@/components/studio-mobile-home";
 import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
-import { StudioResultVideo } from "@/components/studio-result-video";
+import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fields";
+import { renderBrandedVideo, videoLengthLabel } from "@/lib/brand-video";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
@@ -200,6 +201,13 @@ export function StudioApp() {
   const [videoAspect, setVideoAspect] = useState<VideoAspectId>("vertical");
   const [videoPurpose, setVideoPurpose] = useState<VideoPurposeId>("promotional");
   const [videoCast, setVideoCast] = useState<VideoCastId>("product");
+  const [videoShopName, setVideoShopName] = useState("");
+  const [videoLogoSrc, setVideoLogoSrc] = useState<string | null>(null);
+  const [videoEndCard, setVideoEndCard] = useState(false);
+  const [videoSeconds, setVideoSeconds] = useState<number | null>(null);
+  const [brandingVideo, setBrandingVideo] = useState(false);
+  const [videoBrandedFile, setVideoBrandedFile] = useState(false);
+  const brandedUrlRef = useRef<string | null>(null);
   const [appliedThemeId, setAppliedThemeId] = useState<string | null>(null);
   const appliedThemeIdRef = useRef<string | null>(null);
   const themePromptRef = useRef<string | null>(null);
@@ -1047,13 +1055,31 @@ export function StudioApp() {
     await runBatchIds(failedIds);
   }, [batchItems, runBatchIds]);
 
+  const pickVideoLogo = useCallback((logoFile: File | null) => {
+    if (!logoFile) {
+      setVideoLogoSrc(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setVideoLogoSrc(String(reader.result ?? ""));
+    reader.onerror = () => setError("Could not read that logo. Try another image.");
+    reader.readAsDataURL(logoFile);
+  }, []);
+
   const generateVideo = useCallback(async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
+    setLookNotice(null);
     setResultUrl(null);
     setResultMime(null);
     setGenerationId(null);
+    setVideoSeconds(null);
+    setVideoBrandedFile(false);
+    if (brandedUrlRef.current) {
+      URL.revokeObjectURL(brandedUrlRef.current);
+      brandedUrlRef.current = null;
+    }
 
     try {
       const { base64, mimeType } = await prepareImageForUpload(file);
@@ -1086,21 +1112,67 @@ export function StudioApp() {
 
       if (!res.ok) throw new Error(data.error ?? "Video failed");
       if (typeof data.credits === "number") setCredits(data.credits);
-      if (data.resultUrl) {
+      const mime =
+        typeof data.mimeType === "string" && data.mimeType.startsWith("video/")
+          ? data.mimeType
+          : "video/mp4";
+      const generation =
+        typeof data.generationId === "string" ? data.generationId : null;
+      if (generation) setGenerationId(generation);
+      const wantsBrand = Boolean(videoShopName.trim() || videoLogoSrc);
+      if (data.resultUrl && wantsBrand) {
+        setLoading(false);
+        setBrandingVideo(true);
+        try {
+          const branded = await renderBrandedVideo({
+            src: generation
+              ? `/api/generations/${encodeURIComponent(generation)}/file`
+              : data.resultUrl,
+            name: videoShopName.trim(),
+            logoSrc: videoLogoSrc,
+            endCard: videoEndCard,
+          });
+          if (brandedUrlRef.current) URL.revokeObjectURL(brandedUrlRef.current);
+          const url = URL.createObjectURL(branded.blob);
+          brandedUrlRef.current = url;
+          setVideoSeconds(branded.clipSeconds);
+          setResultMime(branded.blob.type || "video/webm");
+          setResultUrl(url);
+          setVideoBrandedFile(true);
+        } catch {
+          setResultUrl(data.resultUrl);
+          setResultMime(mime);
+          setVideoBrandedFile(false);
+          setLookNotice(
+            "Your video is ready. The shop name plays on screen. Download saves the jewelry clip.",
+          );
+        } finally {
+          setBrandingVideo(false);
+        }
+      } else if (data.resultUrl) {
         setResultUrl(data.resultUrl);
-        setResultMime(
-          typeof data.mimeType === "string" && data.mimeType.startsWith("video/")
-            ? data.mimeType
-            : "video/mp4",
-        );
+        setResultMime(mime);
+        setVideoBrandedFile(false);
       }
-      if (typeof data.generationId === "string") setGenerationId(data.generationId);
     } catch (err) {
       setError(friendlyClientError(err));
     } finally {
       setLoading(false);
+      setBrandingVideo(false);
     }
-  }, [file, videoPreset, videoAspect, videoPurpose, videoCast, subject, lookPreset, customPrompt]);
+  }, [
+    file,
+    videoPreset,
+    videoAspect,
+    videoPurpose,
+    videoCast,
+    subject,
+    lookPreset,
+    customPrompt,
+    videoShopName,
+    videoLogoSrc,
+    videoEndCard,
+  ]);
 
   const selectTab = useCallback((next: StudioTab) => {
     if (tabRef.current !== next) releaseSavedLook();
@@ -1277,6 +1349,16 @@ export function StudioApp() {
           onVideoPurpose={setVideoPurpose}
           videoCast={videoCast}
           onVideoCast={setVideoCast}
+          videoShopName={videoShopName}
+          onVideoShopName={setVideoShopName}
+          videoLogoSrc={videoLogoSrc}
+          onPickVideoLogo={pickVideoLogo}
+          videoEndCard={videoEndCard}
+          onVideoEndCard={setVideoEndCard}
+          videoSeconds={videoSeconds}
+          onVideoSeconds={setVideoSeconds}
+          brandingVideo={brandingVideo}
+          videoBrandedFile={videoBrandedFile}
           selfiePreviewUrl={selfiePreviewUrl}
           onPickJewelry={applyFile}
           onPickSelfie={applySelfie}
@@ -1832,6 +1914,19 @@ export function StudioApp() {
                 </div>
               </>
             )}
+            <VideoBrandFields
+              name={videoShopName}
+              onName={setVideoShopName}
+              logoSrc={videoLogoSrc}
+              onLogoFile={pickVideoLogo}
+              endCard={videoEndCard}
+              onEndCard={setVideoEndCard}
+            />
+            {videoSeconds != null && (resultMime?.startsWith("video/") || tab === "video") ? (
+              <p className="text-xs font-semibold text-foreground/70">
+                {videoLengthLabel(videoSeconds, videoBrandedFile && videoEndCard)}
+              </p>
+            ) : null}
             <p className="text-[11px] text-foreground/50">
               Costs {CREDIT_COST_PER_VIDEO} credits · may take a few minutes
             </p>
@@ -2158,6 +2253,7 @@ export function StudioApp() {
           type="button"
           disabled={
             loading ||
+            brandingVideo ||
             savingTheme ||
             batchRunning ||
             generationReady === false ||
@@ -2180,7 +2276,9 @@ export function StudioApp() {
           }
           className="rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-40 hover:bg-accent hover:text-foreground"
         >
-          {loading || batchRunning
+          {brandingVideo
+            ? "Adding your brand…"
+            : loading || batchRunning
             ? tab === "video"
               ? "Generating video…"
               : batchItems.length > 0
@@ -2356,7 +2454,7 @@ export function StudioApp() {
               />
             ) : null}
           </div>
-        ) : loading && tab !== "batch" ? (
+        ) : (loading || brandingVideo) && tab !== "batch" ? (
           <GenerationPreviewPlaceholder
             aspectClass={
               tab === "video"
@@ -2364,11 +2462,13 @@ export function StudioApp() {
                 : OUTPUT_FORMAT_ASPECT_CLASS[format]
             }
             label={
-              tab === "video"
-                ? "Creating your jewelry video…"
-                : mode === "background"
-                  ? "Creating your background still…"
-                  : "Creating your model shot…"
+              brandingVideo
+                ? "Adding your brand…"
+                : tab === "video"
+                  ? "Creating your jewelry video…"
+                  : mode === "background"
+                    ? "Creating your background still…"
+                    : "Creating your model shot…"
             }
           />
         ) : resultUrl && tab !== "batch" ? (
@@ -2377,10 +2477,13 @@ export function StudioApp() {
               <div
                 className={`relative mx-auto w-full overflow-hidden rounded-2xl border border-primary/20 bg-secondary shadow-lg ${VIDEO_ASPECT_CLASS[videoAspect]}`}
               >
-                <StudioResultVideo
+                <BrandedVideoStage
                   src={resultUrl}
-                  fillClassName="absolute inset-0"
-                  className="h-full w-full bg-background/50 object-contain"
+                  name={videoShopName}
+                  logoSrc={videoLogoSrc}
+                  endCard={videoEndCard}
+                  live={!videoBrandedFile}
+                  onDuration={videoBrandedFile ? undefined : setVideoSeconds}
                 />
               </div>
             ) : (
@@ -2439,7 +2542,9 @@ export function StudioApp() {
               ) : null}
               <DownloadImageButton
                 url={finishedUrl || resultUrl}
-                generationId={finishedUrl ? undefined : generationId ?? undefined}
+                generationId={
+                  finishedUrl || videoBrandedFile ? undefined : generationId ?? undefined
+                }
                 filename={
                   finishedUrl
                     ? `jwelpixel-background-${format}.png`

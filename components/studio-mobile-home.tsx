@@ -7,7 +7,8 @@ import { ReflectionControls } from "@/components/reflection-controls";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ImageLightbox } from "@/components/image-lightbox";
-import { StudioResultVideo } from "@/components/studio-result-video";
+import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fields";
+import { videoLengthLabel } from "@/lib/brand-video";
 import { VideoIdlePreview } from "@/components/video-idle-preview";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
 import {
@@ -214,6 +215,16 @@ export type StudioMobileHomeProps = {
   onVideoPurpose: (value: VideoPurposeId) => void;
   videoCast: VideoCastId;
   onVideoCast: (value: VideoCastId) => void;
+  videoShopName: string;
+  onVideoShopName: (value: string) => void;
+  videoLogoSrc: string | null;
+  onPickVideoLogo: (file: File | null) => void;
+  videoEndCard: boolean;
+  onVideoEndCard: (value: boolean) => void;
+  videoSeconds: number | null;
+  onVideoSeconds: (seconds: number) => void;
+  brandingVideo: boolean;
+  videoBrandedFile: boolean;
   selfiePreviewUrl: string | null;
   onPickJewelry: (file: File | null) => void;
   onPickSelfie: (file: File | null) => void;
@@ -616,13 +627,13 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
           <div className="flex flex-col gap-3">
             {(() => {
               const showVideoPlayer = Boolean(
-                !props.loading && isVideoResult && props.resultUrl,
+                !props.loading && !props.brandingVideo && isVideoResult && props.resultUrl,
               );
               const showVideoIdle =
-                !props.loading && !showVideoPlayer && tool === "video";
+                !props.loading && !props.brandingVideo && !showVideoPlayer && tool === "video";
 
               // Generating / video player must not sit inside a file <label>.
-              if (props.loading) {
+              if (props.loading || props.brandingVideo) {
                 return (
                   <div
                     ref={(node) => {
@@ -634,9 +645,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                       <GenerationPreviewPlaceholder
                         aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
                         label={
-                          tool === "video"
-                            ? "Creating your jewelry video…"
-                            : tool === "backdrop" || tool === "shadow"
+                          props.brandingVideo
+                            ? "Adding your brand…"
+                            : tool === "video"
+                              ? "Creating your jewelry video…"
+                              : tool === "backdrop" || tool === "shadow"
                                 ? "Creating your background still…"
                                 : "Creating your model shot…"
                         }
@@ -655,11 +668,13 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     className="block overflow-hidden rounded-2xl border border-primary/15 bg-white"
                   >
                     <span className="relative mx-auto block aspect-square w-full max-w-sm bg-[#1a1224]">
-                      <StudioResultVideo
+                      <BrandedVideoStage
                         src={props.resultUrl}
-                        fillClassName="absolute inset-0"
-                        className="h-full w-full object-contain"
-                        label="Opening your video…"
+                        name={props.videoShopName}
+                        logoSrc={props.videoLogoSrc}
+                        endCard={props.videoEndCard}
+                        live={!props.videoBrandedFile}
+                        onDuration={props.videoBrandedFile ? undefined : props.onVideoSeconds}
                       />
                     </span>
                   </div>
@@ -771,12 +786,26 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               );
             })()}
             {props.resultUrl && isVideoResult ? (
-              <DownloadImageButton
-                url={props.resultUrl}
-                filename="jwelpixel-video.mp4"
-                label="Download video"
-                className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20"
-              />
+              <>
+                {props.videoSeconds != null ? (
+                  <p className="text-center text-xs font-semibold text-foreground/70">
+                    {videoLengthLabel(
+                      props.videoSeconds,
+                      props.videoBrandedFile && props.videoEndCard,
+                    )}
+                  </p>
+                ) : null}
+                <DownloadImageButton
+                  url={props.resultUrl}
+                  filename={
+                    props.resultMime?.includes("webm")
+                      ? "jwelpixel-video.webm"
+                      : "jwelpixel-video.mp4"
+                  }
+                  label="Download video"
+                  className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20"
+                />
+              </>
             ) : null}
             {stillResultUrl ? (
               <label className="block rounded-xl border border-dashed border-primary/30 bg-white px-3 py-2 text-center text-xs font-semibold text-foreground/70">
@@ -1120,6 +1149,14 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     labels={VIDEO_PRESET_LABELS}
                     onChange={props.onVideoPreset}
                   />
+                  <VideoBrandFields
+                    name={props.videoShopName}
+                    onName={props.onVideoShopName}
+                    logoSrc={props.videoLogoSrc}
+                    onLogoFile={props.onPickVideoLogo}
+                    endCard={props.videoEndCard}
+                    onEndCard={props.onVideoEndCard}
+                  />
                   <p className="text-[11px] text-foreground/50">
                     Costs {CREDIT_COST_PER_VIDEO} credits · may take a few minutes
                   </p>
@@ -1210,6 +1247,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               type="button"
               disabled={
                 props.loading ||
+                props.brandingVideo ||
                 props.savingTheme ||
                 props.generationReady === false ||
                 !props.previewUrl
@@ -1225,7 +1263,9 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               }
               className="rounded-full bg-primary py-3 text-sm font-bold text-white disabled:opacity-40"
             >
-              {props.loading
+              {props.brandingVideo
+                ? "Adding your brand…"
+                : props.loading
                 ? tool === "video"
                   ? "Generating video…"
                   : "Generating…"
