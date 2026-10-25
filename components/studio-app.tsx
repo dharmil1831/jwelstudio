@@ -201,6 +201,9 @@ export function StudioApp() {
   const [videoPurpose, setVideoPurpose] = useState<VideoPurposeId>("promotional");
   const [videoCast, setVideoCast] = useState<VideoCastId>("product");
   const [appliedThemeId, setAppliedThemeId] = useState<string | null>(null);
+  const appliedThemeIdRef = useRef<string | null>(null);
+  const themePromptRef = useRef<string | null>(null);
+  const tabRef = useRef<StudioTab>("model");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -513,9 +516,48 @@ export function StudioApp() {
     [applyFile],
   );
 
+  const releaseSavedLook = useCallback(() => {
+    appliedThemeIdRef.current = null;
+    setAppliedThemeId(null);
+    const locked = themePromptRef.current;
+    themePromptRef.current = null;
+    if (locked) {
+      setCustomPrompt((current) => (current === locked ? "" : current));
+    }
+  }, []);
+
+  const leaveEditor = useCallback(() => {
+    releaseSavedLook();
+    setFile(null);
+    setSelfieFile(null);
+    setResultUrl(null);
+    setResultMime(null);
+    setGenerationId(null);
+    setError(null);
+    clearBatch();
+  }, [releaseSavedLook, clearBatch]);
+
+  const editPrompt = useCallback(
+    (value: string) => {
+      if (themePromptRef.current && value !== themePromptRef.current) {
+        appliedThemeIdRef.current = null;
+        setAppliedThemeId(null);
+        themePromptRef.current = null;
+      }
+      setCustomPrompt(value);
+    },
+    [],
+  );
+
   const applyTheme = useCallback((theme: ThemeListItem, style: ThemeStyleSnapshot) => {
+    appliedThemeIdRef.current = theme.id;
+    themePromptRef.current = style.customPrompt?.trim() ? style.customPrompt : null;
     setAppliedThemeId(theme.id);
-    setTab((current) => (current === "batch" ? "batch" : style.mode));
+    setTab((current) => {
+      const next = current === "batch" ? current : style.mode;
+      tabRef.current = next;
+      return next;
+    });
     setMode(style.mode);
     setPlacement(style.placement);
     setSubject(style.subject);
@@ -614,7 +656,7 @@ export function StudioApp() {
       }
       setError(null);
       window.alert(
-        "Look saved! Now upload a NEW jewelry photo on the left, then press Generate — same style, new jewelry.",
+        "Look saved. It is used for the next Generate only. Change any option, or go Home, and it turns off.",
       );
     } catch (err) {
       setError(friendlyClientError(err));
@@ -693,7 +735,7 @@ export function StudioApp() {
           logoMimeType: brand.logoMimeType || undefined,
           selfieBase64,
           selfieMimeType,
-          themeId: appliedThemeId || undefined,
+          themeId: appliedThemeIdRef.current || undefined,
         }),
         signal: controller.signal,
       });
@@ -710,7 +752,10 @@ export function StudioApp() {
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       if (typeof data.credits === "number") setCredits(data.credits);
-      if (data.resultUrl) setResultUrl(data.resultUrl);
+      if (data.resultUrl) {
+        setResultUrl(data.resultUrl);
+        releaseSavedLook();
+      }
       if (typeof data.generationId === "string") setGenerationId(data.generationId);
       if (typeof data.mimeType === "string") setResultMime(data.mimeType);
       if (data.themeWarning) setError(toUserFacingError(data.themeWarning));
@@ -740,7 +785,7 @@ export function StudioApp() {
     jewelryShadow,
     customPrompt,
     brand,
-    appliedThemeId,
+    releaseSavedLook,
   ]);
 
   const runBatchIds = useCallback(
@@ -754,6 +799,7 @@ export function StudioApp() {
         return;
       }
 
+      const themeForBatch = appliedThemeIdRef.current;
       batchAbortRef.current = false;
       setBatchRunning(true);
       setLoading(true);
@@ -835,7 +881,7 @@ export function StudioApp() {
               logoPlacement: brand.logoPlacement,
               logoBase64: brand.logoBase64 || undefined,
               logoMimeType: brand.logoMimeType || undefined,
-              themeId: appliedThemeId || undefined,
+              themeId: themeForBatch || undefined,
               backgroundLockGenerationId: lockId,
             }),
             signal: controller.signal,
@@ -934,6 +980,7 @@ export function StudioApp() {
       if (lastBatchResultUrl) {
         setResultUrl(lastBatchResultUrl);
         setResultMime("image/jpeg");
+        releaseSavedLook();
       }
 
       setBatchRunning(false);
@@ -952,7 +999,7 @@ export function StudioApp() {
       jewelryShadow,
       customPrompt,
       brand,
-      appliedThemeId,
+      releaseSavedLook,
     ],
   );
 
@@ -1025,6 +1072,8 @@ export function StudioApp() {
   }, [file, videoPreset, videoAspect, videoPurpose, videoCast, subject, lookPreset, customPrompt]);
 
   const selectTab = useCallback((next: StudioTab) => {
+    if (tabRef.current !== next) releaseSavedLook();
+    tabRef.current = next;
     setTab(next);
     if (next === "video") {
       setResultUrl(null);
@@ -1045,7 +1094,16 @@ export function StudioApp() {
     setResultMime(null);
     setError(null);
     if (next !== "model") setSelfieFile(null);
-  }, []);
+  }, [releaseSavedLook]);
+
+  function dropLook<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      releaseSavedLook();
+      setter(value);
+    };
+  }
+
+  const controlsLocked = Boolean(customPrompt.trim()) && !appliedThemeId;
 
   if (authenticated === null) {
     return (
@@ -1092,30 +1150,33 @@ export function StudioApp() {
           canVideo={canVideo}
           generationReady={generationReady}
           customPrompt={customPrompt}
-          onCustomPrompt={setCustomPrompt}
+          onCustomPrompt={editPrompt}
+          onLeaveEditor={leaveEditor}
           brand={brand}
           onBrand={setBrand}
           subject={subject}
-          onSubject={setSubject}
+          onSubject={dropLook(setSubject)}
           lookPreset={lookPreset}
-          onLook={setLookPreset}
+          onLook={dropLook(setLookPreset)}
           shot={shot}
-          onShot={setShot}
+          onShot={dropLook(setShot)}
           placement={placement}
-          onPlacement={setPlacement}
+          onPlacement={dropLook(setPlacement)}
           scene={scene}
-          onScene={setScene}
+          onScene={dropLook(setScene)}
           vibe={vibe}
-          onVibe={setVibe}
+          onVibe={dropLook(setVibe)}
           framing={framing}
-          onFraming={setFraming}
+          onFraming={dropLook(setFraming)}
           format={format}
           onFormat={(next) => {
+            releaseSavedLook();
             setCustomSize(null);
             setFormat(next);
           }}
           customSize={customSize}
           onCustomSize={(size) => {
+            releaseSavedLook();
             setCustomSize(size);
             setFormat(nearestOutputFormat(size.width, size.height));
           }}
@@ -1124,6 +1185,7 @@ export function StudioApp() {
           cutoutTransparent={cutoutTransparent}
           sceneBackdrop={sceneBackdrop}
           onClassicBackdrop={(kind) => {
+            releaseSavedLook();
             setMode("background");
             setTab("background");
             if (kind === "transparent") {
@@ -1150,6 +1212,7 @@ export function StudioApp() {
           onReflectionOpacity={setReflectionOpacity}
           finishedPreviewUrl={finishedUrl}
           onBackdrop={(hex) => {
+            releaseSavedLook();
             setCutoutTransparent(false);
             setSceneBackdrop(false);
             setBackdropColor(hex);
@@ -1172,7 +1235,7 @@ export function StudioApp() {
             setBatchBackdropMode("white");
           }}
           jewelryShadow={jewelryShadow}
-          onShadow={setJewelryShadow}
+          onShadow={dropLook(setJewelryShadow)}
           videoPreset={videoPreset}
           onVideoPreset={setVideoPreset}
           videoAspect={videoAspect}
@@ -1209,7 +1272,7 @@ export function StudioApp() {
           themeSnapshot={themeSnapshot}
           appliedThemeId={appliedThemeId}
           onApplyTheme={applyTheme}
-          onClearTheme={() => setAppliedThemeId(null)}
+          onClearTheme={releaseSavedLook}
           onSaveTheme={() => void saveCurrentResultAsTheme()}
         />
       </div>
@@ -1585,7 +1648,7 @@ export function StudioApp() {
             previewUrl={resultUrl && !resultMime?.startsWith("video/") ? resultUrl : null}
             appliedThemeId={appliedThemeId}
             onApply={applyTheme}
-            onClear={() => setAppliedThemeId(null)}
+            onClear={releaseSavedLook}
           />
         ) : null}
 
@@ -1674,7 +1737,7 @@ export function StudioApp() {
                       <Field
                         label="Model type"
                         value={subject}
-                        onChange={setSubject}
+                        onChange={dropLook(setSubject)}
                         options={SUBJECTS.map(
                           (k) => [k, SUBJECT_LABELS[k]] as const,
                         )}
@@ -1682,7 +1745,7 @@ export function StudioApp() {
                       <Field
                         label="Campaign look"
                         value={lookPreset}
-                        onChange={setLookPreset}
+                        onChange={dropLook(setLookPreset)}
                         options={LOOK_PRESET_IDS.map(
                           (k) => [k, LOOK_PRESET_LABELS[k]] as const,
                         )}
@@ -1747,7 +1810,7 @@ export function StudioApp() {
             </p>
             <textarea
               value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value.slice(0, 2000))}
+              onChange={(e) => editPrompt(e.target.value.slice(0, 2000))}
               rows={3}
               placeholder="Describe the look in your own words. When filled, style chips below are ignored."
               className="mt-2 w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
@@ -1811,7 +1874,7 @@ export function StudioApp() {
                   <button
                     key={id}
                     type="button"
-                    onClick={() => setJewelryShadow(id)}
+                    onClick={() => dropLook(setJewelryShadow)(id)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
                       jewelryShadow === id
                         ? "bg-primary text-background"
@@ -1829,8 +1892,8 @@ export function StudioApp() {
             <Field
               label="Framing"
               value={framing}
-              onChange={setFraming}
-              disabled={Boolean(customPrompt.trim())}
+              onChange={dropLook(setFraming)}
+              disabled={controlsLocked}
               options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
             />
           </>
@@ -1839,8 +1902,8 @@ export function StudioApp() {
             <Field
               label="Where to show jewelry"
               value={placement}
-              onChange={setPlacement}
-              disabled={Boolean(customPrompt.trim())}
+              onChange={dropLook(setPlacement)}
+              disabled={controlsLocked}
               options={PLACEMENTS.map((k) => [k, PLACEMENT_LABELS[k]] as const)}
             />
             {selfieFile ? (
@@ -1848,23 +1911,23 @@ export function StudioApp() {
                 Selfie uploaded — model type / campaign look / shot are hidden.
                 Your photo is the model; only jewelry placement &amp; format matter.
               </p>
-            ) : appliedThemeId ? (
-              <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
-                Theme applied — model / look / scene options are taken from the saved look.
-                Upload new jewelry and Generate to swap the piece.
-              </p>
             ) : (
               <>
+                {appliedThemeId ? (
+                  <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
+                    Saved look is on for the next photo. Change any option below, or leave this screen, and it turns off.
+                  </p>
+                ) : null}
                 <Field
                   label="Model type"
                   value={subject}
-                  onChange={setSubject}
+                  onChange={dropLook(setSubject)}
                   options={SUBJECTS.map((k) => [k, SUBJECT_LABELS[k]] as const)}
                 />
                 <Field
                   label="Campaign look"
                   value={lookPreset}
-                  onChange={setLookPreset}
+                  onChange={dropLook(setLookPreset)}
                   options={LOOK_PRESET_IDS.map(
                     (k) => [k, LOOK_PRESET_LABELS[k]] as const,
                   )}
@@ -1882,8 +1945,8 @@ export function StudioApp() {
                 <Field
                   label="Shot type"
                   value={shot}
-                  onChange={setShot}
-                  disabled={Boolean(customPrompt.trim())}
+                  onChange={dropLook(setShot)}
+                  disabled={controlsLocked}
                   options={SHOTS.map((k) => [k, SHOT_LABELS[k]] as const)}
                 />
               </>
@@ -1894,8 +1957,8 @@ export function StudioApp() {
             <Field
               label="Framing"
               value={framing}
-              onChange={setFraming}
-              disabled={Boolean(customPrompt.trim())}
+              onChange={dropLook(setFraming)}
+              disabled={controlsLocked}
               options={FRAMINGS.map((k) => [k, FRAMING_LABELS[k]] as const)}
             />
             <div>
@@ -1907,7 +1970,7 @@ export function StudioApp() {
                   <button
                     key={id}
                     type="button"
-                    onClick={() => setJewelryShadow(id)}
+                    onClick={() => dropLook(setJewelryShadow)(id)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
                       jewelryShadow === id
                         ? "bg-primary text-background"
@@ -1924,7 +1987,7 @@ export function StudioApp() {
             </div>
             <div
               className={
-                customPrompt.trim() ? "pointer-events-none opacity-40" : undefined
+                controlsLocked ? "pointer-events-none opacity-40" : undefined
               }
             >
               <div className="mb-3">
@@ -1941,6 +2004,7 @@ export function StudioApp() {
                             : null
                   }
                   onSelect={(id) => {
+                    releaseSavedLook();
                     if (id === "transparent") {
                       setCutoutTransparent(true);
                       setSceneBackdrop(false);
@@ -1961,6 +2025,7 @@ export function StudioApp() {
                   }}
                   customSize={customSize}
                   onCustomSize={(size) => {
+                    releaseSavedLook();
                     setCustomSize(size);
                     setFormat(nearestOutputFormat(size.width, size.height));
                   }}
@@ -2007,6 +2072,7 @@ export function StudioApp() {
               label="Output format"
               value={format}
               onChange={(next) => {
+                releaseSavedLook();
                 setCustomSize(null);
                 setFormat(next);
               }}
@@ -2024,7 +2090,6 @@ export function StudioApp() {
               </p>
             )}
             {!selfieFile &&
-            !appliedThemeId &&
             (tab === "batch"
               ? festivalSelected(brand) || batchBackdropMode === "scene"
               : true) ? (
@@ -2032,19 +2097,15 @@ export function StudioApp() {
                 <Field
                   label="Scene"
                   value={festivalSelected(brand) ? "festive_indoor" : scene}
-                  onChange={setScene}
-                  disabled={
-                    Boolean(customPrompt.trim()) || festivalSelected(brand)
-                  }
+                  onChange={dropLook(setScene)}
+                  disabled={controlsLocked || festivalSelected(brand)}
                   options={SCENES.map((k) => [k, SCENE_LABELS[k]] as const)}
                 />
                 <Field
                   label="Mood"
                   value={festivalSelected(brand) ? "festive" : vibe}
-                  onChange={setVibe}
-                  disabled={
-                    Boolean(customPrompt.trim()) || festivalSelected(brand)
-                  }
+                  onChange={dropLook(setVibe)}
+                  disabled={controlsLocked || festivalSelected(brand)}
                   options={VIBES.map((k) => [k, VIBE_LABELS[k]] as const)}
                 />
               </>

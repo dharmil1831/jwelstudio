@@ -224,6 +224,7 @@ export type StudioMobileHomeProps = {
   onApplyTheme: (theme: ThemeListItem, style: ThemeStyleSnapshot) => void;
   onClearTheme: () => void;
   onSaveTheme: () => void;
+  onLeaveEditor: () => void;
 };
 
 function Chip({
@@ -299,6 +300,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const previewSlotRef = useRef<HTMLElement | null>(null);
+  const screenRef = useRef<Screen>("home");
   const show = (id: Feed) => feed === "all" || feed === id;
   const isVideoResult =
     Boolean(props.resultMime?.startsWith("video/")) ||
@@ -324,6 +326,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
       setScreen(requested);
     }
   }, []);
+
+  useEffect(() => {
+    if (screenRef.current === "edit" && screen !== "edit") props.onLeaveEditor();
+    screenRef.current = screen;
+  }, [screen, props.onLeaveEditor]);
 
   useEffect(() => {
     if (!props.loading || screen !== "edit") return;
@@ -839,12 +846,13 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
                       Selfie uploaded — your photo is the model. Placement, scene, mood, and format still apply.
                     </p>
-                  ) : props.appliedThemeId ? (
-                    <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
-                      Theme applied — model / look / scene come from the saved look. Upload new jewelry and Generate.
-                    </p>
                   ) : (
                     <>
+                      {props.appliedThemeId ? (
+                        <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
+                          Saved look is on for the next photo. Change any option, or go Home, and it turns off.
+                        </p>
+                      ) : null}
                       <Chips
                         label="Model type"
                         value={props.subject}
@@ -868,7 +876,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                         options={SHOTS}
                         labels={SHOT_LABELS}
                         onChange={props.onShot}
-                        disabled={Boolean(props.customPrompt.trim())}
+                        disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                       />
                     </>
                   )}
@@ -878,7 +886,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     options={PLACEMENTS}
                     labels={PLACEMENT_LABELS}
                     onChange={props.onPlacement}
-                    disabled={Boolean(props.customPrompt.trim())}
+                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                   />
                   <Chips
                     label="Scene"
@@ -886,7 +894,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     options={SCENES}
                     labels={SCENE_LABELS}
                     onChange={props.onScene}
-                    disabled={Boolean(props.customPrompt.trim())}
+                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                   />
                   <Chips
                     label="Mood"
@@ -894,7 +902,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     options={VIBES}
                     labels={VIBE_LABELS}
                     onChange={props.onVibe}
-                    disabled={Boolean(props.customPrompt.trim())}
+                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                   />
                   <Chips
                     label="Output format"
@@ -913,7 +921,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     options={FRAMINGS}
                     labels={FRAMING_LABELS}
                     onChange={props.onFraming}
-                    disabled={Boolean(props.customPrompt.trim())}
+                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                   />
                   <Chips
                     label="Jewelry shadow"
@@ -948,7 +956,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     onEnabled={props.onReflectionOn}
                     onOpacity={props.onReflectionOpacity}
                   />
-                  <div className={props.customPrompt.trim() ? "pointer-events-none opacity-40" : undefined}>
+                  <div className={props.customPrompt.trim() && !props.appliedThemeId ? "pointer-events-none opacity-40" : undefined}>
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">Background color</p>
                     <div className="mb-3 flex flex-wrap gap-2">
                       {BACKDROP_COLOR_PRESETS.map((color) => (
@@ -1001,7 +1009,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     options={SCENES}
                     labels={SCENE_LABELS}
                     onChange={props.onScene}
-                    disabled={Boolean(props.customPrompt.trim())}
+                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                   />
                   <Chips
                     label="Mood"
@@ -1009,7 +1017,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     options={VIBES}
                     labels={VIBE_LABELS}
                     onChange={props.onVibe}
-                    disabled={Boolean(props.customPrompt.trim())}
+                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                   />
                   <Chips
                     label="Output format"
