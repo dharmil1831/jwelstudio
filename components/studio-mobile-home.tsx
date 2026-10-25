@@ -806,8 +806,13 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                   exportPixels={props.customSize ?? undefined}
                   className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20"
                 />
-                <button type="button" onClick={props.onSaveTheme} className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20">
-                  Save theme
+                <button
+                  type="button"
+                  disabled={props.loading}
+                  onClick={props.onSaveTheme}
+                  className="rounded-xl bg-white py-2 text-sm font-semibold ring-1 ring-primary/20 disabled:opacity-40"
+                >
+                  {props.loading ? "Saving…" : "Save theme"}
                 </button>
               </div>
             ) : null}

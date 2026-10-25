@@ -7,7 +7,7 @@ import {
   type ThemeStyleSnapshot,
 } from "@/lib/themes";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ThemeListItem = {
   id: string;
@@ -53,6 +53,8 @@ export function ThemesPanel({
   const [name, setName] = useState("");
   const [selectedGen, setSelectedGen] = useState<RecentGeneration | null>(null);
   const [busy, setBusy] = useState(false);
+  const savingRef = useRef(false);
+  const savedPreviewRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
@@ -124,6 +126,7 @@ export function ThemesPanel({
   }, [themes.length, previewUrl, effectivePreview]);
 
   async function saveTheme() {
+    if (savingRef.current) return;
     const trimmed =
       name.trim() ||
       `Look ${new Date().toLocaleString("en-IN", {
@@ -136,6 +139,11 @@ export function ThemesPanel({
       setError("Generate an image first, then save it as a look.");
       return;
     }
+    if (savedPreviewRef.current === effectivePreview) {
+      setMessage("This photo is already saved as a look.");
+      return;
+    }
+    savingRef.current = true;
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -154,6 +162,7 @@ export function ThemesPanel({
         theme?: ThemeListItem;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not save");
+      savedPreviewRef.current = effectivePreview;
       setName("");
       setSelectedGen(null);
       reload();
@@ -168,6 +177,7 @@ export function ThemesPanel({
     } catch (e) {
       setError(toUserFacingError(e, "Could not save"));
     } finally {
+      savingRef.current = false;
       setBusy(false);
     }
   }

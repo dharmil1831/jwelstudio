@@ -204,6 +204,8 @@ export function StudioApp() {
   const appliedThemeIdRef = useRef<string | null>(null);
   const themePromptRef = useRef<string | null>(null);
   const tabRef = useRef<StudioTab>("model");
+  const savingThemeRef = useRef(false);
+  const savedResultUrlRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lookNotice, setLookNotice] = useState<string | null>(null);
@@ -639,11 +641,17 @@ export function StudioApp() {
   ]);
 
   const saveCurrentResultAsTheme = useCallback(async () => {
+    if (savingThemeRef.current) return;
     if (!resultUrl || resultMime?.startsWith("video/")) return;
+    if (savedResultUrlRef.current === resultUrl) {
+      setLookNotice("This photo is already saved as a look.");
+      return;
+    }
     if (!canThemes) {
       setError("Saved looks unlock on Platinum and above.");
       return;
     }
+    savingThemeRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -667,6 +675,7 @@ export function StudioApp() {
         theme?: ThemeListItem;
       }>(res);
       if (!res.ok) throw new Error(data.error ?? "Could not save look");
+      savedResultUrlRef.current = resultUrl;
       if (data.theme) {
         const { parseThemeStyleJson } = await import("@/lib/themes");
         const style = parseThemeStyleJson(data.theme.styleJson);
@@ -679,6 +688,7 @@ export function StudioApp() {
     } catch (err) {
       setError(friendlyClientError(err));
     } finally {
+      savingThemeRef.current = false;
       setLoading(false);
     }
   }, [resultUrl, resultMime, canThemes, themeSnapshot, applyTheme]);
@@ -2415,10 +2425,11 @@ export function StudioApp() {
               resultUrl ? (
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => void saveCurrentResultAsTheme()}
-                  className="rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25"
+                  className="rounded-xl border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-foreground hover:bg-primary/25 disabled:opacity-40"
                 >
-                  Save as look
+                  {loading ? "Saving…" : "Save as look"}
                 </button>
               ) : null}
               <DownloadImageButton
