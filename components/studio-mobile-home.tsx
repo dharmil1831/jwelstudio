@@ -350,6 +350,12 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
     }
   }
 
+  function showScreen(next: Screen) {
+    if (screenRef.current === "edit" && next !== "edit") props.onLeaveEditor();
+    screenRef.current = next;
+    setScreen(next);
+  }
+
   function openSize(format: OutputFormat) {
     props.onFormat(format);
     props.onSelectJob("model");
@@ -402,7 +408,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         <span className="min-w-2 flex-1" />
         <button
           type="button"
-          onClick={() => setScreen("profile")}
+          onClick={() => showScreen("profile")}
           className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white ${
             screen === "profile" ? "bg-primary ring-2 ring-primary/40" : "bg-primary"
           }`}
@@ -1260,7 +1266,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         ) : null}
       </div>
 
-      <MobileStudioNav active={screen} onSelect={setScreen} />
+      <MobileStudioNav active={screen} onSelect={showScreen} />
       {stillResultUrl ? (
         <ImageLightbox
           url={stillResultUrl}
