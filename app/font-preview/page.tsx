@@ -1,6 +1,5 @@
 import {
   Alegreya,
-  Literata,
   Manrope,
   Newsreader,
   Petrona,
@@ -15,11 +14,6 @@ const manrope = Manrope({
 });
 
 const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const literata = Literata({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -51,13 +45,6 @@ const OPTIONS = [
     vibe: "Softer editorial — live now",
     favorite: true,
     display: newsreader,
-  },
-  {
-    id: "SOFT2",
-    name: "Literata + Manrope",
-    vibe: "Rounder, calm reading serif",
-    favorite: false,
-    display: literata,
   },
   {
     id: "SOFT3",
