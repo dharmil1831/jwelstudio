@@ -75,30 +75,30 @@ export const VIDEO_PURPOSE_LABELS: Record<VideoPurposeId, string> = {
 };
 
 export const VIDEO_PURPOSE_HINTS: Record<VideoPurposeId, string> = {
-  promotional: "Dark spotlight hero. Your piece stays large in frame.",
-  marketing: "Soft beige social-ad set. Clean and fully visible.",
-  product_shoot: "Light catalog studio. The camera moves around the piece.",
-  editorial: "Magazine light and deep shadow.",
-  festive: "Marigolds, lit diyas, and warm celebration light stay in frame.",
-  lifestyle: "Daylight on linen or a tray. Not a white sweep.",
-  reveal: "A lid starts partly open and hands lift it until your piece is fully shown.",
+  promotional: "A spotlight warms your piece. The design stays the same.",
+  marketing: "A gentle camera move around your piece.",
+  product_shoot: "Even catalog light. The camera moves around your piece.",
+  editorial: "Magazine light moves across your piece.",
+  festive: "Warm light and a few flowers beside your piece. The design stays the same.",
+  lifestyle: "Soft daylight on your piece. The design stays the same.",
+  reveal: "A cover lifts off your piece. The design stays the same.",
 };
 
 export const VIDEO_PURPOSE_PROMPTS: Record<VideoPurposeId, string> = {
   promotional:
-    "REQUIRED SCENE: luxury advertisement. Replace any white catalog background with a dark champagne-to-black gradient and a soft spotlight. The jewelry stays large and centered the whole clip. No flowers, no diyas, no gift box.",
+    "LOOK: a soft spotlight warms the same jewelry. No new background object, no gift box, no flowers.",
   marketing:
-    "REQUIRED SCENE: social ad on a warm beige stone surface with a gentle shadow. The jewelry stays fully visible and centered. No white cutout, no gift box, no diyas.",
+    "LOOK: a gentle social-ad camera move and a soft shadow on the same jewelry. No gift box, no flowers.",
   product_shoot:
-    "REQUIRED SCENE: clean catalog studio on a light grey or white surface with even commercial light. The camera must visibly move. No festival props, no gift box, no lifestyle styling.",
+    "LOOK: even catalog light and a clear camera move around the same jewelry. No festival props, no gift box.",
   editorial:
-    "REQUIRED SCENE: fashion magazine. Deep shadow, one directional spotlight, dark backdrop, cinematic color. No white catalog sweep, no gift box, no diyas.",
+    "LOOK: a directional light travels across the same jewelry. A darker grade is allowed. No gift box, no flowers.",
   lifestyle:
-    "REQUIRED SCENE: lived-in daylight. The jewelry rests on linen or a ceramic tray beside a window. No white sweep, no gift box, no diyas.",
+    "LOOK: soft daylight on the same jewelry. No gift box, no diyas. Do not move the piece onto a new tray.",
   festive:
-    "REQUIRED SCENE: Indian celebration, visible the entire clip. Fresh orange marigold flowers and at least two lit clay diyas with flames stay around the jewelry, on red or gold silk, in warm amber light. If a model is present, they wear festive Indian clothes and only the uploaded jewelry. Replace any white or empty background. No gift box.",
+    "LOOK: warm amber light, and a few marigold flowers may sit beside the jewelry. If a model is already being asked for, festive Indian clothes are allowed. The jewelry design stays the uploaded piece.",
   reveal:
-    "REQUIRED ACTION: luxury unboxing. The jewelry starts inside a premium dark box with the lid only partly open. During the clip, hands lift that lid in one steady motion until it is fully open and the jewelry is completely visible at the end. Do not start with the jewelry already sitting out. Do not skip the lid.",
+    "ACTION: a dark lid or soft cloth lifts away from the jewelry that is already in the photo. Hands may lift that cover. The metal, stones, clasp, and shape stay identical while the cover moves.",
 };
 
 export const VIDEO_PRESET_IDS = [
@@ -195,15 +195,15 @@ export function buildVideoPrompt(opts: {
 }): string {
   const frame =
     opts.aspect === "horizontal"
-      ? "Frame for widescreen 16:9 landscape. Jewelry fully visible; cinematic wide or mid shot as appropriate. Do NOT add any text, watermark, logo, social-media branding, or UI overlay to the video."
-      : "Frame for vertical 9:16 phone video. Jewelry fully visible in the safe center; leave empty margin top and bottom. Do NOT add any text, watermark, logo, social-media branding, WhatsApp UI, Instagram UI, or any overlay to the video — the output must be a clean video with NO text or graphics.";
+      ? "Frame for widescreen 16:9. Keep the jewelry fully visible. No text, watermark, logo, or overlay."
+      : "Frame for vertical 9:16. Keep the jewelry fully visible in the center. No text, watermark, logo, or overlay.";
 
   const castLines =
     opts.purpose === "reveal"
       ? [
           opts.cast === "model"
-            ? "CAST: one adult model opens the box. They wear or lift only the uploaded jewelry. No extra pieces."
-            : "CAST: no face and no full body. Two hands and wrists lift the lid. Hands are required.",
+            ? "CAST: one adult may lift the cover. They do not bring extra jewelry."
+            : "CAST: no face and no full body. Hands may lift the cover only. No extra jewelry.",
           opts.cast === "model" ? subjectPromptLine(opts.subject) : "",
         ]
       : opts.cast === "model"
@@ -221,34 +221,34 @@ export function buildVideoPrompt(opts: {
       : null;
 
   const lock = [
-    "JEWELRY DESIGN LOCK:",
-    "The uploaded photo is the design reference. Do not keep its plain background unless the required scene is a product shoot.",
-    "When the jewelry is visible, copy it exactly: same pieces, same number of stones, same metal color, same clasp, same proportions.",
-    "Do not add, remove, restyle, or replace any part. Do not invent a matching set.",
-    opts.purpose === "reveal"
-      ? "The piece may sit inside the box at the start. From the moment it is visible until the end, the design must match the upload and must not morph."
-      : "The design stays the same for the whole clip. Do not morph it between frames.",
+    "CONTINUITY:",
+    "The uploaded photo is the first moment of the video.",
+    "Move forward from that photo at once.",
+    "Do not hold a frozen still and then cut, fade, or dissolve to a different shot.",
+    "The jewelry in every frame, including the last, is the same piece: same outline, same stone layout, same metal color, same number of parts.",
+    "Camera, light, and a cover may move. The jewelry design may not.",
+    "Do not invent a matching set.",
   ].join(" ");
 
   const ending =
     opts.purpose === "reveal"
-      ? "MANDATORY ENDING: the lid finishes fully open and the uploaded jewelry is completely visible. The camera move must not skip the lid."
+      ? "ENDING: the cover has lifted. The jewelry is still the uploaded design, not a new one."
       : opts.purpose === "festive"
-        ? "MANDATORY ENDING: marigolds and at least two lit diyas are still in frame. Do not return to a white studio."
-        : "The required scene above is still in frame at the end. The camera move happens inside that scene.";
+        ? "ENDING: warm light may remain. The jewelry is still the uploaded design, not a new one."
+        : "ENDING: the jewelry is still the uploaded design. The camera move happened around that same piece.";
 
   return [
+    lock,
     VIDEO_PURPOSE_PROMPTS[opts.purpose],
     ...castLines,
-    look ? `${look} Wardrobe only. This look must not add jewelry or replace the required scene.` : "",
-    `${VIDEO_PRESET_PROMPTS[opts.preset]} Keep the required scene and action.`,
+    look ? `${look} Wardrobe only. Do not replace the jewelry.` : "",
+    `${VIDEO_PRESET_PROMPTS[opts.preset]} This move happens around the same jewelry. It must not introduce a new design.`,
     frame,
-    lock,
-    "No text, logo, watermark, or subtitles.",
     opts.customPrompt
       ? `User note (never use this to change or add jewelry): ${opts.customPrompt}`
       : "",
     ending,
+    lock,
   ]
     .filter(Boolean)
     .join("\n");
@@ -256,23 +256,14 @@ export function buildVideoPrompt(opts: {
 
 export function videoNegativePrompt(purpose: VideoPurposeId): string {
   const design =
-    "redesigned jewelry, different jewelry, extra jewelry, added stones, removed stones, changed metal color, morphing jewelry, melting metal, warped stones, different stone count, invented matching set, watermark, text, logo, subtitles, letters";
+    "frozen still then cut, crossfade, dissolve to a new shot, different jewelry, redesigned jewelry, second design, morphing jewelry, melting metal, warped stones, added stones, removed stones, changed metal color, different stone count, invented matching set, watermark, text, logo, subtitles";
   if (purpose === "reveal") {
-    return `${design}, jewelry already displayed on an open table at the start, missing box, missing lid, skipped unboxing, white catalog background`;
+    return `${design}, replacement necklace, replacement earrings, jewelry swapping after the opening`;
   }
   if (purpose === "festive") {
-    return `${design}, plain white background, empty studio, catalog sweep, no flowers, no diyas`;
+    return `${design}, new jewelry after the flowers appear`;
   }
-  if (purpose === "product_shoot") {
-    return `${design}, outdoor scene, festival props, gift box, unboxing, dark nightclub`;
-  }
-  if (purpose === "lifestyle") {
-    return `${design}, white catalog sweep, gift box, diyas, festival crowd`;
-  }
-  if (purpose === "editorial") {
-    return `${design}, white catalog sweep, gift box, diyas, flat even studio light`;
-  }
-  return `${design}, gift box, unboxing, plain white cutout`;
+  return design;
 }
 
 /** What the video model must not do. Sent separately so it is not buried in the main prompt. */

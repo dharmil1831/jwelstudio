@@ -97,6 +97,10 @@ export async function generateJewelryVideoWithGemini(params: {
       model: getGeminiVideoModel(),
       input: [
         {
+          type: "text",
+          text: "The attached photo is the jewelry that must appear for the whole video. Start moving from this photo immediately. Do not hold it as a still and then change the jewelry.",
+        },
+        {
           type: "image",
           data: params.imageBase64,
           mime_type: params.mimeType || "image/jpeg",
