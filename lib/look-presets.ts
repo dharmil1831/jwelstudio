@@ -68,7 +68,7 @@ const LOOK_IMAGE_LINES: Record<Exclude<LookPresetId, "auto">, string> = {
   tuxedo_luxury:
     "LOOK: Luxury studio with a male or masculine-presenting model in a black tuxedo / black-tie formalwear when casting allows; otherwise formal eveningwear. Spotlight jewelry on the correct placement. Do not invent extra jewelry.",
   couple_wedding:
-    "LOOK: Couple wedding / engagement portrait energy — tasteful pose that showcases the uploaded jewelry. Do not invent complementary rings or extra set pieces.",
+    "LOOK: Couple wedding portrait. Exactly two adults must be in the frame: a bride and a groom, standing together, both faces visible. Wedding clothes. The uploaded jewelry is worn once by the person it fits. Do not show only the bride. Do not invent a second jewelry set, rings, or maang tikka for the groom unless those pieces are in the upload.",
   macro_hand:
     "LOOK: Macro close-up of hands/wrists on a natural wooden or neutral surface when placement fits; shallow depth of field; jewelry sharp and exact. Do not invent extra rings or bangles.",
   side_profile_beauty:
@@ -95,7 +95,7 @@ const LOOK_VIDEO_LINES: Record<Exclude<LookPresetId, "auto">, string> = {
   tuxedo_luxury:
     "Video look: tuxedo / black-tie luxury studio clip; slow cinematic pan on the exact uploaded jewelry.",
   couple_wedding:
-    "Video look: couple wedding portrait clip; slow cinematic pan on the exact uploaded jewelry only.",
+    "Video look: bride and groom together in one wedding portrait clip, both visible. Slow cinematic pan on the exact uploaded jewelry only. Do not show only one person.",
   macro_hand:
     "Video look: macro hand clip; slow cinematic pan across the exact uploaded jewelry.",
   side_profile_beauty:

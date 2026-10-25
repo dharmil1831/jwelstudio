@@ -190,6 +190,9 @@ function lookLineForStyle(style: StudioStyle): string | null {
 
 export function buildJewelryPrompt(style: StudioStyle): string {
   const lookLine = lookLineForStyle(style);
+  const couple =
+    parseLookPreset(style.lookPreset ?? "auto") === "couple_wedding" ||
+    style.subject === "couple";
 
   if (style.customPrompt) {
     return [
@@ -220,14 +223,18 @@ export function buildJewelryPrompt(style: StudioStyle): string {
   return [
     modelShotRules,
     "",
-    "Task: one photorealistic photograph of a model wearing this jewelry.",
+    couple
+      ? "Task: one photorealistic photograph of a bride and a groom together. Both people are in the frame. Not a solo portrait."
+      : "Task: one photorealistic photograph of a model wearing this jewelry.",
     polishedSkinRule,
     "",
     "Jewelry placement:",
     placementCopy[style.placement],
     "",
     "Model / casting:",
-    subjectCopy[style.subject],
+    couple
+      ? "Casting: exactly two adults, a bride and a groom, both visible. Coordinated wedding clothes. Wear the uploaded jewelry once on the person it fits. Do not add jewelry that is not in the upload."
+      : subjectCopy[style.subject],
     lookLine,
     "",
     "Shot & camera:",
@@ -240,7 +247,9 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     vibeCopy[style.vibe],
     "",
     modelShotRules,
-    modelFinalCheck,
+    couple
+      ? "Final check: exactly two adults, bride and groom, both in the frame. Reject a photo of only one lady or only one man. Jewelry worn once, same motifs and metal as the upload. No second invented jewelry set."
+      : modelFinalCheck,
   ]
     .filter(Boolean)
     .join(" ");
