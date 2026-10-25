@@ -123,7 +123,20 @@ export function BrandedVideoStage({
         @keyframes jwel-brand-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         @keyframes jwel-card-logo { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: scale(1); } }
         @keyframes jwel-card-name { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-        @keyframes jwel-lid-up { from { transform: translateY(0); } to { transform: translateY(-110%); } }
+        @keyframes jwel-door-left {
+          0%, 16% { transform: rotateY(0deg); opacity: 1; }
+          74% { transform: rotateY(72deg); opacity: 1; }
+          100% { transform: rotateY(89deg); opacity: 0; }
+        }
+        @keyframes jwel-door-right {
+          0%, 16% { transform: rotateY(0deg); opacity: 1; }
+          74% { transform: rotateY(-72deg); opacity: 1; }
+          100% { transform: rotateY(-89deg); opacity: 0; }
+        }
+        @keyframes jwel-box-fade {
+          0%, 70% { opacity: 1; }
+          100% { opacity: 0; }
+        }
       `}</style>
       <StudioResultVideo
         src={src}
@@ -136,9 +149,50 @@ export function BrandedVideoStage({
       />
       {live && unbox ? (
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-full border-b-8 border-[#c4a46a] bg-[#241910]"
-          style={{ animation: "jwel-lid-up 2.4s ease forwards" }}
-        />
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          style={{ perspective: "1200px" }}
+        >
+          <div
+            className="absolute inset-[7px] rounded-sm border-2 border-[#c6a56e] shadow-[inset_0_0_0_8px_rgba(18,12,8,0.72)]"
+            style={{ animation: "jwel-box-fade 2.6s ease forwards" }}
+          />
+          <div
+            className="absolute top-0 left-0 h-full w-1/2 origin-left [transform-style:preserve-3d]"
+            style={{ animation: "jwel-door-left 2.6s cubic-bezier(.45,.05,.2,1) forwards" }}
+          >
+            <div
+              className="absolute inset-0 shadow-[inset_0_0_0_3px_#c6a56e]"
+              style={{ background: "linear-gradient(90deg, #100c0a 0%, #241911 55%, #3a2c22 100%)" }}
+            >
+              <div className="absolute top-1/2 right-2 h-8 w-2 -translate-y-1/2 rounded-l-full bg-[#e4d2a2]" />
+            </div>
+            <div
+              className="absolute top-0 right-0 h-full w-3 origin-right"
+              style={{
+                background: "linear-gradient(90deg, #5c482c 0%, #e8d7ad 50%, #6e5834 100%)",
+                transform: "rotateY(90deg)",
+              }}
+            />
+          </div>
+          <div
+            className="absolute top-0 right-0 h-full w-1/2 origin-right [transform-style:preserve-3d]"
+            style={{ animation: "jwel-door-right 2.6s cubic-bezier(.45,.05,.2,1) forwards" }}
+          >
+            <div
+              className="absolute inset-0 shadow-[inset_0_0_0_3px_#c6a56e]"
+              style={{ background: "linear-gradient(270deg, #100c0a 0%, #241911 55%, #3a2c22 100%)" }}
+            >
+              <div className="absolute top-1/2 left-2 h-8 w-2 -translate-y-1/2 rounded-r-full bg-[#e4d2a2]" />
+            </div>
+            <div
+              className="absolute top-0 left-0 h-full w-3 origin-left"
+              style={{
+                background: "linear-gradient(270deg, #5c482c 0%, #e8d7ad 50%, #6e5834 100%)",
+                transform: "rotateY(-90deg)",
+              }}
+            />
+          </div>
+        </div>
       ) : null}
       {show && !card ? (
         <div

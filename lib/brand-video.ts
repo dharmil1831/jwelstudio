@@ -3,7 +3,7 @@ export type BrandVideoInput = {
   name: string;
   logoSrc: string | null;
   endCard: boolean;
-  /** A lid lifts off the jewelry. The jewelry pixels stay the clip underneath. */
+  /** A case opens from the center over the jewelry. The jewelry pixels stay the clip underneath. */
   unbox?: boolean;
 };
 
@@ -57,24 +57,113 @@ function contain(
   return { x: (boxW - w) / 2, y: (boxH - h) / 2, w, h };
 }
 
-/** Dark jewelry-box lid. It starts closed and lifts off over the first 2.4 seconds. */
+/**
+ * Closed jewelry case, then the two sides hinge open from the center.
+ * Nothing slides upward. The frame fades once the piece is visible.
+ */
 function paintUnboxLid(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
-  const duration = 2.4;
-  if (t >= duration) return;
-  const p = Math.max(0, t) / duration;
-  const eased = p * p * (3 - 2 * p);
-  const lift = eased * (h + 24);
+  const shut = 0.28;
+  const openEnd = 2.05;
+  const fadeEnd = 2.55;
+  if (t >= fadeEnd) return;
+
+  const openT = Math.min(1, Math.max(0, (t - shut) / (openEnd - shut)));
+  const eased = openT * openT * (3 - 2 * openT);
+  const angle = eased * (Math.PI / 2) * 0.96;
+  const face = Math.cos(angle);
+  const thickness = Math.sin(angle);
+
   ctx.save();
-  ctx.fillStyle = "#241910";
-  ctx.fillRect(0, -lift, w, h);
-  const lip = h - lift;
-  ctx.fillStyle = "#c4a46a";
-  ctx.fillRect(0, lip - 8, w, 8);
-  const shade = ctx.createLinearGradient(0, lip, 0, lip + 48);
-  shade.addColorStop(0, "rgba(0,0,0,0.4)");
-  shade.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = shade;
-  ctx.fillRect(0, lip, w, 48);
+
+  const dim = (1 - eased) * 0.18;
+  if (dim > 0.015) {
+    ctx.fillStyle = `rgba(16, 10, 8, ${dim})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  const doorW = (w / 2) * face;
+  if (doorW > 1.5 && t < openEnd + 0.05) {
+    const lip = Math.max(3, w * 0.012);
+    const depth = thickness * Math.min(w * 0.045, 28);
+
+    const paintDoor = (x: number, width: number, hingeLeft: boolean) => {
+      const velvet = ctx.createLinearGradient(x, 0, x + width, 0);
+      if (hingeLeft) {
+        velvet.addColorStop(0, "#100c0a");
+        velvet.addColorStop(0.55, "#241911");
+        velvet.addColorStop(1, "#3a2c22");
+      } else {
+        velvet.addColorStop(0, "#3a2c22");
+        velvet.addColorStop(0.45, "#241911");
+        velvet.addColorStop(1, "#100c0a");
+      }
+      ctx.fillStyle = velvet;
+      ctx.fillRect(x, 0, width, h);
+
+      const edgeX = hingeLeft ? x + width - lip : x;
+      const gold = ctx.createLinearGradient(edgeX, 0, edgeX + lip, 0);
+      gold.addColorStop(0, hingeLeft ? "#8d7344" : "#e6d3a4");
+      gold.addColorStop(1, hingeLeft ? "#e6d3a4" : "#8d7344");
+      ctx.fillStyle = gold;
+      ctx.fillRect(edgeX, 0, lip, h);
+
+      if (depth > 1.2) {
+        const slabX = hingeLeft ? x + width : x - depth;
+        const slab = ctx.createLinearGradient(slabX, 0, slabX + depth, 0);
+        slab.addColorStop(0, "#5c482c");
+        slab.addColorStop(0.5, "#e8d7ad");
+        slab.addColorStop(1, "#6e5834");
+        ctx.fillStyle = slab;
+        ctx.fillRect(slabX, 0, depth, h);
+      }
+
+      const shadeW = Math.min(w * 0.12, 72);
+      const shadeX = hingeLeft ? x + width + depth : x - depth - shadeW;
+      const shade = ctx.createLinearGradient(shadeX, 0, shadeX + shadeW, 0);
+      const dark = `rgba(0,0,0,${0.28 * face})`;
+      if (hingeLeft) {
+        shade.addColorStop(0, dark);
+        shade.addColorStop(1, "rgba(0,0,0,0)");
+      } else {
+        shade.addColorStop(0, "rgba(0,0,0,0)");
+        shade.addColorStop(1, dark);
+      }
+      ctx.fillStyle = shade;
+      ctx.fillRect(shadeX, 0, shadeW, h);
+    };
+
+    paintDoor(0, doorW, true);
+    paintDoor(w - doorW, doorW, false);
+
+    if (eased < 0.72) {
+      ctx.globalAlpha = eased < 0.4 ? 1 : 1 - (eased - 0.4) / 0.32;
+      const ch = Math.max(28, h * 0.07);
+      const cw = Math.max(7, w * 0.018);
+      const y = h / 2 - ch / 2;
+      ctx.fillStyle = "#e4d2a2";
+      roundRect(ctx, doorW - cw - 2, y, cw, ch, 3);
+      ctx.fill();
+      roundRect(ctx, w - doorW + 2, y, cw, ch, 3);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  const frameAlpha =
+    t < openEnd ? 1 : Math.max(0, 1 - (t - openEnd) / (fadeEnd - openEnd));
+  if (frameAlpha > 0.02) {
+    ctx.save();
+    ctx.globalAlpha = frameAlpha;
+    const inset = Math.max(14, Math.round(Math.min(w, h) * 0.022));
+    ctx.strokeStyle = "#c6a56e";
+    ctx.lineWidth = Math.max(3, inset * 0.22);
+    ctx.strokeRect(inset, inset, w - inset * 2, h - inset * 2);
+    ctx.strokeStyle = "rgba(198, 165, 110, 0.55)";
+    ctx.lineWidth = Math.max(1.5, inset * 0.1);
+    ctx.strokeRect(inset * 1.8, inset * 1.8, w - inset * 3.6, h - inset * 3.6);
+    ctx.restore();
+  }
+
   ctx.restore();
 }
 
