@@ -101,7 +101,7 @@ export async function generateJewelryVideoWithGemini(params: {
           type: "text",
           text:
             params.cast === "model"
-              ? "One adult wears this jewelry once. A necklace goes on the neck only. Earrings go on the ears only. Remove the white catalog layout. Do not show any piece twice."
+              ? "One adult wears this exact jewelry. Keep the large center pendant and every hanging drop. Do not simplify the design or remove the pendant. Remove only the white background, not any part of the jewelry.",
               : "Animate this photo with camera and light only. Every chain, cord, earring, and pendant stays visible for the whole clip. Do not add hands, cloth, a box, or a new piece of jewelry.",
         },
         {

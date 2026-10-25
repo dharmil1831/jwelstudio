@@ -49,7 +49,7 @@ export const VIDEO_CAST_PROMPTS: Record<VideoCastId, string> = {
   product:
     "CAST: jewelry-only product video. No person, no face, no hands, no fingers, no cloth, no box, no model. The uploaded jewelry is the only subject.",
   model:
-    "CAST: one adult model wears the uploaded jewelry once. A necklace in the photo is worn at the neck only. Earrings in the photo are worn on the ears only. Do not also leave those pieces lying on the white background. Do not show any piece twice. Do not add a second necklace, a second pair of earrings, a tikka, bangles, or rings.",
+    "CAST: one adult wears the uploaded design once. Keep every part of that design, including the large center pendant, every hanging drop, and every colored stone, at the same size and shape as the photo. A necklace stays one necklace on the neck. Earrings stay on the ears. Do not remove the big pendant. Do not simplify the piece. Do not also leave a flat copy on the white background. Do not add a second necklace, a second pair, a tikka, bangles, or rings.",
 };
 
 export const VIDEO_PURPOSE_IDS = [
@@ -216,12 +216,12 @@ export function buildVideoPrompt(opts: {
   const lock =
     opts.cast === "model"
       ? [
-          "ONE WEARING:",
-          "The photo is a catalog layout, not a second set to keep on screen.",
-          "Show one model wearing each piece once, in its place.",
-          "The white background and the pieces lying flat must leave the frame.",
-          "Do not show the jewelry twice. No flat copy beside the worn piece.",
-          "Same metal, same stones, same design as the upload. Do not invent another necklace.",
+          "DESIGN LOCK:",
+          "Wear the uploaded jewelry once. Once means no duplicate copy, not a simpler piece.",
+          "The large center pendant in the photo must stay large on the neck. Do not drop it, shrink it, or replace it.",
+          "Keep every hanging coin or drop, every colored stone, the same metal, and the same outline.",
+          "A necklace in the photo is worn at the neck. Earrings in the photo are worn on the ears.",
+          "Remove only the white catalog background. Do not remove any part of the jewelry.",
         ].join(" ")
       : [
           "CONTINUITY:",
@@ -236,7 +236,7 @@ export function buildVideoPrompt(opts: {
   const ending =
     opts.cast === "product"
       ? "ENDING: the full jewelry set is still visible, including every chain and cord from the photo. No hands, cloth, or new object enter the frame."
-      : "ENDING: one model, one wearing. The flat catalog jewelry is gone. No second necklace and no second pair of earrings.";
+      : "ENDING: the worn necklace still has the same large center pendant and the same drops as the photo. Nothing from the design was removed.";
 
   return [
     lock,
@@ -262,7 +262,7 @@ export function videoNegativePrompt(
   const cover =
     cast === "product"
       ? "hands, fingers, cloth, fabric, velvet, box, lid, covering the jewelry, cropped chain, missing cord, missing chain, "
-      : "second necklace, second pair of earrings, duplicate jewelry, flat catalog copy beside the model, jewelry lying on white next to the person, ";
+      : "missing center pendant, pendant removed, smaller pendant, simplified necklace, plain chain, redesigned center, second necklace, duplicate jewelry, flat catalog copy beside the model, ";
   const design = `${cover}frozen still then cut, crossfade, dissolve to a new shot, different jewelry, redesigned jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles`;
   return purpose === "festive" ? `${design}, flowers on top of the jewelry, diyas covering the chain` : design;
 }
