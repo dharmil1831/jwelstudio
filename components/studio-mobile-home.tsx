@@ -225,6 +225,7 @@ export type StudioMobileHomeProps = {
   onClearTheme: () => void;
   onSaveTheme: () => void;
   onLeaveEditor: () => void;
+  lookNotice: string | null;
 };
 
 function Chip({
@@ -850,7 +851,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     <>
                       {props.appliedThemeId ? (
                         <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
-                          Saved look is on for the next photo. Change any option, or go Home, and it turns off.
+                          Saved look is on for the next photo. After Generate it turns off and these options return to normal.
                         </p>
                       ) : null}
                       <Chips
@@ -1182,6 +1183,11 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 </div>
               ) : null}
             </div>
+            {props.lookNotice ? (
+              <p className="rounded-xl bg-primary/10 px-3 py-2 text-sm text-foreground" role="status">
+                {props.lookNotice}
+              </p>
+            ) : null}
             {props.error ? <p className="text-sm text-red-600">{props.error}</p> : null}
             {!props.previewUrl && !props.loading ? (
               <p className="text-center text-xs font-medium text-foreground/60">

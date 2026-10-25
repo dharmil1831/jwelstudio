@@ -206,6 +206,7 @@ export function StudioApp() {
   const tabRef = useRef<StudioTab>("model");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lookNotice, setLookNotice] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [jewelryShadow, setJewelryShadow] = useState<JewelryShadow>("off");
@@ -516,18 +517,26 @@ export function StudioApp() {
     [applyFile],
   );
 
-  const releaseSavedLook = useCallback(() => {
+  const releaseSavedLook = useCallback((announce = true) => {
+    const hadLook = appliedThemeIdRef.current != null;
     appliedThemeIdRef.current = null;
-    setAppliedThemeId(null);
-    const locked = themePromptRef.current;
     themePromptRef.current = null;
-    if (locked) {
-      setCustomPrompt((current) => (current === locked ? "" : current));
-    }
+    setAppliedThemeId(null);
+    if (!hadLook) return;
+    setCustomPrompt("");
+    setPlacement("auto");
+    setSubject("auto");
+    setLookPreset("auto");
+    setShot("editorial");
+    setFraming("catalog");
+    setScene("studio");
+    setVibe("luxury");
+    if (announce) setLookNotice("Look turned off. Options are back to normal.");
   }, []);
 
   const leaveEditor = useCallback(() => {
-    releaseSavedLook();
+    releaseSavedLook(false);
+    setLookNotice(null);
     setFile(null);
     setSelfieFile(null);
     setResultUrl(null);
@@ -537,16 +546,24 @@ export function StudioApp() {
     clearBatch();
   }, [releaseSavedLook, clearBatch]);
 
+  useEffect(() => {
+    if (!lookNotice) return;
+    const timer = window.setTimeout(() => setLookNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [lookNotice]);
+
   const editPrompt = useCallback(
     (value: string) => {
-      if (themePromptRef.current && value !== themePromptRef.current) {
-        appliedThemeIdRef.current = null;
-        setAppliedThemeId(null);
-        themePromptRef.current = null;
+      if (
+        appliedThemeIdRef.current &&
+        themePromptRef.current &&
+        value !== themePromptRef.current
+      ) {
+        releaseSavedLook();
       }
       setCustomPrompt(value);
     },
-    [],
+    [releaseSavedLook],
   );
 
   const applyTheme = useCallback((theme: ThemeListItem, style: ThemeStyleSnapshot) => {
@@ -573,6 +590,7 @@ export function StudioApp() {
       setBackdropHexInput(style.backdropColor);
     }
     setCustomPrompt(style.customPrompt ?? "");
+    setLookNotice(null);
     setResultUrl(null);
     setResultMime(null);
     setError(null);
@@ -1152,6 +1170,7 @@ export function StudioApp() {
           customPrompt={customPrompt}
           onCustomPrompt={editPrompt}
           onLeaveEditor={leaveEditor}
+          lookNotice={lookNotice}
           brand={brand}
           onBrand={setBrand}
           subject={subject}
@@ -1915,7 +1934,7 @@ export function StudioApp() {
               <>
                 {appliedThemeId ? (
                   <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
-                    Saved look is on for the next photo. Change any option below, or leave this screen, and it turns off.
+                    Saved look is on for the next photo. After Generate it turns off and these options return to normal.
                   </p>
                 ) : null}
                 <Field
@@ -2197,6 +2216,11 @@ export function StudioApp() {
         {tab !== "video" && !(batchItems.length > 0) && appliedThemeId ? (
           <p className="text-center text-[11px] text-foreground/55">
             Theme applied — new jewelry will reuse that look.
+          </p>
+        ) : null}
+        {lookNotice ? (
+          <p className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-foreground" role="status">
+            {lookNotice}
           </p>
         ) : null}
         {error ? (
