@@ -68,6 +68,7 @@ const SAFE_EXACT = new Set([
   "Generate an image first, then save it as a look.",
   "Enter a valid non-negative number.",
   "Theme was selected but its preview image could not be loaded. Generate used style chips only.",
+  "Saved look could not be applied this time. This photo used your selected options.",
   "This account is not the super admin.",
   "Super admin already exists. Log in instead.",
   "Cannot delete the super admin account.",

@@ -15,6 +15,8 @@ export type GeneratedJewelryImage = {
   mimeType: string;
   provider: ImageProviderId;
   attempted: ImageProviderId[];
+  /** True when a saved-look photo was dropped so generation could finish. */
+  droppedReferences?: boolean;
 };
 
 function isFallbackWorthy(error: unknown): boolean {
@@ -98,6 +100,56 @@ async function runGemini(
   );
 }
 
+/** If the saved-look photo makes Gemini reject the request, try once without it. */
+async function geminiWithOptionalRetry(params: {
+  imageBase64: string;
+  mimeType: string;
+  prompt: string;
+  format: OutputFormat;
+  extraImages?: GeminiExtraImage[];
+  wornOnModel?: boolean;
+  aspectRatio?: string;
+  attempted: ImageProviderId[];
+}): Promise<GeneratedJewelryImage> {
+  const {
+    imageBase64,
+    mimeType,
+    prompt,
+    format,
+    extraImages,
+    wornOnModel,
+    aspectRatio,
+    attempted,
+  } = params;
+  try {
+    const out = await runGemini(
+      imageBase64,
+      mimeType,
+      prompt,
+      format,
+      extraImages,
+      wornOnModel,
+      aspectRatio,
+    );
+    return { ...out, provider: "gemini", attempted };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!extraImages?.length || /timed out|timeout|abort/i.test(message)) {
+      throw error;
+    }
+    const out = await runGemini(
+      imageBase64,
+      mimeType,
+      prompt,
+      format,
+      undefined,
+      wornOnModel,
+      aspectRatio,
+    );
+    return { ...out, provider: "gemini", attempted, droppedReferences: true };
+  }
+}
+
 /**
  * Gemini primary with OpenAI fallback when IMAGE_PROVIDER=auto.
  * Force one provider with IMAGE_PROVIDER=openai|gemini.
@@ -140,7 +192,7 @@ export async function generateJewelryImage(params: {
     if (!geminiReady) throw new Error("GEMINI_API_KEY is not configured");
     attempted.push("gemini");
     try {
-      const out = await runGemini(
+      return await geminiWithOptionalRetry({
         imageBase64,
         mimeType,
         prompt,
@@ -148,8 +200,8 @@ export async function generateJewelryImage(params: {
         extraImages,
         wornOnModel,
         aspectRatio,
-      );
-      return { ...out, provider: "gemini", attempted };
+        attempted,
+      });
     } catch (e) {
       throw sanitizeProviderError(e, "gemini");
     }
@@ -182,18 +234,19 @@ export async function generateJewelryImage(params: {
 
   attempted.push(primary);
   try {
-    const out =
-      primary === "openai"
-        ? await runOpenAI(imageBase64, mimeType, prompt, format)
-        : await runGemini(
-            imageBase64,
-            mimeType,
-            prompt,
-            format,
-            extraImages,
-            wornOnModel,
-            aspectRatio,
-          );
+    if (primary === "gemini") {
+      return await geminiWithOptionalRetry({
+        imageBase64,
+        mimeType,
+        prompt,
+        format,
+        extraImages,
+        wornOnModel,
+        aspectRatio,
+        attempted,
+      });
+    }
+    const out = await runOpenAI(imageBase64, mimeType, prompt, format);
     return { ...out, provider: primary, attempted };
   } catch (primaryError) {
     if (!fallback || !isFallbackWorthy(primaryError)) {

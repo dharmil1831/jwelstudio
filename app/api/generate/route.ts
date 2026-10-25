@@ -333,9 +333,10 @@ export async function POST(req: Request) {
       credits: deducted.credits,
       provider: out.provider,
       attemptedProviders: out.attempted,
-      themeUsed: Boolean(themeRef),
-      themeWarning:
-        themeId && !themeRef
+      themeUsed: Boolean(themeRef) && !out.droppedReferences,
+      themeWarning: out.droppedReferences
+        ? "Saved look could not be applied this time. This photo used your selected options."
+        : themeId && !themeRef
           ? "Theme was selected but its preview image could not be loaded. Generate used style chips only."
           : undefined,
     });
