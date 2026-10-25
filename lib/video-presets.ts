@@ -254,52 +254,6 @@ export function buildVideoPrompt(opts: {
     .join("\n");
 }
 
-/** Product-shoot clips can animate the upload. Every other type needs a matching first frame. */
-export function videoNeedsStartFrame(purpose: VideoPurposeId): boolean {
-  return purpose !== "product_shoot";
-}
-
-export function buildVideoStartFramePrompt(opts: {
-  purpose: VideoPurposeId;
-  cast: VideoCastId;
-  subject: Subject;
-}): string {
-  const model =
-    opts.purpose === "reveal"
-      ? opts.cast === "model"
-        ? `One adult model opens the box. ${subjectPromptLine(opts.subject)} Only the uploaded jewelry.`
-        : "No face. Two hands and wrists only."
-      : opts.cast === "model"
-        ? `One adult model is in frame. ${subjectPromptLine(opts.subject)} They wear only the uploaded jewelry.`
-        : "No person.";
-
-  const scene: Record<VideoPurposeId, string> = {
-    promotional:
-      "Dark champagne-to-black gradient, soft spotlight, jewelry large and centered. No flowers, no gift box, no white sweep.",
-    marketing:
-      "Warm beige stone surface, soft shadow, jewelry centered and fully visible. No white cutout, no gift box, no diyas.",
-    product_shoot: "Light grey studio surface, even light, jewelry centered.",
-    editorial:
-      "Dark fashion backdrop, one hard spotlight, deep shadow, jewelry sharp. No white sweep, no gift box.",
-    lifestyle:
-      "Daylight, linen or a ceramic tray by a window, jewelry resting there. No white sweep, no gift box.",
-    festive:
-      "Indian celebration filling the background: fresh marigold flowers, two lit clay diyas with visible flames, red or gold silk, warm amber light. No white background, no gift box.",
-    reveal:
-      opts.cast === "model"
-        ? "The model is lifting the lid of a matte charcoal jewelry box. The lid is open about thirty degrees. The uploaded jewelry is inside and already recognizable as the same piece."
-        : "Two hands lift the lid of a matte charcoal jewelry box on black velvet. No face. The lid is open about thirty degrees. The uploaded jewelry is inside and already recognizable as the same piece.",
-  };
-
-  return [
-    "Photorealistic first frame of a jewelry video.",
-    "Copy the uploaded jewelry exactly: same pieces, same stones, same metal, same proportions. Do not redesign it.",
-    model,
-    scene[opts.purpose],
-    "No text, no logo, no watermark, no letters.",
-  ].join(" ");
-}
-
 export function videoNegativePrompt(purpose: VideoPurposeId): string {
   const design =
     "redesigned jewelry, different jewelry, extra jewelry, added stones, removed stones, changed metal color, morphing jewelry, melting metal, warped stones, different stone count, invented matching set, watermark, text, logo, subtitles, letters";
