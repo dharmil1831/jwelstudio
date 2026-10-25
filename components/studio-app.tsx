@@ -24,6 +24,7 @@ import {
   VIDEO_ASPECT_IDS,
   VIDEO_ASPECT_LABELS,
   VIDEO_CAST_HINTS,
+  VIDEO_PHOTO_LOCK_NOTE,
   VIDEO_CAST_IDS,
   VIDEO_CAST_LABELS,
   VIDEO_PRESET_IDS,
@@ -1883,6 +1884,9 @@ export function StudioApp() {
                           (k) => [k, LOOK_PRESET_LABELS[k]] as const,
                         )}
                       />
+                      <p className="text-[11px] leading-relaxed text-foreground/55">
+                        {VIDEO_PHOTO_LOCK_NOTE}
+                      </p>
                     </div>
                   ) : null}
                 </div>

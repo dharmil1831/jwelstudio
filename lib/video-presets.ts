@@ -1,12 +1,7 @@
 /** Diamond-only video options: aspect, purpose, cast, and camera motion. */
 
-import { subjectPromptLine } from "@/lib/prompts";
 import { SUBJECTS, type Subject } from "@/lib/style-options";
-import {
-  parseLookPreset,
-  resolvedLookVideoLine,
-  type LookPresetId,
-} from "@/lib/look-presets";
+import type { LookPresetId } from "@/lib/look-presets";
 
 export const VIDEO_ASPECT_IDS = ["vertical", "horizontal"] as const;
 export type VideoAspectId = (typeof VIDEO_ASPECT_IDS)[number];
@@ -42,15 +37,12 @@ export const VIDEO_CAST_LABELS: Record<VideoCastId, string> = {
 
 export const VIDEO_CAST_HINTS: Record<VideoCastId, string> = {
   product: "Product clip — no person",
-  model: "Model wearing your exact piece",
+  model: "Your photo stays. A new model is not drawn, so the jewelry does not change.",
 };
 
-export const VIDEO_CAST_PROMPTS: Record<VideoCastId, string> = {
-  product:
-    "CAST: jewelry-only product video. No person, no face, no hands, no fingers, no cloth, no box, no model. The uploaded jewelry is the only subject.",
-  model:
-    "CAST: one adult wears the uploaded design once. Keep every part of that design, including the large center pendant, every hanging drop, and every colored stone, at the same size and shape as the photo. A necklace stays one necklace on the neck. Earrings stay on the ears. Do not remove the big pendant. Do not simplify the piece. Do not also leave a flat copy on the white background. Do not add a second necklace, a second pair, a tikka, bangles, or rings.",
-};
+/** Shown on the video screen. Campaign looks stay on still images. */
+export const VIDEO_PHOTO_LOCK_NOTE =
+  "Video keeps this photo. A campaign look is not used to redraw the jewelry.";
 
 export const VIDEO_PURPOSE_IDS = [
   "promotional",
@@ -80,7 +72,7 @@ export const VIDEO_PURPOSE_HINTS: Record<VideoPurposeId, string> = {
   product_shoot: "Even catalog light. The camera moves around your piece.",
   editorial: "Magazine light moves across your piece.",
   festive: "Warmer light on your full set. Nothing covers the chains or stones.",
-  lifestyle: "Softer daylight on your full set. The whole piece stays visible.",
+  lifestyle: "Softer light on this photo. The jewelry stays as uploaded.",
   reveal: "A case opens on this photo. The jewelry is not placed on a model, and the design stays as uploaded.",
 };
 
@@ -129,23 +121,23 @@ export const VIDEO_PRESET_LABELS: Record<VideoPresetId, string> = {
 
 export const VIDEO_PRESET_PROMPTS: Record<VideoPresetId, string> = {
   slow_orbit:
-    "CAMERA: A clear slow arc around the jewelry, enough that the background shifts. The jewelry design stays rigid. Do not hold a static shot.",
+    "CAMERA: a small slow arc. Do not add a person or a new background. The jewelry design stays rigid.",
   necklace_sway:
-    "CAMERA: The whole piece may rock a few degrees as one rigid object. Links, stones, and outline stay the same shape. It must not melt into a different design.",
+    "CAMERA: a small drift. Do not rock the jewelry apart and do not change its shape.",
   ring_turntable:
-    "CAMERA: If the upload is a ring, circle the ring. If it is not a ring, circle the actual uploaded piece. Do not invent a ring. Prongs, stones, and metal stay identical.",
+    "CAMERA: a small arc around the uploaded piece. Do not invent a ring. Do not add a person.",
   festive_sparkle:
-    "CAMERA: A bright reflection travels across the stones that already exist. Lamps or diya flames already in the scene may flicker. Do not add new stones or glitter shapes.",
+    "CAMERA: a small reflection across the stones that are already in the photo. Do not add stones, glitter, flowers, or a person.",
   soft_zoom:
-    "CAMERA: A slow zoom in. The end of the clip is clearly closer than the start. The jewelry design does not change.",
+    "CAMERA: a slow zoom in. The jewelry design does not change. Do not add a person.",
   hero_push:
-    "CAMERA: A steady push-in toward the jewelry, stronger than a tiny zoom. The jewelry design does not change.",
+    "CAMERA: a steady push-in. The jewelry design does not change. Do not add a person.",
   macro_glide:
-    "CAMERA: A sideways glide across the metal and stones, close enough to read the surface. Do not invent engraving or extra stones.",
+    "CAMERA: a short sideways glide. Do not invent engraving or extra stones. Do not add a person.",
   worn_turn:
-    "CAMERA: If a model is present, they turn slowly and the jewelry stays on the body. If there is no model, the camera arcs around the piece. The design does not slide into a different necklace or earring.",
+    "CAMERA: a small slow arc. Do not add a person. Do not turn the photo into a portrait.",
   portrait_move:
-    "CAMERA: A small sideways drift with a little parallax. The jewelry design does not morph.",
+    "CAMERA: a small sideways drift. Do not add a person or a new background.",
 };
 
 export function parseVideoAspect(raw: unknown): VideoAspectId {
@@ -208,57 +200,18 @@ export function buildVideoPrompt(opts: {
       ? "Frame for widescreen 16:9. Keep the jewelry fully visible. No text, watermark, logo, or overlay."
       : "Frame for vertical 9:16. Keep the jewelry fully visible in the center. No text, watermark, logo, or overlay.";
 
-  if (opts.purpose === "reveal") {
-    return [
-      VIDEO_JEWELRY_LOCK,
-      "THE PHOTOGRAPH STAYS:",
-      "The uploaded photo is the picture in every frame, from the first moment to the last.",
-      "Do not add a person, a face, hands, a model, or a new background.",
-      "Do not fade the jewelry. Do not lay a second copy over a portrait.",
-      "Do not move the jewelry onto a body. Do not redraw the pendant.",
-      "Only a very small change in light is allowed.",
-      VIDEO_PURPOSE_PROMPTS.reveal,
-      "CAMERA: hold this framing. Do not zoom into a portrait and do not orbit into a new scene.",
-      frame,
-      opts.customPrompt
-        ? `User note (never use this to change the photo or the jewelry): ${opts.customPrompt}`
-        : "",
-      VIDEO_JEWELRY_LOCK,
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  const castLines =
-    opts.cast === "model"
-      ? [VIDEO_CAST_PROMPTS.model, subjectPromptLine(opts.subject)]
-      : [VIDEO_CAST_PROMPTS.product];
-
-  const look =
-    opts.cast === "model" && opts.purpose !== "festive"
-      ? resolvedLookVideoLine({
-          look: parseLookPreset(opts.lookPreset ?? "auto"),
-          subject: opts.subject,
-          vibe: "luxury",
-          scene: opts.purpose === "lifestyle" ? "outdoor_garden" : "studio",
-        })
-      : null;
-
-  const placement =
-    opts.cast === "model"
-      ? "PLACEMENT: one model wears that same jewelry. A necklace sits on the neck. Earrings sit on the ears. The white catalog copy leaves the frame. The design stays complete."
-      : "PLACEMENT: jewelry only. Camera and light may move. No hands, cloth, or new object. Every part in the photo stays visible.";
-
   return [
     VIDEO_JEWELRY_LOCK,
-    placement,
+    "THE PHOTOGRAPH STAYS:",
+    "The uploaded photo is the picture in every frame.",
+    "Do not add a person, a couple, a bride, a groom, hands, or a new background.",
+    "Do not move the jewelry onto a body. Do not redraw any pendant, drop, stone, chain, cord, or earring.",
+    "Only camera and light may change. The jewelry design at the end matches the upload.",
     VIDEO_PURPOSE_PROMPTS[opts.purpose],
-    ...castLines,
-    look ? `${look} Wardrobe only. Do not replace the jewelry.` : "",
-    `${VIDEO_PRESET_PROMPTS[opts.preset]} This move happens around the same jewelry. It must not introduce a new design.`,
+    VIDEO_PRESET_PROMPTS[opts.preset],
     frame,
     opts.customPrompt
-      ? `User note (never use this to change or add jewelry): ${opts.customPrompt}`
+      ? `User note (never use this to change the photo or the jewelry): ${opts.customPrompt}`
       : "",
     VIDEO_JEWELRY_LOCK,
   ]
@@ -268,17 +221,11 @@ export function buildVideoPrompt(opts: {
 
 export function videoNegativePrompt(
   purpose: VideoPurposeId,
-  cast: VideoCastId = "product",
+  _cast: VideoCastId = "product",
 ): string {
-  if (purpose === "reveal") {
-    return "person, face, portrait, model, hands, fingers, cloth, fabric, velvet, box, lid, double exposure, ghost image, faded face, second copy of the jewelry, jewelry floating over a person, missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles";
-  }
-  const cover =
-    cast === "product"
-      ? "hands, fingers, cloth, fabric, velvet, box, lid, covering the jewelry, cropped chain, missing cord, missing chain, "
-      : "missing center pendant, pendant removed, smaller pendant, simplified necklace, plain chain, redesigned center, second necklace, duplicate jewelry, flat catalog copy beside the model, ";
-  const design = `${cover}missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, melting metal, added stones, removed stones, changed metal color, watermark, text, logo, subtitles`;
-  return purpose === "festive" ? `${design}, flowers on top of the jewelry, diyas covering the chain` : design;
+  const design =
+    "added person, extra face, couple, bride, groom, hands, fingers, cloth, fabric, velvet, box, lid, new background, wedding portrait, double exposure, redesigned jewelry, different jewelry, morphing jewelry, missing center pendant, pendant removed, simplified jewelry, changed stone layout, second jewelry set, watermark, text, logo, subtitles";
+  return purpose === "festive" ? `${design}, flowers on top of the jewelry` : design;
 }
 
 /** What the video model must not do. Sent separately so it is not buried in the main prompt. */
