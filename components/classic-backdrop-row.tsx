@@ -65,12 +65,12 @@ export function ClassicBackdropRow({
                 setOpen(false);
                 onSelect(choice.id);
               }}
-              className={`rounded-xl border px-0.5 py-2 text-center text-[10px] font-semibold leading-tight sm:text-[11px] ${
+              className={`min-w-0 overflow-hidden rounded-xl border px-0.5 py-2 text-center text-[10px] font-semibold leading-tight sm:text-[11px] ${
                 selected ? "border-primary bg-primary/10" : "border-primary/20 bg-white"
               }`}
             >
               <Swatch kind={choice.swatch} />
-              {choice.label}
+              <TileLabel label={choice.label} />
             </button>
           );
         })}
@@ -78,11 +78,11 @@ export function ClassicBackdropRow({
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
-          className={`rounded-xl border px-0.5 py-2 text-center text-[10px] font-semibold leading-tight sm:text-[11px] ${
+          className={`min-w-0 overflow-hidden rounded-xl border px-0.5 py-2 text-center text-[10px] font-semibold leading-tight sm:text-[11px] ${
             open || customSize ? "border-primary bg-primary/10" : "border-primary/20 bg-white"
           }`}
         >
-          <span className="mx-auto mb-1 grid h-8 w-8 place-items-center rounded-lg border border-dashed border-primary/40 bg-white text-primary">
+          <span className="mx-auto mb-1 grid h-7 w-7 place-items-center rounded-lg border border-dashed border-primary/40 bg-white text-primary">
             <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
               <path
                 d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"
@@ -93,9 +93,9 @@ export function ClassicBackdropRow({
               />
             </svg>
           </span>
-          Custom
+          <TileLabel label="Custom" />
           {customSize ? (
-            <span className="mt-0.5 block text-[9px] font-semibold text-primary">
+            <span className="mt-0.5 block w-full break-all text-[9px] font-semibold leading-tight text-primary">
               {customSize.width}×{customSize.height}
             </span>
           ) : null}
@@ -152,10 +152,23 @@ export function ClassicBackdropRow({
   );
 }
 
+function TileLabel({ label }: { label: string }) {
+  const lines = label === "Transparent" ? ["Trans", "parent"] : [label];
+  return (
+    <span className="block min-h-[2.2em] w-full overflow-hidden text-center leading-tight">
+      {lines.map((line) => (
+        <span key={line} className="block">
+          {line}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Swatch({ kind }: { kind: string }) {
   return (
     <span
-      className="mx-auto mb-1 block h-8 w-8 rounded-lg border border-black/10"
+      className="mx-auto mb-1 block h-7 w-7 rounded-lg border border-black/10"
       style={
         kind === "transparent"
           ? {
