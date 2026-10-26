@@ -13,7 +13,7 @@ export default async function GalleryPage() {
   if (!user) redirect("/login");
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-5xl px-4 py-6 pb-28 sm:px-6 lg:px-6 lg:py-16 lg:pb-16">
+      <div className="mx-auto max-w-5xl px-4 py-6 pb-10 sm:px-6 lg:px-6 lg:py-16 lg:pb-16">
         <Link href="/" className="hidden text-sm font-medium text-primary hover:text-accent lg:inline">
           ← Studio
         </Link>
@@ -25,7 +25,7 @@ export default async function GalleryPage() {
           <GalleryGrid />
         </div>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-50 lg:hidden">
+      <div data-bottom-nav className="fixed inset-x-0 bottom-0 z-50 shadow-[0_-4px_16px_rgba(76,45,120,0.10)] lg:hidden">
         <MobileStudioNav />
       </div>
     </div>

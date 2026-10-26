@@ -36,6 +36,13 @@ body {
   overflow-x: hidden;
 }
 
+/* Keep the footer clear of the fixed mobile tab bar on pages that show it. */
+@media (max-width: 1023px) {
+  body:has([data-bottom-nav]) .site-footer {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+}
+
 /* Generation preview — animated plum canvas (not a flat white box) */
 .gen-preview-base {
   background: linear-gradient(

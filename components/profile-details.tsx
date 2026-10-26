@@ -118,7 +118,7 @@ export function ProfileDetails({
   const fields: Field[] = ["name", "businessName", "email", "phone"];
 
   return (
-    <section className="mt-4 rounded-2xl border border-primary/20 bg-white/70 p-5 shadow-sm sm:p-6">
+    <section className="mt-4 rounded-2xl border border-primary/15 bg-white p-5 shadow-[0_4px_20px_rgba(76,45,120,0.08)] sm:p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground/55">
           Account details

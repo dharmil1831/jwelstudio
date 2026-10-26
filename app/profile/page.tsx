@@ -35,13 +35,13 @@ export default async function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-lg px-4 py-6 pb-28 sm:px-6 lg:py-12 lg:pb-12">
+      <div className="mx-auto max-w-lg px-4 py-6 pb-10 sm:px-6 lg:py-12">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-normal text-foreground">
           Your profile
         </h1>
         <p className="mt-1 text-sm text-foreground/65">Manage your details and credits.</p>
 
-        <section className="mt-6 rounded-2xl border border-primary/20 bg-secondary p-5 shadow-sm sm:p-6">
+        <section className="mt-6 rounded-2xl border border-primary/15 bg-secondary p-5 shadow-[0_4px_20px_rgba(76,45,120,0.08)] sm:p-6">
           <div className="flex items-center gap-4">
             <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-white">
               {initials(name || businessName || email || "JP")}
@@ -57,7 +57,7 @@ export default async function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-5 flex items-center justify-between gap-3 rounded-xl bg-white/80 px-4 py-3">
+          <div className="mt-5 flex items-center justify-between gap-3 rounded-xl bg-primary/8 px-4 py-3">
             <div>
               <p className="text-xs text-foreground/55">Credits left</p>
               <p className="text-2xl font-semibold text-foreground">{user.credits}</p>
@@ -107,7 +107,7 @@ export default async function ProfilePage() {
           .
         </p>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-50 lg:hidden">
+      <div data-bottom-nav className="fixed inset-x-0 bottom-0 z-50 shadow-[0_-4px_16px_rgba(76,45,120,0.10)] lg:hidden">
         <MobileStudioNav active="profile" />
       </div>
     </div>

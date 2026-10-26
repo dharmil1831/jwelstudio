@@ -69,14 +69,29 @@ export function ProfileActions() {
         {loggingOut ? "Logging out…" : "Log out"}
       </button>
 
-      <div className="mt-8 border-t border-primary/15 pt-6">
+      <div className="mt-6">
         {!deleteOpen ? (
           <button
             type="button"
             onClick={() => setDeleteOpen(true)}
-            className="w-full text-sm text-foreground/55 hover:text-red-700"
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white/50 px-4 py-3 text-left transition hover:border-red-200 hover:bg-red-50/60"
           >
-            Delete account
+            <span>
+              <span className="block text-sm font-medium text-foreground/75">Delete account</span>
+              <span className="block text-xs text-foreground/50">
+                Permanently remove your account and gallery
+              </span>
+            </span>
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-foreground/40" aria-hidden>
+              <path
+                d="m9 6 6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         ) : (
           <div className="rounded-xl border border-red-200 bg-red-50/60 p-4">

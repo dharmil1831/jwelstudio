@@ -79,7 +79,7 @@ export function SiteHeader({
   const credits = session?.credits;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-primary/15 bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
+    <header className="sticky top-0 z-40 w-full border-b border-primary/15 bg-background/98 pt-[env(safe-area-inset-top)] shadow-[0_2px_12px_rgba(76,45,120,0.10)] backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3">
         <Link
           href="/"

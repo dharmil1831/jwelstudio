@@ -1367,7 +1367,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 type="button"
                 disabled={loggingOut}
                 onClick={() => void logout()}
-                className="rounded-xl border border-red-200 py-3 text-sm font-semibold text-red-700 disabled:opacity-50"
+                className="rounded-xl border border-red-300 bg-white py-3 text-sm font-semibold text-red-600 shadow-sm disabled:opacity-50"
               >
                 {loggingOut ? "Logging out…" : "Log out"}
               </button>
