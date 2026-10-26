@@ -72,10 +72,7 @@ async function nativeGoogleIdToken(): Promise<string> {
     google: { webClientId: WEB_CLIENT_ID, mode: "online" },
   });
   await nativeReady;
-  const res = await SocialLogin.login({
-    provider: "google",
-    options: { scopes: ["email", "profile"] },
-  });
+  const res = await SocialLogin.login({ provider: "google", options: {} });
   const result = res.result as { idToken?: string | null };
   if (!result.idToken) throw new Error("Google did not return a sign-in token.");
   return result.idToken;
