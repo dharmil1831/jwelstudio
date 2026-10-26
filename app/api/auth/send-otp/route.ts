@@ -20,7 +20,8 @@ export async function POST(req: Request) {
   const purpose =
     purposeRaw === "reset" ||
     purposeRaw === "login" ||
-    purposeRaw === "verify_phone"
+    purposeRaw === "verify_phone" ||
+    purposeRaw === "otp_login"
       ? purposeRaw
       : "signup";
 
@@ -47,9 +48,11 @@ export async function POST(req: Request) {
         );
       }
 
-      const existing = await getUserByEmailOrPhone(phone);
+      const existing = purpose === "otp_login" ? null : await getUserByEmailOrPhone(phone);
 
-      if (purpose === "signup" || purpose === "verify_phone") {
+      if (purpose === "otp_login") {
+        // Sign in or create; no account check.
+      } else if (purpose === "signup" || purpose === "verify_phone") {
         if (purpose === "signup" && existing) {
           return NextResponse.json(
             { error: "An account with this phone already exists. Please log in." },
@@ -76,7 +79,7 @@ export async function POST(req: Request) {
         message:
           purpose === "reset"
             ? "If an account exists, a reset code was sent by SMS."
-            : purpose === "login"
+            : purpose === "login" || purpose === "otp_login"
               ? "Login code sent by SMS."
               : "Verification code sent by SMS.",
         ...(process.env.NODE_ENV !== "production" && result.devCode
@@ -118,6 +121,16 @@ export async function POST(req: Request) {
       purpose === "login" ? "reset" : purpose === "verify_phone" ? "signup" : purpose,
       normalized,
     );
+    if (purpose === "otp_login") {
+      return NextResponse.json({
+        ok: true,
+        channel: "email",
+        message: "Sign-in code sent to your email.",
+        ...(process.env.NODE_ENV !== "production" && result.devCode
+          ? { devCode: result.devCode }
+          : {}),
+      });
+    }
     return NextResponse.json({
       ok: true,
       channel: "email",

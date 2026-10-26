@@ -48,8 +48,15 @@ export default async function ProfilePage() {
           </dl>
 
           <p className="mt-6 text-xs text-foreground/55">
-            You signed up with email and password. Phone is optional. Contact support to
-            change account details.
+            Contact support to change account details. See our{" "}
+            <Link href="/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </Link>{" "}
+            and{" "}
+            <Link href="/terms" className="text-primary hover:underline">
+              Terms
+            </Link>
+            .
           </p>
 
           <div className="mt-6 flex flex-col gap-2 sm:flex-row">

@@ -1,4 +1,5 @@
 import { MarketingShowcase } from "@/components/marketing-showcase";
+import { MobileGuestHome } from "@/components/mobile-onboarding";
 import { StudioApp } from "@/components/studio-app";
 import { getHomePlaceholders } from "@/lib/home-placeholders";
 import { getSessionUser } from "@/lib/session";
@@ -10,7 +11,18 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {showMarketing && homeImages ? <MarketingShowcase images={homeImages} /> : null}
+      {showMarketing && homeImages ? (
+        <>
+          <div className="hidden lg:block">
+            <MarketingShowcase images={homeImages} />
+          </div>
+          <div className="lg:hidden">
+            <MobileGuestHome images={homeImages}>
+              <StudioApp />
+            </MobileGuestHome>
+          </div>
+        </>
+      ) : null}
       {user ? (
         <main className="mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6">
           <section className="mx-auto hidden max-w-2xl text-center lg:block">

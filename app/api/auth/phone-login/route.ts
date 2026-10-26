@@ -1,13 +1,12 @@
-import { isSuperAdminEmail } from "@/lib/admin";
 import { normalizePhone } from "@/lib/auth-utils";
+import { findOrCreateVerifiedAccount, SuperAdminSignInError } from "@/lib/auto-account";
 import { verifySmsOtp } from "@/lib/otp";
 import { setSession } from "@/lib/session";
-import { getUserByEmailOrPhone, markPhoneVerified } from "@/lib/users";
 import { NextResponse } from "next/server";
 
-/** Passwordless login with phone + SMS OTP. */
+/** Passwordless sign-in with phone + SMS OTP. Creates the account the first time. */
 export async function POST(req: Request) {
-  let body: { phone?: string; code?: string };
+  let body: { phone?: string; code?: string; purpose?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -25,7 +24,8 @@ export async function POST(req: Request) {
 
   try {
     const phone = normalizePhone(phoneRaw);
-    const ok = await verifySmsOtp("login", phone, code);
+    const purpose = body.purpose === "otp_login" ? "otp_login" : "login";
+    const ok = await verifySmsOtp(purpose, phone, code);
     if (!ok) {
       return NextResponse.json(
         { error: "Invalid or expired verification code." },
@@ -33,12 +33,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await getUserByEmailOrPhone(phone);
-    if (!user) {
-      return NextResponse.json({ error: "No account found." }, { status: 404 });
-    }
+    const user = await findOrCreateVerifiedAccount({ kind: "phone", phone });
+    await setSession(user.id, user.email);
 
-    if (await isSuperAdminEmail(user.email)) {
+    return NextResponse.json({
+      ok: true,
+      created: user.created,
+      user: { email: user.email, phone: user.phone, credits: user.credits },
+    });
+  } catch (e) {
+    if (e instanceof SuperAdminSignInError) {
       return NextResponse.json(
         {
           error:
@@ -47,15 +51,6 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
-
-    await markPhoneVerified(user.id);
-    await setSession(user.id, user.email);
-
-    return NextResponse.json({
-      ok: true,
-      user: { email: user.email, phone: user.phone, credits: user.credits },
-    });
-  } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Login failed" },
       { status: 400 },

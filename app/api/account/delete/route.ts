@@ -1,0 +1,39 @@
+import { prisma } from "@/lib/prisma";
+import { clearSession, getSessionUser } from "@/lib/session";
+import { deleteUserFiles } from "@/lib/storage";
+import { NextResponse } from "next/server";
+
+/**
+ * Permanently deletes the signed-in account: generations, saved looks, payments
+ * (cascade) and stored files. The free-credit ledger is kept so credits are not re-granted.
+ */
+export async function POST(req: Request) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+  }
+
+  let body: { confirm?: string };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    body = {};
+  }
+  if (body.confirm !== "DELETE") {
+    return NextResponse.json(
+      { error: 'Type DELETE to confirm.' },
+      { status: 400 },
+    );
+  }
+
+  try {
+    await deleteUserFiles(user.id);
+  } catch (e) {
+    console.error("[account/delete] file cleanup failed", e);
+  }
+
+  await prisma.user.delete({ where: { id: user.id } });
+  await clearSession();
+
+  return NextResponse.json({ ok: true });
+}

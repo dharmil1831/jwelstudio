@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LoginForm } from "@/components/login-form";
+import { AuthPanel } from "@/components/auth-sheet";
 
 type SessionState = {
   authenticated?: boolean;
@@ -86,5 +86,14 @@ export function LoginGate() {
     );
   }
 
-  return <LoginForm />;
+  return (
+    <div className="mx-auto max-w-md rounded-[28px] border border-primary/15 bg-white/70 p-6 shadow-lg sm:p-8">
+      <AuthPanel
+        onSignedIn={() => {
+          router.push("/#studio");
+          router.refresh();
+        }}
+      />
+    </div>
+  );
 }

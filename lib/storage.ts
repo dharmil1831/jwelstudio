@@ -4,7 +4,7 @@ import {
   getSupabaseStorageBucket,
   isSupabaseStorageConfigured,
 } from "@/lib/supabase";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 
 function uploadsDir(): string {
@@ -119,6 +119,30 @@ export async function storeThumbnail(
   const id = randomId();
   const filename = `thumb-${id}.jpg`;
   return storeImage(userId, buffer, filename, "image/jpeg");
+}
+
+/** Remove every stored file for a user (account deletion). */
+export async function deleteUserFiles(userId: string): Promise<void> {
+  if (!userId || userId.includes("/") || userId.includes("..")) return;
+  if (isSupabaseStorageConfigured()) {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return;
+    const bucket = supabase.storage.from(getSupabaseStorageBucket());
+    for (;;) {
+      const { data, error } = await bucket.list(userId, { limit: 1000 });
+      if (error) throw new Error(`Supabase Storage list failed: ${error.message}`);
+      if (!data || data.length === 0) break;
+      const { error: removeError } = await bucket.remove(
+        data.map((item) => `${userId}/${item.name}`),
+      );
+      if (removeError) {
+        throw new Error(`Supabase Storage delete failed: ${removeError.message}`);
+      }
+      if (data.length < 1000) break;
+    }
+    return;
+  }
+  await rm(path.join(uploadsDir(), userId), { recursive: true, force: true });
 }
 
 /** Resolve local upload path only (used by /api/uploads). Returns null for cloud URLs. */

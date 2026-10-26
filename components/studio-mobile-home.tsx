@@ -115,6 +115,7 @@ const TOOL_CARDS: {
 
 function profileLabel(email: string | null | undefined): string {
   if (!email?.trim()) return "Guest";
+  if (email.endsWith("@users.jwelpixel.app")) return "You";
   const local = email.split("@")[0]?.trim() || "User";
   const first = local.split(/[._-]+/).find(Boolean) || local;
   const name = first.replace(/\d+$/u, "") || first;
@@ -240,6 +241,9 @@ export type StudioMobileHomeProps = {
   onSaveTheme: () => void;
   onLeaveEditor: () => void;
   lookNotice: string | null;
+  /** Signed-out visitor: the UI works, account actions open the sign-in sheet. */
+  guest?: boolean;
+  onRequireSignIn?: (reason?: string) => void;
 };
 
 function Chip({
@@ -420,6 +424,15 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
           className="h-8 w-auto max-w-[58%] min-w-0 object-contain object-left"
         />
         <span className="min-w-2 flex-1" />
+        {props.guest ? (
+          <button
+            type="button"
+            onClick={() => props.onRequireSignIn?.()}
+            className="shrink-0 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-primary ring-1 ring-primary/25"
+          >
+            Sign in · 5 free credits
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => showScreen("profile")}
@@ -1288,6 +1301,8 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                   : "Generating…"
                 : !props.previewUrl
                   ? "Upload jewelry to generate"
+                  : props.guest
+                    ? "Generate · sign in for 5 free credits"
                   : tool === "video"
                     ? `Generate video · ${CREDIT_COST_PER_VIDEO} credits`
                     : "Generate · 1 credit"}
@@ -1295,7 +1310,38 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
           </div>
         ) : null}
 
-        {screen === "profile" ? (
+        {screen === "profile" && props.guest ? (
+          <div className="rounded-2xl border border-primary/15 bg-white p-5">
+            <h2 className="font-[family-name:var(--font-display)] text-3xl font-normal">
+              You&apos;re browsing as a guest
+            </h2>
+            <p className="mt-2 text-sm text-foreground/70">
+              Sign in to get 5 free credits. Your gallery and saved looks live in your account.
+            </p>
+            <div className="mt-6 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => props.onRequireSignIn?.()}
+                className="rounded-xl bg-primary py-3 text-center text-sm font-semibold text-white"
+              >
+                Sign in or create account
+              </button>
+              <Link href="/pricing" className="rounded-xl border border-primary/25 py-3 text-center text-sm font-semibold">
+                Pricing
+              </Link>
+              <div className="mt-2 flex justify-center gap-4 text-xs text-foreground/55">
+                <Link href="/privacy" className="hover:text-primary">
+                  Privacy
+                </Link>
+                <Link href="/terms" className="hover:text-primary">
+                  Terms
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {screen === "profile" && !props.guest ? (
           <div className="rounded-2xl border border-primary/15 bg-white p-5">
             <h2 className="font-[family-name:var(--font-display)] text-3xl font-normal">Your profile</h2>
             <p className="mt-1 text-sm font-semibold text-foreground">

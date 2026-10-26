@@ -1,6 +1,8 @@
 "use client";
 
 import { BrandMarketingPanel, EMPTY_BRAND, type BrandFormState } from "@/components/brand-marketing-panel";
+import { AuthSheet } from "@/components/auth-sheet";
+import { OPEN_SIGN_IN_EVENT } from "@/components/mobile-onboarding";
 import { StudioMobileHome } from "@/components/studio-mobile-home";
 import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { DownloadImageButton } from "@/components/download-image-button";
@@ -169,6 +171,10 @@ function isAcceptedImage(file: File): boolean {
 export function StudioApp() {
   const pathname = usePathname();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const wasAuthenticatedRef = useRef(false);
+  const [authSheet, setAuthSheet] = useState<{ open: boolean; reason?: string }>({
+    open: false,
+  });
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [generationReady, setGenerationReady] = useState<boolean | null>(null);
@@ -328,6 +334,8 @@ export function StudioApp() {
             };
           }) => {
             if (cancelled) return;
+            const signedOut = wasAuthenticatedRef.current && !d.authenticated;
+            wasAuthenticatedRef.current = Boolean(d.authenticated);
             setAuthenticated(Boolean(d.authenticated));
             setCanCustomPrompt(Boolean(d.features?.customPrompt));
             setCanBrand(Boolean(d.features?.brandOverlay));
@@ -347,11 +355,13 @@ export function StudioApp() {
               setCanThemes(false);
               setCanSelfie(false);
               setCanVideo(false);
-              setFile(null);
-              setSelfieFile(null);
-              setResultUrl(null);
-              setResultMime(null);
-              setGenerationId(null);
+              if (signedOut) {
+                setFile(null);
+                setSelfieFile(null);
+                setResultUrl(null);
+                setResultMime(null);
+                setGenerationId(null);
+              }
             }
             if (typeof d.generationConfigured === "boolean") {
               setGenerationReady(d.generationConfigured);
@@ -379,7 +389,6 @@ export function StudioApp() {
     loadSession();
 
     function onAuthChanged() {
-      setAuthenticated(null);
       loadSession();
     }
     window.addEventListener("jewel-auth-changed", onAuthChanged);
@@ -389,6 +398,12 @@ export function StudioApp() {
       window.removeEventListener("jewel-auth-changed", onAuthChanged);
     };
   }, [pathname]);
+
+  useEffect(() => {
+    const open = () => setAuthSheet({ open: true });
+    window.addEventListener(OPEN_SIGN_IN_EVENT, open);
+    return () => window.removeEventListener(OPEN_SIGN_IN_EVENT, open);
+  }, []);
 
   useEffect(() => {
     if (!file) {
@@ -1226,36 +1241,27 @@ export function StudioApp() {
   }
 
   const controlsLocked = Boolean(customPrompt.trim()) && !appliedThemeId;
+  const guest = authenticated === false;
+  const requireSignIn = (reason?: string) => setAuthSheet({ open: true, reason });
 
-  if (authenticated === null) {
-    return (
-      <div className="rounded-2xl border border-primary/20 bg-secondary/90 p-8 text-center">
-        <p className="text-sm text-foreground/55">Checking your session…</p>
-      </div>
-    );
-  }
+  const authSheetEl = (
+    <AuthSheet
+      open={authSheet.open}
+      reason={authSheet.reason}
+      onClose={() => setAuthSheet({ open: false })}
+      onSignedIn={() => {
+        setAuthSheet({ open: false });
+        setError(null);
+        setLookNotice("You're signed in. Your picks are kept — tap Generate.");
+      }}
+    />
+  );
 
-  if (authenticated === false) {
-    return (
-      <div className="rounded-2xl border border-primary/30 bg-primary/10 p-8 text-center">
-        <p className="text-foreground/80">
-          Log in to upload jewelry and generate model shots or background stills.
-        </p>
-        <Link
-          href="/login"
-          className="mt-4 inline-block rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-background"
-        >
-          Log in / Sign up
-        </Link>
-        <p className="mt-3 text-xs text-foreground/55">5 free generations for new accounts.</p>
-      </div>
-    );
-  }
-
-  return (
-    <>
+  const mobileHome = (
       <div className="fixed inset-0 z-50 lg:hidden">
         <StudioMobileHome
+          guest={guest}
+          onRequireSignIn={requireSignIn}
           credits={credits}
           userEmail={userEmail}
           previewUrl={previewUrl}
@@ -1383,13 +1389,17 @@ export function StudioApp() {
           onPickSelfie={applySelfie}
           onAddBatch={addBatchFiles}
           onSelectJob={(job) => {
-            if (job === "video" && !canVideo) {
+            if (job === "video" && !canVideo && !guest) {
               setError("Video unlocks on Diamond. See Pricing.");
               return;
             }
             selectTab(job);
           }}
           onGenerate={(job) => {
+            if (guest) {
+              requireSignIn();
+              return;
+            }
             const asVideo = job === "video" || (job == null && tab === "video");
             if (asVideo) {
               void generateVideo();
@@ -1407,9 +1417,50 @@ export function StudioApp() {
           appliedThemeId={appliedThemeId}
           onApplyTheme={applyTheme}
           onClearTheme={releaseSavedLook}
-          onSaveTheme={() => void saveCurrentResultAsTheme()}
+          onSaveTheme={() => {
+            if (guest) {
+              requireSignIn("Sign in to save looks to your account.");
+              return;
+            }
+            void saveCurrentResultAsTheme();
+          }}
         />
       </div>
+  );
+
+  if (authenticated === null) {
+    return (
+      <div className="rounded-2xl border border-primary/20 bg-secondary/90 p-8 text-center">
+        <p className="text-sm text-foreground/55">Checking your session…</p>
+      </div>
+    );
+  }
+
+  if (guest) {
+    return (
+      <>
+        {mobileHome}
+        {authSheetEl}
+        <div className="hidden rounded-2xl border border-primary/30 bg-primary/10 p-8 text-center lg:block">
+          <p className="text-foreground/80">
+            Log in to upload jewelry and generate model shots or background stills.
+          </p>
+          <Link
+            href="/login"
+            className="mt-4 inline-block rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-background"
+          >
+            Log in / Sign up
+          </Link>
+          <p className="mt-3 text-xs text-foreground/55">5 free generations for new accounts.</p>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {mobileHome}
+      {authSheetEl}
       <div className="hidden gap-8 lg:grid lg:grid-cols-[minmax(0,360px)_1fr]">
       <aside className="flex flex-col gap-5 rounded-2xl border border-primary/20 bg-secondary/95 p-6 shadow-md">
         <div className="flex items-center justify-between gap-3">
