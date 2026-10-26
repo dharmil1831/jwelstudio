@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { clearSession, getSessionUser } from "@/lib/session";
 import { deleteUserFiles } from "@/lib/storage";
+import { deleteAuthUser } from "@/lib/supabase-auth";
 import { NextResponse } from "next/server";
 
 /**
@@ -26,6 +27,11 @@ export async function POST(req: Request) {
     );
   }
 
+  const existing = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { authUserId: true },
+  });
+
   try {
     await deleteUserFiles(user.id);
   } catch (e) {
@@ -33,6 +39,13 @@ export async function POST(req: Request) {
   }
 
   await prisma.user.delete({ where: { id: user.id } });
+  if (existing?.authUserId) {
+    try {
+      await deleteAuthUser(existing.authUserId);
+    } catch (e) {
+      console.error("[account/delete] supabase user cleanup failed", e);
+    }
+  }
   await clearSession();
 
   return NextResponse.json({ ok: true });

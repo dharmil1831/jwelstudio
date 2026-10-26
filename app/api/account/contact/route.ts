@@ -8,6 +8,7 @@ import {
 } from "@/lib/otp";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, setSession } from "@/lib/session";
+import { syncAuthContact } from "@/lib/supabase-auth";
 import { NextResponse } from "next/server";
 
 type Body = {
@@ -87,8 +88,14 @@ export async function POST(req: Request) {
           channel === "email"
             ? { email: value, emailVerifiedAt: now }
             : { phone: value, phoneVerifiedAt: now },
-        select: { id: true, email: true, phone: true },
+        select: { id: true, email: true, phone: true, authUserId: true },
       });
+      if (updated.authUserId) {
+        await syncAuthContact(
+          updated.authUserId,
+          channel === "email" ? { email: updated.email } : { phone: updated.phone ?? undefined },
+        );
+      }
       if (channel === "email") await setSession(updated.id, updated.email);
       return NextResponse.json({ ok: true, email: updated.email, phone: updated.phone });
     }

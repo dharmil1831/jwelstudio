@@ -2,6 +2,7 @@ import { normalizeEmail } from "@/lib/auth-utils";
 import { findOrCreateVerifiedAccount, SuperAdminSignInError } from "@/lib/auto-account";
 import { verifyEmailOtp } from "@/lib/otp";
 import { setSession } from "@/lib/session";
+import { ensureAuthUser } from "@/lib/supabase-auth";
 import { NextResponse } from "next/server";
 
 /** Passwordless sign-in with an emailed code. Creates the account the first time. */
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
     }
 
     const user = await findOrCreateVerifiedAccount({ kind: "email", email });
+    await ensureAuthUser(user.id);
     await setSession(user.id, user.email);
 
     return NextResponse.json({

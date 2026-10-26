@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth-utils";
 import { normalizePlanId, type PlanId } from "@/lib/entitlements";
 import { isPrismaConnectivityError, prisma } from "@/lib/prisma";
+import { createSupabaseServerClient, openSupabaseSession } from "@/lib/supabase-auth";
 import { cookies } from "next/headers";
 
 const ONE_MONTH = 60 * 60 * 24 * 30;
@@ -21,7 +22,42 @@ export type SessionUser = {
   plan: PlanId;
 };
 
+function toSessionUser(user: {
+  id: string;
+  email: string;
+  phone: string | null;
+  credits: number;
+  plan: string;
+}): SessionUser {
+  return {
+    id: user.id,
+    email: user.email,
+    phone: user.phone,
+    credits: user.credits,
+    plan: normalizePlanId(user.plan),
+  };
+}
+
+async function sessionFromSupabase(): Promise<SessionUser | null> {
+  const jar = await cookies();
+  if (!jar.getAll().some((cookie) => cookie.name.startsWith("sb-"))) return null;
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return null;
+  const user = await prisma.user.findUnique({ where: { authUserId: data.user.id } });
+  if (!user) return null;
+  return toSessionUser(user);
+}
+
 export async function getSessionUser(): Promise<SessionUser | null> {
+  try {
+    const fromSupabase = await sessionFromSupabase();
+    if (fromSupabase) return fromSupabase;
+  } catch (error) {
+    if (isPrismaConnectivityError(error)) return null;
+  }
+
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -34,14 +70,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) return null;
-
-    return {
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      credits: user.credits,
-      plan: normalizePlanId(user.plan),
-    };
+    return toSessionUser(user);
   } catch (error) {
     if (isPrismaConnectivityError(error)) {
       console.error(
@@ -54,6 +83,15 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 export async function setSession(userId: string, email: string): Promise<void> {
+  const linked = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { authUserId: true, email: true },
+  });
+  if (linked?.authUserId) {
+    await openSupabaseSession(linked.email || email);
+    return;
+  }
+
   const jar = await cookies();
   jar.set(SESSION_COOKIE, createSessionToken(userId, email), {
     httpOnly: true,
@@ -65,6 +103,8 @@ export async function setSession(userId: string, email: string): Promise<void> {
 }
 
 export async function clearSession(): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  if (supabase) await supabase.auth.signOut().catch(() => {});
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
   jar.delete(SIGNUP_COOKIE);

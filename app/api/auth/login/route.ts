@@ -1,6 +1,7 @@
 import { isSuperAdminEmail } from "@/lib/admin";
 import { normalizeEmail } from "@/lib/auth-utils";
 import { setSession } from "@/lib/session";
+import { ensureAuthUser, signInWithPasswordSession, syncAuthPassword } from "@/lib/supabase-auth";
 import { verifyUserPassword } from "@/lib/users";
 import { NextResponse } from "next/server";
 
@@ -41,7 +42,13 @@ export async function POST(req: Request) {
       );
     }
 
-    await setSession(user.id, normalizeEmail(user.email));
+    const authUserId = await ensureAuthUser(user.id);
+    if (authUserId) {
+      await syncAuthPassword(authUserId, password);
+      await signInWithPasswordSession(user.email, password);
+    } else {
+      await setSession(user.id, normalizeEmail(user.email));
+    }
 
     return NextResponse.json({
       ok: true,

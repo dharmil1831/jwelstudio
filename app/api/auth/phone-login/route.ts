@@ -2,6 +2,7 @@ import { normalizePhone } from "@/lib/auth-utils";
 import { findOrCreateVerifiedAccount, SuperAdminSignInError } from "@/lib/auto-account";
 import { verifySmsOtp } from "@/lib/otp";
 import { setSession } from "@/lib/session";
+import { ensureAuthUser } from "@/lib/supabase-auth";
 import { NextResponse } from "next/server";
 
 /** Passwordless sign-in with phone + SMS OTP. Creates the account the first time. */
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
     }
 
     const user = await findOrCreateVerifiedAccount({ kind: "phone", phone });
+    await ensureAuthUser(user.id);
     await setSession(user.id, user.email);
 
     return NextResponse.json({

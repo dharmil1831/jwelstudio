@@ -1,6 +1,8 @@
 import { normalizeEmail, normalizePhone } from "@/lib/auth-utils";
 import { verifyEmailOtp, verifySmsOtp } from "@/lib/otp";
 import { validatePasswordStrength } from "@/lib/password";
+import { syncAuthPassword } from "@/lib/supabase-auth";
+import { prisma } from "@/lib/prisma";
 import { updateUserPassword, updateUserPasswordByPhone } from "@/lib/users";
 import { NextResponse } from "next/server";
 
@@ -48,6 +50,11 @@ export async function POST(req: Request) {
       if (!updated) {
         return NextResponse.json({ error: "No account found." }, { status: 404 });
       }
+      const row = await prisma.user.findUnique({
+        where: { phone },
+        select: { authUserId: true },
+      });
+      if (row?.authUserId) await syncAuthPassword(row.authUserId, password);
       return NextResponse.json({
         ok: true,
         message: "Password updated. You can log in now.",
@@ -74,6 +81,11 @@ export async function POST(req: Request) {
     if (!updated) {
       return NextResponse.json({ error: "No account found." }, { status: 404 });
     }
+    const row = await prisma.user.findUnique({
+      where: { email },
+      select: { authUserId: true },
+    });
+    if (row?.authUserId) await syncAuthPassword(row.authUserId, password);
 
     return NextResponse.json({
       ok: true,

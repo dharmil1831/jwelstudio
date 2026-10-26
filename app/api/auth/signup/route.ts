@@ -5,7 +5,7 @@ import {
   recordIdentityFreeGrant,
 } from "@/lib/identity";
 import { validatePasswordStrength } from "@/lib/password";
-import { setSession } from "@/lib/session";
+import { ensureAuthUser, signInWithPasswordSession, syncAuthPassword } from "@/lib/supabase-auth";
 import { createUser } from "@/lib/users";
 import { NextResponse } from "next/server";
 
@@ -48,7 +48,10 @@ export async function POST(req: Request) {
     await recordIdentityFreeGrant(email, phone);
     const user = await createUser(email, password, phone);
     const normalized = normalizeEmail(email);
-    await setSession(user.id, normalized);
+    const authUserId = await ensureAuthUser(user.id);
+    if (!authUserId) throw new Error("Could not create the login.");
+    await syncAuthPassword(authUserId, password);
+    await signInWithPasswordSession(normalized, password);
 
     return NextResponse.json({
       ok: true,

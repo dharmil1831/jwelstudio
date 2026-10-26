@@ -19,6 +19,8 @@ model User {
   phoneVerifiedAt DateTime?
   /// First time this email was confirmed by Google sign-in.
   googleVerifiedAt DateTime?
+  /// Supabase Auth user id. Null until the account is imported or signs up.
+  authUserId       String?   @unique
   credits         Int          @default(5)
   /// free | silver | gold | platinum | diamond
   plan            String       @default("free")

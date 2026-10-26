@@ -1,6 +1,7 @@
 import { findOrCreateVerifiedAccount, SuperAdminSignInError } from "@/lib/auto-account";
 import { prisma } from "@/lib/prisma";
 import { setSession } from "@/lib/session";
+import { ensureAuthUser, signInWithGoogleToken } from "@/lib/supabase-auth";
 import { OAuth2Client } from "google-auth-library";
 import { NextResponse } from "next/server";
 
@@ -61,11 +62,13 @@ export async function POST(req: Request) {
 
   try {
     const user = await findOrCreateVerifiedAccount({ kind: "email", email });
+    await ensureAuthUser(user.id);
     await prisma.user.updateMany({
       where: { id: user.id, googleVerifiedAt: null },
       data: { googleVerifiedAt: new Date() },
     });
-    await setSession(user.id, user.email);
+    const linked = await signInWithGoogleToken(idToken);
+    if (!linked) await setSession(user.id, user.email);
     return NextResponse.json({
       ok: true,
       created: user.created,
