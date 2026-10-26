@@ -81,7 +81,7 @@ export default async function ProfilePage() {
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Link
             href="/#studio"
-            className="rounded-xl bg-primary py-3 text-center text-sm font-semibold text-white hover:bg-accent hover:text-foreground"
+            className="rounded-xl border border-primary bg-primary py-3 text-center text-sm font-semibold text-white hover:bg-accent hover:text-foreground"
           >
             Open studio
           </Link>
