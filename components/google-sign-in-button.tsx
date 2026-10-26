@@ -166,9 +166,16 @@ export function GoogleSignInButton({
   if (!native) {
     return (
       <div className="relative min-h-[44px] w-full">
-        <div ref={gisSlot} className="flex w-full justify-center" />
+        <div
+          ref={gisSlot}
+          className={`flex w-full justify-center ${busy ? "invisible" : ""}`}
+        />
         {busy ? (
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-white/80 text-sm text-[#4a3f5c]">
+          <div
+            role="status"
+            className="absolute inset-0 flex items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140]"
+          >
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
             Signing in…
           </div>
         ) : null}
@@ -188,13 +195,21 @@ export function GoogleSignInButton({
           .catch((e: unknown) => {
             const message = e instanceof Error ? e.message : "";
             if (/cancel/i.test(message)) return;
+            if (/not implemented/i.test(message)) {
+              onError("Please update the Jwelpixel app to sign in with Google.");
+              return;
+            }
             onError(message || "Google sign-in failed.");
           })
           .finally(() => setBusy(false));
       }}
       className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:opacity-60"
     >
-      <GoogleMark />
+      {busy ? (
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
+      ) : (
+        <GoogleMark />
+      )}
       {busy ? "Signing in…" : "Continue with Google"}
     </button>
   );
