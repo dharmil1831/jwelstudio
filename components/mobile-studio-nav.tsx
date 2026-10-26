@@ -19,7 +19,7 @@ export function MobileStudioNav({
   onSelect?: (id: StudioScreen) => void;
 }) {
   return (
-    <nav className="grid grid-cols-4 gap-1 border-t border-primary/15 bg-white px-1 py-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))]">
+    <nav className="relative z-10 grid grid-cols-4 gap-1 border-t border-primary/15 bg-white px-1 py-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(76,45,120,0.10)]">
       {ITEMS.map((item) => {
         const selected = active === item.id;
         const className = `flex flex-col items-center gap-0.5 rounded-2xl px-1 py-2 text-[10px] font-bold ${

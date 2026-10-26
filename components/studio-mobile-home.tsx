@@ -417,7 +417,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background font-sans text-foreground">
-      <header className="flex items-center gap-2 px-4 pb-1 pt-3">
+      <header className="relative z-10 flex items-center gap-2 border-b border-primary/15 bg-background px-4 pb-2.5 pt-3 shadow-[0_2px_12px_rgba(76,45,120,0.10)]">
         <img
           src="/brand/jwelpixel-logo-v4.png"
           alt="Jwelpixel"
@@ -445,7 +445,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
         {screen === "home" ? (
           <>
             <div className="mb-3 flex flex-wrap gap-1.5">

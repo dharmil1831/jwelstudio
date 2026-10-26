@@ -25,7 +25,7 @@ export default async function GalleryPage() {
           <GalleryGrid />
         </div>
       </div>
-      <div data-bottom-nav className="fixed inset-x-0 bottom-0 z-50 shadow-[0_-4px_16px_rgba(76,45,120,0.10)] lg:hidden">
+      <div data-bottom-nav className="fixed inset-x-0 bottom-0 z-50 lg:hidden">
         <MobileStudioNav />
       </div>
     </div>
