@@ -15,7 +15,13 @@ const RESEND_COOLDOWN_MS = 45 * 1000;
 const MAX_SMS_PER_PHONE_PER_DAY = 10;
 
 /** otp_login signs in or creates the account, so the code is sent whether or not it exists. */
-export type OtpPurpose = "signup" | "reset" | "login" | "verify_phone" | "otp_login";
+export type OtpPurpose =
+  | "signup"
+  | "reset"
+  | "login"
+  | "verify_phone"
+  | "otp_login"
+  | "change_contact";
 export type OtpChannel = "email" | "sms";
 
 function startOfUtcDay(): Date {
