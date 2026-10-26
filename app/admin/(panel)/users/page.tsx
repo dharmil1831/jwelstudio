@@ -4,10 +4,18 @@ import { getSuperAdminEmail } from "@/lib/admin";
 import { normalizeEmail } from "@/lib/auth-utils";
 import { listAdminUsers } from "@/lib/admin-data";
 import { normalizePlanId, PLAN_LABELS } from "@/lib/entitlements";
+import { prisma } from "@/lib/prisma";
 
 export default async function AdminUsersPage() {
-  const users = await listAdminUsers(500);
-  const superAdminEmail = await getSuperAdminEmail();
+  const [users, superAdminEmail, googleRows] = await Promise.all([
+    listAdminUsers(500),
+    getSuperAdminEmail(),
+    prisma.user.findMany({
+      where: { googleVerifiedAt: { not: null } },
+      select: { id: true, googleVerifiedAt: true },
+    }),
+  ]);
+  const googleVerified = new Map(googleRows.map((r) => [r.id, r.googleVerifiedAt]));
 
   return (
     <div>
@@ -47,6 +55,14 @@ export default async function AdminUsersPage() {
                     {superAdmin ? (
                       <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-primary">
                         Super admin
+                      </span>
+                    ) : null}
+                    {googleVerified.get(u.id) ? (
+                      <span
+                        title={`Verified by Google on ${googleVerified.get(u.id)!.toLocaleDateString("en-IN")}`}
+                        className="mt-1 block w-fit rounded-full bg-[#e8f0fe] px-2 py-0.5 text-[10px] font-semibold text-[#1a56db]"
+                      >
+                        Google
                       </span>
                     ) : null}
                   </td>

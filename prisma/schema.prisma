@@ -17,6 +17,8 @@ model User {
   passwordHash    String
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
+  /// First time this email was confirmed by Google sign-in.
+  googleVerifiedAt DateTime?
   credits         Int          @default(5)
   /// free | silver | gold | platinum | diamond
   plan            String       @default("free")
