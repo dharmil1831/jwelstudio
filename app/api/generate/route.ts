@@ -29,6 +29,7 @@ import {
   deductCredits,
   refundCredits,
 } from "@/lib/users";
+import { fetchModelTemplateAsExtra } from "@/lib/model-templates";
 import { toUserFacingError } from "@/lib/user-facing-error";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
@@ -193,10 +194,32 @@ export async function POST(req: Request) {
   const themeId =
     typeof json.themeId === "string" ? json.themeId.trim().slice(0, 64) : "";
 
-  const themeRef =
+  const modelTemplateId =
+    typeof json.modelTemplateId === "string"
+      ? json.modelTemplateId.trim().slice(0, 64)
+      : "";
+  if (modelTemplateId && !canUseFeature(user.plan, "modelTemplates")) {
+    return NextResponse.json(
+      { error: "Model templates are available on paid plans. Upgrade on Pricing." },
+      { status: 403 },
+    );
+  }
+
+  const savedThemeRef =
     themeId && canUseFeature(user.plan, "themes")
       ? await fetchThemePreviewAsExtra(user.id, themeId)
       : null;
+  const templateRef =
+    !savedThemeRef && !selfie && modelTemplateId && style.mode === "model"
+      ? await fetchModelTemplateAsExtra(modelTemplateId)
+      : null;
+  if (modelTemplateId && style.mode === "model" && !savedThemeRef && !selfie && !templateRef) {
+    return NextResponse.json(
+      { error: "This model template is no longer available. Pick another one." },
+      { status: 400 },
+    );
+  }
+  const themeRef = savedThemeRef ?? templateRef;
 
   const backgroundLockId =
     typeof json.backgroundLockGenerationId === "string"
@@ -335,7 +358,9 @@ export async function POST(req: Request) {
       attemptedProviders: out.attempted,
       themeUsed: Boolean(themeRef) && !out.droppedReferences,
       themeWarning: out.droppedReferences
-        ? "Saved look could not be applied this time. This photo used your selected options."
+        ? templateRef
+          ? "Model template could not be applied this time. This photo used your selected options."
+          : "Saved look could not be applied this time. This photo used your selected options."
         : themeId && !themeRef
           ? "Theme was selected but its preview image could not be loaded. Generate used style chips only."
           : undefined,

@@ -41,6 +41,21 @@ model Theme {
   @@index([userId, createdAt(sort: Desc)])
 }
 
+/// Admin-curated model photo; paid users regenerate the same person wearing their jewelry.
+model ModelTemplate {
+  id                 String   @id @default(cuid())
+  /// bridal | everyday | western | men | couple | hands
+  category           String
+  description        String?
+  imageUrl           String
+  sourceGenerationId String?
+  sortOrder          Int      @default(0)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  @@index([active, sortOrder])
+}
+
 model Generation {
   id          String   @id @default(cuid())
   userId      String

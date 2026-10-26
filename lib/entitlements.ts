@@ -29,6 +29,7 @@ export const FEATURES = [
   "themes",
   "selfieTryOn",
   "videoGeneration",
+  "modelTemplates",
 ] as const;
 
 export type FeatureId = (typeof FEATURES)[number];
@@ -52,6 +53,7 @@ const FEATURE_MIN_PLAN: Record<FeatureId, PlanId> = {
   themes: "platinum",
   selfieTryOn: "platinum",
   videoGeneration: "diamond",
+  modelTemplates: "silver",
 };
 
 export function normalizePlanId(raw: unknown): PlanId {
@@ -110,6 +112,7 @@ export const PLAN_FEATURE_BULLETS: Record<PaidPlanId, string[]> = {
     "WhatsApp & Instagram formats",
     "Download-ready exports",
     "Expanded model & scene options",
+    "Model templates (same model, your jewelry)",
   ],
   gold: [
     "Everything in Silver",

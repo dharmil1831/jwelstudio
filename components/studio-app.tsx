@@ -12,6 +12,8 @@ import { renderBrandedVideo, videoLengthLabel } from "@/lib/brand-video";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ShareImageButton } from "@/components/share-image-button";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
+import { ModelTemplatePicker } from "@/components/model-template-picker";
+import type { PublicModelTemplate } from "@/lib/model-template-categories";
 import { prepareImageForUpload } from "@/lib/image-resize";
 import { downloadFilename } from "@/lib/download-image";
 import { finishProductImage } from "@/lib/product-finish";
@@ -218,6 +220,8 @@ export function StudioApp() {
   const brandedUrlRef = useRef<string | null>(null);
   const [appliedThemeId, setAppliedThemeId] = useState<string | null>(null);
   const appliedThemeIdRef = useRef<string | null>(null);
+  const [canModelTemplates, setCanModelTemplates] = useState(false);
+  const [modelTemplateId, setModelTemplateId] = useState<string | null>(null);
   const themePromptRef = useRef<string | null>(null);
   const tabRef = useRef<StudioTab>("model");
   const savingThemeRef = useRef(false);
@@ -331,6 +335,7 @@ export function StudioApp() {
               themes?: boolean;
               selfieTryOn?: boolean;
               videoGeneration?: boolean;
+              modelTemplates?: boolean;
             };
           }) => {
             if (cancelled) return;
@@ -342,6 +347,7 @@ export function StudioApp() {
             setCanThemes(Boolean(d.features?.themes));
             setCanSelfie(Boolean(d.features?.selfieTryOn));
             setCanVideo(Boolean(d.features?.videoGeneration));
+            setCanModelTemplates(Boolean(d.features?.modelTemplates));
             if (d.authenticated && typeof d.credits === "number") {
               setCredits(d.credits);
               setUserEmail(
@@ -355,6 +361,8 @@ export function StudioApp() {
               setCanThemes(false);
               setCanSelfie(false);
               setCanVideo(false);
+              setCanModelTemplates(false);
+              setModelTemplateId(null);
               if (signedOut) {
                 setFile(null);
                 setSelfieFile(null);
@@ -378,6 +386,8 @@ export function StudioApp() {
           setCanThemes(false);
           setCanSelfie(false);
           setCanVideo(false);
+          setCanModelTemplates(false);
+          setModelTemplateId(null);
           setGenerationReady(null);
           setFile(null);
           setSelfieFile(null);
@@ -562,6 +572,14 @@ export function StudioApp() {
     if (announce) setLookNotice("Look turned off. Options are back to normal.");
   }, []);
 
+  const selectModelTemplate = useCallback(
+    (template: PublicModelTemplate | null) => {
+      if (template) releaseSavedLook(false);
+      setModelTemplateId(template?.id ?? null);
+    },
+    [releaseSavedLook],
+  );
+
   const leaveEditor = useCallback(() => {
     releaseSavedLook(false);
     setLookNotice(null);
@@ -598,6 +616,7 @@ export function StudioApp() {
     appliedThemeIdRef.current = theme.id;
     themePromptRef.current = style.customPrompt?.trim() ? style.customPrompt : null;
     setAppliedThemeId(theme.id);
+    setModelTemplateId(null);
     setTab((current) => {
       const next = current === "batch" ? current : style.mode;
       tabRef.current = next;
@@ -792,6 +811,14 @@ export function StudioApp() {
           selfieBase64,
           selfieMimeType,
           themeId: appliedThemeIdRef.current || undefined,
+          modelTemplateId:
+            useMode === "model" &&
+            !selfieBase64 &&
+            !appliedThemeIdRef.current &&
+            canModelTemplates &&
+            modelTemplateId
+              ? modelTemplateId
+              : undefined,
         }),
         signal: controller.signal,
       });
@@ -842,6 +869,8 @@ export function StudioApp() {
     customPrompt,
     brand,
     releaseSavedLook,
+    canModelTemplates,
+    modelTemplateId,
   ]);
 
   const runBatchIds = useCallback(
@@ -1417,6 +1446,9 @@ export function StudioApp() {
           appliedThemeId={appliedThemeId}
           onApplyTheme={applyTheme}
           onClearTheme={releaseSavedLook}
+          canModelTemplates={canModelTemplates}
+          modelTemplateId={modelTemplateId}
+          onModelTemplate={selectModelTemplate}
           onSaveTheme={() => {
             if (guest) {
               requireSignIn("Sign in to save looks to your account.");
@@ -2116,6 +2148,19 @@ export function StudioApp() {
                 Your photo is the model; only jewelry placement &amp; format matter.
               </p>
             ) : (
+              <ModelTemplatePicker
+                selectedId={modelTemplateId}
+                onSelect={selectModelTemplate}
+                canUse={canModelTemplates}
+                signedIn={!guest}
+              />
+            )}
+            {selfieFile ? null : modelTemplateId ? (
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
+                Model template is on. Model type, campaign look and shot come from the template.
+                Placement, format and brand still apply.
+              </p>
+            ) : (
               <>
                 {appliedThemeId ? (
                   <p className="rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
@@ -2294,6 +2339,7 @@ export function StudioApp() {
               </p>
             )}
             {!selfieFile &&
+            !(mode === "model" && tab !== "batch" && modelTemplateId) &&
             (tab === "batch"
               ? festivalSelected(brand) || batchBackdropMode === "scene"
               : true) ? (
@@ -2370,7 +2416,9 @@ export function StudioApp() {
                   ? "Generate with applied theme"
                   : mode === "background"
                     ? "Generate background"
-                    : "Generate model shot"}
+                    : modelTemplateId && !selfieFile
+                      ? "Generate with this model"
+                      : "Generate model shot"}
         </button>
         {batchItems.length > 0 && tab !== "video" && batchRunning ? (
           <button

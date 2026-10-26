@@ -11,6 +11,8 @@ import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fi
 import { videoLengthLabel } from "@/lib/brand-video";
 import { VideoIdlePreview } from "@/components/video-idle-preview";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
+import { ModelTemplatePicker } from "@/components/model-template-picker";
+import type { PublicModelTemplate } from "@/lib/model-template-categories";
 import {
   LOOK_PRESET_HINTS,
   LOOK_PRESET_IDS,
@@ -238,6 +240,9 @@ export type StudioMobileHomeProps = {
   appliedThemeId: string | null;
   onApplyTheme: (theme: ThemeListItem, style: ThemeStyleSnapshot) => void;
   onClearTheme: () => void;
+  canModelTemplates: boolean;
+  modelTemplateId: string | null;
+  onModelTemplate: (template: PublicModelTemplate | null) => void;
   onSaveTheme: () => void;
   onLeaveEditor: () => void;
   lookNotice: string | null;
@@ -909,6 +914,18 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                       Selfie uploaded — your photo is the model. Placement, scene, mood, and format still apply.
                     </p>
                   ) : (
+                    <ModelTemplatePicker
+                      selectedId={props.modelTemplateId}
+                      onSelect={props.onModelTemplate}
+                      canUse={props.canModelTemplates}
+                      signedIn={!props.guest}
+                    />
+                  )}
+                  {props.selfiePreviewUrl ? null : props.modelTemplateId ? (
+                    <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
+                      Model template is on. Model type, campaign look and shot come from the template. Placement, format and brand still apply.
+                    </p>
+                  ) : (
                     <>
                       {props.appliedThemeId ? (
                         <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
@@ -950,22 +967,26 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     onChange={props.onPlacement}
                     disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
                   />
-                  <Chips
-                    label="Scene"
-                    value={props.scene}
-                    options={SCENES}
-                    labels={SCENE_LABELS}
-                    onChange={props.onScene}
-                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
-                  />
-                  <Chips
-                    label="Mood"
-                    value={props.vibe}
-                    options={VIBES}
-                    labels={VIBE_LABELS}
-                    onChange={props.onVibe}
-                    disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
-                  />
+                  {props.modelTemplateId && !props.selfiePreviewUrl ? null : (
+                    <>
+                      <Chips
+                        label="Scene"
+                        value={props.scene}
+                        options={SCENES}
+                        labels={SCENE_LABELS}
+                        onChange={props.onScene}
+                        disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
+                      />
+                      <Chips
+                        label="Mood"
+                        value={props.vibe}
+                        options={VIBES}
+                        labels={VIBE_LABELS}
+                        onChange={props.onVibe}
+                        disabled={Boolean(props.customPrompt.trim()) && !props.appliedThemeId}
+                      />
+                    </>
+                  )}
                   <Chips
                     label="Output format"
                     value={props.format}
@@ -1305,7 +1326,9 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     ? "Generate · sign in for 5 free credits"
                   : tool === "video"
                     ? `Generate video · ${CREDIT_COST_PER_VIDEO} credits`
-                    : "Generate · 1 credit"}
+                    : tool === "model" && props.modelTemplateId && !props.selfiePreviewUrl
+                      ? "Generate with this model · 1 credit"
+                      : "Generate · 1 credit"}
             </button>
           </div>
         ) : null}
