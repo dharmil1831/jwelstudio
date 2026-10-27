@@ -262,27 +262,40 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <button
-        type="button"
-        disabled={!ready || busy}
-        onClick={() => {
-          if (!ready || !clientRef.current) return;
+      <a
+        href="#google-sign-in"
+        target="_blank"
+        rel="opener"
+        aria-disabled={!ready || undefined}
+        onClick={(event) => {
+          if (!ready || !clientRef.current) {
+            event.preventDefault();
+            return;
+          }
           const url = captureGoogleUrl(clientRef.current);
           if (!url) {
+            event.preventDefault();
             onError("Google sign-in didn't start. Try again.");
             return;
           }
           settledRef.current = false;
           const popup = window.open(url, `jwelpixel_google_${Date.now()}`, googlePopupFeatures());
-          if (!popup) return;
-          popup.focus();
+          const link = event.currentTarget;
+          if (popup && popup.closed !== true) {
+            event.preventDefault();
+            popup.focus();
+          } else {
+            link.href = url;
+            link.target = "_blank";
+            link.rel = "opener";
+          }
           if (waitRef.current) window.clearTimeout(waitRef.current);
           waitRef.current = window.setTimeout(() => {
             if (!settledRef.current) setBusy(false);
           }, 180_000);
-          setBusy(true);
+          window.setTimeout(() => setBusy(true), 0);
         }}
-        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:cursor-default disabled:opacity-60"
+        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] aria-disabled:pointer-events-none aria-disabled:opacity-60"
       >
         {busy ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
@@ -290,7 +303,7 @@ export function GoogleSignInButton({
           <GoogleMark />
         )}
         {busy ? "Signing in…" : "Continue with Google"}
-      </button>
+      </a>
     );
   }
 
