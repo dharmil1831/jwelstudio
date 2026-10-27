@@ -96,12 +96,15 @@ function googleFailure(type?: string): string | null {
   return "Google sign-in was cancelled.";
 }
 
+const GOOGLE_POPUP_NAME = "jwelpixel_google";
+
 function googlePopupFeatures(): string {
   const width = 480;
   const height = 640;
   const left = Math.max(0, Math.round((window.screen.width - width) / 2));
   const top = Math.max(0, Math.round((window.screen.height - height) / 2));
   return [
+    "popup=yes",
     "toolbar=no",
     "location=no",
     "status=no",
@@ -164,6 +167,7 @@ export function GoogleSignInButton({
     () => false,
   );
   const clientRef = useRef<TokenClient | null>(null);
+  const googleUrlRef = useRef<string | null>(null);
   const settledRef = useRef(false);
   const waitRef = useRef<number | null>(null);
   const handlers = useRef({ onSignedIn, onError });
@@ -262,32 +266,29 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <a
-        href="#google-sign-in"
-        target="_blank"
-        rel="opener"
-        aria-disabled={!ready || undefined}
-        onClick={(event) => {
-          if (!ready || !clientRef.current) {
-            event.preventDefault();
-            return;
-          }
-          const url = captureGoogleUrl(clientRef.current);
+      <button
+        type="button"
+        disabled={!ready || busy}
+        onPointerDown={() => {
+          if (!ready || !clientRef.current || googleUrlRef.current) return;
+          googleUrlRef.current = captureGoogleUrl(clientRef.current);
+        }}
+        onClick={() => {
+          if (!ready || !clientRef.current) return;
+          const url = googleUrlRef.current ?? captureGoogleUrl(clientRef.current);
           if (!url) {
-            event.preventDefault();
             onError("Google sign-in didn't start. Try again.");
             return;
           }
+          googleUrlRef.current = url;
+          const popup = window.open(url, GOOGLE_POPUP_NAME, googlePopupFeatures());
+          if (!popup) return;
+          googleUrlRef.current = null;
           settledRef.current = false;
-          const popup = window.open(url, `jwelpixel_google_${Date.now()}`, googlePopupFeatures());
-          const link = event.currentTarget;
-          if (popup && popup.closed !== true) {
-            event.preventDefault();
+          try {
             popup.focus();
-          } else {
-            link.href = url;
-            link.target = "_blank";
-            link.rel = "opener";
+          } catch {
+            /* The popup is already open. */
           }
           if (waitRef.current) window.clearTimeout(waitRef.current);
           waitRef.current = window.setTimeout(() => {
@@ -295,7 +296,7 @@ export function GoogleSignInButton({
           }, 180_000);
           window.setTimeout(() => setBusy(true), 0);
         }}
-        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] aria-disabled:pointer-events-none aria-disabled:opacity-60"
+        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:cursor-default disabled:opacity-60"
       >
         {busy ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
@@ -303,7 +304,7 @@ export function GoogleSignInButton({
           <GoogleMark />
         )}
         {busy ? "Signing in…" : "Continue with Google"}
-      </a>
+      </button>
     );
   }
 
