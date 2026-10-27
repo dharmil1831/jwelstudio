@@ -367,7 +367,7 @@ export function AuthPanel({
           <button
             type="button"
             onClick={() => openView("password")}
-            className="w-full text-sm font-medium text-primary"
+            className="h-12 w-full rounded-full border-2 border-primary/40 bg-white text-sm font-semibold text-primary"
           >
             Use the password you set
           </button>
@@ -488,17 +488,22 @@ export function AuthPanel({
         <button
           type="button"
           onClick={() => openView("return")}
-          className="w-full text-sm text-foreground/60 underline-offset-2 hover:underline"
+          className="w-full rounded-2xl border-2 border-primary bg-white px-4 py-3 text-center shadow-sm"
         >
-          Already signed in before? Use Gmail, email, or password
+          <span className="block text-sm font-semibold text-primary">
+            Already signed in before?
+          </span>
+          <span className="mt-0.5 block text-xs font-medium text-foreground/70">
+            Use Gmail, email, or password
+          </span>
         </button>
       ) : (
         <button
           type="button"
           onClick={() => openView("phone")}
-          className="w-full text-sm font-medium text-primary"
+          className="h-12 w-full rounded-full border-2 border-primary/40 bg-white text-sm font-semibold text-primary"
         >
-          ← First time? Use your phone number
+          First time? Use your phone number
         </button>
       )}
 
