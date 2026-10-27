@@ -96,8 +96,6 @@ function googleFailure(type?: string): string | null {
   return "Google sign-in was cancelled.";
 }
 
-const GOOGLE_POPUP_NAME = "jwelpixel_google";
-
 function googlePopupFeatures(): string {
   const width = 480;
   const height = 640;
@@ -105,12 +103,6 @@ function googlePopupFeatures(): string {
   const top = Math.max(0, Math.round((window.screen.height - height) / 2));
   return [
     "popup=yes",
-    "toolbar=no",
-    "location=no",
-    "status=no",
-    "menubar=no",
-    "scrollbars=yes",
-    "resizable=yes",
     `width=${width}`,
     `height=${height}`,
     `left=${left}`,
@@ -167,7 +159,6 @@ export function GoogleSignInButton({
     () => false,
   );
   const clientRef = useRef<TokenClient | null>(null);
-  const googleUrlRef = useRef<string | null>(null);
   const settledRef = useRef(false);
   const waitRef = useRef<number | null>(null);
   const handlers = useRef({ onSignedIn, onError });
@@ -269,23 +260,23 @@ export function GoogleSignInButton({
       <button
         type="button"
         disabled={!ready || busy}
-        onPointerDown={() => {
-          if (!ready || !clientRef.current || googleUrlRef.current) return;
-          googleUrlRef.current = captureGoogleUrl(clientRef.current);
-        }}
         onClick={() => {
           if (!ready || !clientRef.current) return;
-          const url = googleUrlRef.current ?? captureGoogleUrl(clientRef.current);
-          if (!url) {
-            onError("Google sign-in didn't start. Try again.");
+          // Chrome only allows this window if it is the first thing the click does.
+          const popup = window.open(
+            "about:blank",
+            `jwelpixel_google_${Date.now()}`,
+            googlePopupFeatures(),
+          );
+          const url = captureGoogleUrl(clientRef.current);
+          if (!popup || !url) {
+            if (popup && popup.closed !== true) popup.close();
+            if (!url) onError("Google sign-in didn't start. Try again.");
             return;
           }
-          googleUrlRef.current = url;
-          const popup = window.open(url, GOOGLE_POPUP_NAME, googlePopupFeatures());
-          if (!popup) return;
-          googleUrlRef.current = null;
           settledRef.current = false;
           try {
+            popup.location.replace(url);
             popup.focus();
           } catch {
             /* The popup is already open. */
