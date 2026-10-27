@@ -93,9 +93,39 @@ async function nativeGoogleIdToken(): Promise<string> {
 function googleFailure(type?: string): string | null {
   if (type === "popup_closed") return null;
   if (type === "popup_failed_to_open") {
-    return "Your browser blocked the Google window. Allow popups for this site, then try again.";
+    return "Google sign-in didn't open. Use email or the password you set.";
   }
   return "Google sign-in was cancelled.";
+}
+
+const FEDCM_CONFIG = "https://accounts.google.com/gsi/fedcm.json";
+
+type FedCmCredential = Credential & { token?: string };
+
+/** Chrome's account chooser. It is not a popup, so the popup blocker cannot stop it. */
+function startGoogleChooser(): Promise<string> {
+  const get = navigator.credentials?.get?.bind(navigator.credentials);
+  if (!get) return Promise.reject(new DOMException("FedCM unavailable", "NotSupportedError"));
+  return get({
+    identity: {
+      context: "signin",
+      mode: "active",
+      providers: [{ configURL: FEDCM_CONFIG, clientId: WEB_CLIENT_ID }],
+    },
+  } as CredentialRequestOptions).then((cred) => {
+    const token = (cred as FedCmCredential | null)?.token;
+    if (!token) throw new Error("Google did not return a sign-in token.");
+    return token;
+  });
+}
+
+function chooserWasCancelled(error: unknown): boolean {
+  if (!(error instanceof DOMException)) return false;
+  return error.name === "AbortError" || error.name === "NotAllowedError";
+}
+
+function chooserUnsupported(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "NotSupportedError";
 }
 
 function GoogleMark() {
@@ -110,9 +140,8 @@ function GoogleMark() {
 }
 
 /**
- * Continue with Google. Native Android uses Credential Manager (Google blocks OAuth
- * inside WebViews). Browsers open the account window from the click itself — the
- * embedded Google button opens it too late, and Chrome blocks that window.
+ * Continue with Google. Native Android uses Credential Manager. Browsers use Chrome's
+ * account chooser, because a separate Google window is blocked on this site.
  */
 export function GoogleSignInButton({
   onSignedIn,
@@ -122,7 +151,6 @@ export function GoogleSignInButton({
   onError: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
   const native = useSyncExternalStore(
     subscribeNever,
     () => Capacitor.isNativePlatform(),
@@ -166,7 +194,6 @@ export function GoogleSignInButton({
             setBusy(false);
           },
         });
-        setReady(true);
       })
       .catch((e: unknown) =>
         handlers.current.onError(
@@ -184,15 +211,31 @@ export function GoogleSignInButton({
     return (
       <button
         type="button"
-        disabled={busy || !ready}
+        disabled={busy}
         onClick={() => {
-          const client = clientRef.current;
-          if (!client) {
-            onError("Google sign-in is still loading. Try again in a moment.");
-            return;
-          }
+          const started = performance.now();
+          const chooser = startGoogleChooser();
           setBusy(true);
-          client.requestAccessToken({ prompt: "select_account" });
+          void chooser
+            .then((idToken) => exchangeGoogle({ idToken }))
+            .then(() => onSignedIn())
+            .catch((e: unknown) => {
+              if (chooserWasCancelled(e)) return;
+              if (e instanceof DOMException && e.name === "NetworkError") {
+                if (performance.now() - started < 600) {
+                  onError("The Google account list didn't open. Use email or the password you set.");
+                }
+                return;
+              }
+              if (chooserUnsupported(e) && clientRef.current) {
+                clientRef.current.requestAccessToken({ prompt: "select_account" });
+                return "popup";
+              }
+              onError(e instanceof Error ? e.message : "Google sign-in failed.");
+            })
+            .then((flag) => {
+              if (flag !== "popup") setBusy(false);
+            });
         }}
         className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:opacity-60"
       >
