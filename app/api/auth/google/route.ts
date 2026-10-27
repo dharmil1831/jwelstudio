@@ -19,9 +19,29 @@ function allowedAudiences(): string[] {
   ].filter((v): v is string => Boolean(v?.trim()));
 }
 
-/** Continue with Google: verifies a Google ID token (web or Android) and signs in. */
+async function emailFromAccessToken(accessToken: string): Promise<string | null> {
+  const audience = allowedAudiences();
+  const res = await fetch("https://oauth2.googleapis.com/tokeninfo", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ access_token: accessToken }),
+  });
+  if (!res.ok) return null;
+  const info = (await res.json()) as {
+    aud?: string;
+    azp?: string;
+    email?: string;
+    email_verified?: string | boolean;
+  };
+  const clientId = info.aud || info.azp || "";
+  const verified = info.email_verified === true || info.email_verified === "true";
+  if (!info.email || !verified || !audience.includes(clientId)) return null;
+  return info.email;
+}
+
+/** Continue with Google: verifies a Google token (web popup or Android) and signs in. */
 export async function POST(req: Request) {
-  let body: { idToken?: string };
+  let body: { idToken?: string; accessToken?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -29,7 +49,8 @@ export async function POST(req: Request) {
   }
 
   const idToken = body.idToken?.trim();
-  if (!idToken) {
+  const accessToken = body.accessToken?.trim();
+  if (!idToken && !accessToken) {
     return NextResponse.json({ error: "Missing Google token." }, { status: 400 });
   }
 
@@ -43,20 +64,31 @@ export async function POST(req: Request) {
 
   let email: string;
   try {
-    const ticket = await client.verifyIdToken({ idToken, audience });
-    const payload = ticket.getPayload();
-    if (
-      !payload?.email ||
-      !payload.email_verified ||
-      (payload.iss !== "accounts.google.com" &&
-        payload.iss !== "https://accounts.google.com")
-    ) {
-      return NextResponse.json(
-        { error: "Google account email is not verified." },
-        { status: 401 },
-      );
+    if (accessToken) {
+      const fromAccess = await emailFromAccessToken(accessToken);
+      if (!fromAccess) {
+        return NextResponse.json(
+          { error: "Google sign-in failed. Please try again." },
+          { status: 401 },
+        );
+      }
+      email = fromAccess;
+    } else {
+      const ticket = await client.verifyIdToken({ idToken: idToken!, audience });
+      const payload = ticket.getPayload();
+      if (
+        !payload?.email ||
+        !payload.email_verified ||
+        (payload.iss !== "accounts.google.com" &&
+          payload.iss !== "https://accounts.google.com")
+      ) {
+        return NextResponse.json(
+          { error: "Google account email is not verified." },
+          { status: 401 },
+        );
+      }
+      email = payload.email;
     }
-    email = payload.email;
   } catch {
     return NextResponse.json(
       { error: "Google sign-in failed. Please try again." },
@@ -74,7 +106,7 @@ export async function POST(req: Request) {
       where: { id: user.id, googleVerifiedAt: null },
       data: { googleVerifiedAt: new Date() },
     });
-    const linked = await signInWithGoogleToken(idToken);
+    const linked = idToken ? await signInWithGoogleToken(idToken) : false;
     if (!linked) await setSession(user.id, user.email);
     return NextResponse.json({
       ok: true,

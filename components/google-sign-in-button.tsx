@@ -8,22 +8,29 @@ const subscribeNever = () => () => {};
 const WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 
-type GoogleIdApi = {
-  initialize: (opts: {
-    client_id: string;
-    callback: (res: { credential?: string }) => void;
-    ux_mode?: "popup";
-    use_fedcm_for_prompt?: boolean;
-  }) => void;
-  renderButton: (
-    el: HTMLElement,
-    opts: Record<string, string | number>,
-  ) => void;
+type TokenClient = {
+  requestAccessToken: (override?: { prompt?: "select_account" }) => void;
+};
+
+type TokenResponse = {
+  access_token?: string;
+  error?: string;
 };
 
 declare global {
   interface Window {
-    google?: { accounts?: { id?: GoogleIdApi } };
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (opts: {
+            client_id: string;
+            scope: string;
+            callback: (res: TokenResponse) => void;
+            error_callback?: (err: { type?: string }) => void;
+          }) => TokenClient;
+        };
+      };
+    };
   }
 }
 
@@ -31,17 +38,22 @@ export function googleSignInAvailable(): boolean {
   return WEB_CLIENT_ID.length > 0;
 }
 
-let gisLoading: Promise<GoogleIdApi> | null = null;
+type Oauth2Api = NonNullable<
+  NonNullable<NonNullable<Window["google"]>["accounts"]>["oauth2"]
+>;
 
-function loadGis(): Promise<GoogleIdApi> {
-  if (window.google?.accounts?.id) return Promise.resolve(window.google.accounts.id);
+let gisLoading: Promise<Oauth2Api> | null = null;
+
+function loadGis(): Promise<Oauth2Api> {
+  const ready = window.google?.accounts?.oauth2;
+  if (ready) return Promise.resolve(ready);
   if (gisLoading) return gisLoading;
   gisLoading = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = GIS_SRC;
     script.async = true;
     script.onload = () => {
-      const api = window.google?.accounts?.id;
+      const api = window.google?.accounts?.oauth2;
       if (api) resolve(api);
       else reject(new Error("Google sign-in did not load."));
     };
@@ -54,11 +66,11 @@ function loadGis(): Promise<GoogleIdApi> {
   return gisLoading;
 }
 
-async function exchangeIdToken(idToken: string): Promise<void> {
+async function exchangeGoogle(body: { idToken?: string; accessToken?: string }): Promise<void> {
   const res = await fetch("/api/auth/google", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify(body),
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new Error(data.error || "Google sign-in failed.");
@@ -78,6 +90,14 @@ async function nativeGoogleIdToken(): Promise<string> {
   return result.idToken;
 }
 
+function googleFailure(type?: string): string | null {
+  if (type === "popup_closed") return null;
+  if (type === "popup_failed_to_open") {
+    return "Your browser blocked the Google window. Allow popups for this site, then try again.";
+  }
+  return "Google sign-in was cancelled.";
+}
+
 function GoogleMark() {
   return (
     <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden>
@@ -91,7 +111,8 @@ function GoogleMark() {
 
 /**
  * Continue with Google. Native Android uses Credential Manager (Google blocks OAuth
- * inside WebViews); browsers use Google Identity Services. Both yield an ID token.
+ * inside WebViews). Browsers open the account window from the click itself — the
+ * embedded Google button opens it too late, and Chrome blocks that window.
  */
 export function GoogleSignInButton({
   onSignedIn,
@@ -101,12 +122,13 @@ export function GoogleSignInButton({
   onError: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
   const native = useSyncExternalStore(
     subscribeNever,
     () => Capacitor.isNativePlatform(),
     () => false,
   );
-  const gisSlot = useRef<HTMLDivElement>(null);
+  const clientRef = useRef<TokenClient | null>(null);
   const handlers = useRef({ onSignedIn, onError });
 
   useEffect(() => {
@@ -114,21 +136,22 @@ export function GoogleSignInButton({
   }, [onSignedIn, onError]);
 
   useEffect(() => {
-    if (native || !WEB_CLIENT_ID || !gisSlot.current) return;
+    if (native || !WEB_CLIENT_ID) return;
     let cancelled = false;
     void loadGis()
       .then((api) => {
-        if (cancelled || !gisSlot.current) return;
-        api.initialize({
+        if (cancelled || !api) return;
+        clientRef.current = api.initTokenClient({
           client_id: WEB_CLIENT_ID,
-          ux_mode: "popup",
+          scope: "openid email profile",
           callback: (res) => {
-            if (!res.credential) {
-              handlers.current.onError("Google sign-in was cancelled.");
+            if (!res.access_token) {
+              const message = googleFailure(res.error);
+              if (message) handlers.current.onError(message);
+              setBusy(false);
               return;
             }
-            setBusy(true);
-            exchangeIdToken(res.credential)
+            exchangeGoogle({ accessToken: res.access_token })
               .then(() => handlers.current.onSignedIn())
               .catch((e: unknown) =>
                 handlers.current.onError(
@@ -137,16 +160,13 @@ export function GoogleSignInButton({
               )
               .finally(() => setBusy(false));
           },
+          error_callback: (err) => {
+            const message = googleFailure(err.type);
+            if (message) handlers.current.onError(message);
+            setBusy(false);
+          },
         });
-        const width = Math.min(400, gisSlot.current.clientWidth || 320);
-        api.renderButton(gisSlot.current, {
-          type: "standard",
-          theme: "outline",
-          size: "large",
-          shape: "pill",
-          text: "continue_with",
-          width,
-        });
+        setReady(true);
       })
       .catch((e: unknown) =>
         handlers.current.onError(
@@ -162,21 +182,27 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <div className="relative min-h-[44px] w-full">
-        <div
-          ref={gisSlot}
-          className={`flex w-full justify-center ${busy ? "invisible" : ""}`}
-        />
+      <button
+        type="button"
+        disabled={busy || !ready}
+        onClick={() => {
+          const client = clientRef.current;
+          if (!client) {
+            onError("Google sign-in is still loading. Try again in a moment.");
+            return;
+          }
+          setBusy(true);
+          client.requestAccessToken({ prompt: "select_account" });
+        }}
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+      >
         {busy ? (
-          <div
-            role="status"
-            className="absolute inset-0 flex items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140]"
-          >
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
-            Signing in…
-          </div>
-        ) : null}
-      </div>
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
+        ) : (
+          <GoogleMark />
+        )}
+        {busy ? "Signing in…" : "Continue with Google"}
+      </button>
     );
   }
 
@@ -187,7 +213,7 @@ export function GoogleSignInButton({
       onClick={() => {
         setBusy(true);
         nativeGoogleIdToken()
-          .then(exchangeIdToken)
+          .then((idToken) => exchangeGoogle({ idToken }))
           .then(() => onSignedIn())
           .catch((e: unknown) => {
             const message = e instanceof Error ? e.message : "";
