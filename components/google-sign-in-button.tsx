@@ -93,39 +93,34 @@ async function nativeGoogleIdToken(): Promise<string> {
 function googleFailure(type?: string): string | null {
   if (type === "popup_closed") return null;
   if (type === "popup_failed_to_open") {
-    return "Google sign-in didn't open. Use email or the password you set.";
+    return "Allow popups for this site, then click Continue with Google again.";
   }
   return "Google sign-in was cancelled.";
 }
 
-const FEDCM_CONFIG = "https://accounts.google.com/gsi/fedcm.json";
-
-type FedCmCredential = Credential & { token?: string };
-
-/** Chrome's account chooser. It is not a popup, so the popup blocker cannot stop it. */
-function startGoogleChooser(): Promise<string> {
-  const get = navigator.credentials?.get?.bind(navigator.credentials);
-  if (!get) return Promise.reject(new DOMException("FedCM unavailable", "NotSupportedError"));
-  return get({
-    identity: {
-      context: "signin",
-      mode: "active",
-      providers: [{ configURL: FEDCM_CONFIG, clientId: WEB_CLIENT_ID }],
-    },
-  } as CredentialRequestOptions).then((cred) => {
-    const token = (cred as FedCmCredential | null)?.token;
-    if (!token) throw new Error("Google did not return a sign-in token.");
-    return token;
-  });
+function googlePopupFeatures(): string {
+  const width = 480;
+  const height = 640;
+  const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+  const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+  return `popup=yes,width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`;
 }
 
-function chooserWasCancelled(error: unknown): boolean {
-  if (!(error instanceof DOMException)) return false;
-  return error.name === "AbortError" || error.name === "NotAllowedError";
-}
-
-function chooserUnsupported(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "NotSupportedError";
+/** Ask Google for its normal sign-in address without letting it open a window yet. */
+function captureGoogleUrl(client: TokenClient): string | null {
+  let url: string | null = null;
+  const original = window.open.bind(window);
+  const hold = { closed: false, focus() {}, close() {} } as Window;
+  window.open = ((next?: string | URL) => {
+    if (typeof next === "string" && next.startsWith("https://accounts.google.com/")) url = next;
+    return hold;
+  }) as typeof window.open;
+  try {
+    client.requestAccessToken({ prompt: "select_account" });
+  } finally {
+    window.open = original;
+  }
+  return url;
 }
 
 function GoogleMark() {
@@ -140,8 +135,8 @@ function GoogleMark() {
 }
 
 /**
- * Continue with Google. Native Android uses Credential Manager. Browsers use Chrome's
- * account chooser, because a separate Google window is blocked on this site.
+ * Continue with Google. Native Android uses Credential Manager. Browsers open
+ * Google's own sign-in window.
  */
 export function GoogleSignInButton({
   onSignedIn,
@@ -151,12 +146,15 @@ export function GoogleSignInButton({
   onError: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
   const native = useSyncExternalStore(
     subscribeNever,
     () => Capacitor.isNativePlatform(),
     () => false,
   );
   const clientRef = useRef<TokenClient | null>(null);
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const googleUrl = useRef<string | null>(null);
   const handlers = useRef({ onSignedIn, onError });
 
   useEffect(() => {
@@ -194,6 +192,7 @@ export function GoogleSignInButton({
             setBusy(false);
           },
         });
+        setReady(true);
       })
       .catch((e: unknown) =>
         handlers.current.onError(
@@ -209,35 +208,32 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => {
-          const started = performance.now();
-          const chooser = startGoogleChooser();
-          setBusy(true);
-          void chooser
-            .then((idToken) => exchangeGoogle({ idToken }))
-            .then(() => onSignedIn())
-            .catch((e: unknown) => {
-              if (chooserWasCancelled(e)) return;
-              if (e instanceof DOMException && e.name === "NetworkError") {
-                if (performance.now() - started < 600) {
-                  onError("The Google account list didn't open. Use email or the password you set.");
-                }
-                return;
-              }
-              if (chooserUnsupported(e) && clientRef.current) {
-                clientRef.current.requestAccessToken({ prompt: "select_account" });
-                return "popup";
-              }
-              onError(e instanceof Error ? e.message : "Google sign-in failed.");
-            })
-            .then((flag) => {
-              if (flag !== "popup") setBusy(false);
-            });
+      <a
+        ref={linkRef}
+        href="#google-sign-in"
+        target="_blank"
+        rel="opener"
+        aria-disabled={busy || !ready}
+        onPointerDown={() => {
+          const client = clientRef.current;
+          if (!client || googleUrl.current) return;
+          const url = captureGoogleUrl(client);
+          if (!url || !linkRef.current) return;
+          googleUrl.current = url;
+          linkRef.current.href = url;
         }}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+        onClick={(event) => {
+          const href = event.currentTarget.href;
+          if (!href.includes("accounts.google.com")) {
+            event.preventDefault();
+            onError(ready ? "Google sign-in didn't start. Try again." : "Google sign-in is still loading. Try again in a moment.");
+            return;
+          }
+          setBusy(true);
+          const popup = window.open(href, "jwelpixel_google", googlePopupFeatures());
+          if (popup) event.preventDefault();
+        }}
+        className={`flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] ${busy || !ready ? "pointer-events-none opacity-60" : ""}`}
       >
         {busy ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
@@ -245,7 +241,7 @@ export function GoogleSignInButton({
           <GoogleMark />
         )}
         {busy ? "Signing in…" : "Continue with Google"}
-      </button>
+      </a>
     );
   }
 
