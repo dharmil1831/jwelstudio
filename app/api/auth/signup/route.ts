@@ -1,70 +1,7 @@
-import { isSuperAdminEmail } from "@/lib/admin";
-import { normalizeEmail } from "@/lib/auth-utils";
-import {
-  assertIdentityAvailable,
-  recordIdentityFreeGrant,
-} from "@/lib/identity";
-import { validatePasswordStrength } from "@/lib/password";
-import { ensureAuthUser, signInWithPasswordSession, syncAuthPassword } from "@/lib/supabase-auth";
-import { createUser } from "@/lib/users";
+import { FIRST_PHONE_SIGN_IN_MESSAGE } from "@/lib/auto-account";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
-  let body: { email?: string; password?: string; phone?: string };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const email = body.email?.trim();
-  const password = body.password ?? "";
-  const phone = body.phone?.trim() || null;
-
-  if (!email || !email.includes("@")) {
-    return NextResponse.json(
-      { error: "Provide a valid email address." },
-      { status: 400 },
-    );
-  }
-
-  if (await isSuperAdminEmail(email)) {
-    return NextResponse.json(
-      {
-        error:
-          "Create the super admin account at /admin/login — not on the studio signup form.",
-      },
-      { status: 403 },
-    );
-  }
-
-  const passwordError = validatePasswordStrength(password);
-  if (passwordError) {
-    return NextResponse.json({ error: passwordError }, { status: 400 });
-  }
-
-  try {
-    await assertIdentityAvailable(email, phone);
-    await recordIdentityFreeGrant(email, phone);
-    const user = await createUser(email, password, phone);
-    const normalized = normalizeEmail(email);
-    const authUserId = await ensureAuthUser(user.id);
-    if (!authUserId) throw new Error("Could not create the login.");
-    await syncAuthPassword(authUserId, password);
-    await signInWithPasswordSession(normalized, password);
-
-    return NextResponse.json({
-      ok: true,
-      user: {
-        email: normalized,
-        phone: phone ? phone : null,
-        credits: user.credits,
-      },
-    });
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Could not create account" },
-      { status: 400 },
-    );
-  }
+/** New accounts start with a phone number and SMS code, not email and password. */
+export async function POST() {
+  return NextResponse.json({ error: FIRST_PHONE_SIGN_IN_MESSAGE }, { status: 403 });
 }

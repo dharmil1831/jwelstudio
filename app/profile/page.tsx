@@ -1,6 +1,7 @@
 import { MobileStudioNav } from "@/components/mobile-studio-nav";
 import { ProfileActions } from "@/components/profile-actions";
 import { ProfileDetails } from "@/components/profile-details";
+import { ProfilePassword } from "@/components/profile-password";
 import { PLAN_LABELS } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
@@ -77,6 +78,7 @@ export default async function ProfilePage() {
           email={email}
           phone={user.phone}
         />
+        <ProfilePassword />
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Link

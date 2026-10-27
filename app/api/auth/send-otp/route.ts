@@ -1,3 +1,4 @@
+import { FIRST_PHONE_SIGN_IN_MESSAGE } from "@/lib/auto-account";
 import { normalizeEmail, normalizePhone } from "@/lib/auth-utils";
 import { sendEmailChannelOtp, sendSmsChannelOtp } from "@/lib/otp";
 import { getUserByEmailOrPhone } from "@/lib/users";
@@ -98,7 +99,15 @@ export async function POST(req: Request) {
 
     const normalized = normalizeEmail(email);
 
-    if (purpose === "signup") {
+    if (purpose === "otp_login") {
+      const existing = await getUserByEmailOrPhone(normalized);
+      if (!existing) {
+        return NextResponse.json(
+          { error: FIRST_PHONE_SIGN_IN_MESSAGE },
+          { status: 403 },
+        );
+      }
+    } else if (purpose === "signup") {
       const existing = await getUserByEmailOrPhone(normalized);
       if (existing) {
         return NextResponse.json(

@@ -1,4 +1,8 @@
-import { findOrCreateVerifiedAccount, SuperAdminSignInError } from "@/lib/auto-account";
+import {
+  findExistingVerifiedAccount,
+  FIRST_PHONE_SIGN_IN_MESSAGE,
+  SuperAdminSignInError,
+} from "@/lib/auto-account";
 import { prisma } from "@/lib/prisma";
 import { setSession } from "@/lib/session";
 import { ensureAuthUser, signInWithGoogleToken } from "@/lib/supabase-auth";
@@ -61,7 +65,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const user = await findOrCreateVerifiedAccount({ kind: "email", email });
+    const user = await findExistingVerifiedAccount({ kind: "email", email });
+    if (!user) {
+      return NextResponse.json({ error: FIRST_PHONE_SIGN_IN_MESSAGE }, { status: 403 });
+    }
     await ensureAuthUser(user.id);
     await prisma.user.updateMany({
       where: { id: user.id, googleVerifiedAt: null },

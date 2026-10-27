@@ -4,60 +4,64 @@ import {
   GoogleSignInButton,
   googleSignInAvailable,
 } from "@/components/google-sign-in-button";
-import { LoginForm } from "@/components/login-form";
 import { toUserFacingError } from "@/lib/user-facing-error";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-type Channel = "email" | "phone";
+type View = "phone" | "return" | "password" | "forgot";
 
 const inputClass =
   "w-full rounded-2xl border border-[#d9cfe8] bg-white px-4 py-3.5 text-[15px] text-foreground outline-none placeholder:text-foreground/40 focus:border-primary focus:ring-2 focus:ring-primary/25";
 
+const primaryButtonClass =
+  "h-12 w-full rounded-full bg-primary text-[15px] font-semibold text-white shadow-md shadow-primary/25 transition active:scale-[0.99] disabled:opacity-40";
+
 /**
- * Passwordless sign-in: Google, or a one-time code by email or SMS.
- * New accounts are created on first sign-in with the free starting credits.
+ * First visit creates the account with a phone number and SMS code.
+ * Later visits can use Gmail, an email code, or the password set on the profile.
  */
 export function AuthPanel({
   onSignedIn,
   heading = "Sign in to Jwelpixel",
-  subheading = "New here? Your account is created on first sign-in with 5 free credits.",
+  subheading = "First time here? Enter your mobile number and we’ll text you a code. You get 5 free credits.",
 }: {
   onSignedIn: () => void;
   heading?: string;
   subheading?: string;
 }) {
-  const [channel, setChannel] = useState<Channel>("email");
-  const [target, setTarget] = useState("");
-  const [code, setCode] = useState("");
-  const [sent, setSent] = useState(false);
+  const [view, setView] = useState<View>("phone");
+  const [phone, setPhone] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [phoneSent, setPhoneSent] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [password, setPassword] = useState("");
+  const [resetTarget, setResetTarget] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetSent, setResetSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [devHint, setDevHint] = useState<string | null>(null);
-  const [usePassword, setUsePassword] = useState(false);
 
   const finish = useCallback(() => {
     window.dispatchEvent(new Event("jewel-auth-changed"));
     onSignedIn();
   }, [onSignedIn]);
 
-  const targetValid =
-    channel === "email"
-      ? /^\S+@\S+\.\S+$/.test(target.trim())
-      : target.replace(/\D/g, "").length >= 10;
-
-  function switchChannel(next: Channel) {
-    setChannel(next);
-    setTarget("");
-    setCode("");
-    setSent(false);
+  function openView(next: View) {
+    setView(next);
     setError(null);
     setInfo(null);
     setDevHint(null);
   }
 
-  async function sendCode() {
+  const phoneValid = phone.replace(/\D/g, "").length >= 10;
+  const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+
+  async function sendPhoneCode() {
     setLoading(true);
     setError(null);
     setInfo(null);
@@ -66,11 +70,11 @@ export function AuthPanel({
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          channel === "email"
-            ? { email: target.trim(), purpose: "otp_login", channel: "email" }
-            : { phone: target.trim(), purpose: "otp_login", channel: "sms" },
-        ),
+        body: JSON.stringify({
+          phone: phone.trim(),
+          purpose: "otp_login",
+          channel: "sms",
+        }),
       });
       const data = (await res.json()) as {
         error?: string;
@@ -78,8 +82,8 @@ export function AuthPanel({
         devCode?: string;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not send code");
-      setSent(true);
-      setInfo(data.message ?? "Code sent.");
+      setPhoneSent(true);
+      setInfo(data.message ?? "Code sent by SMS.");
       if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
     } catch (e) {
       setError(toUserFacingError(e, "Could not send code"));
@@ -88,22 +92,19 @@ export function AuthPanel({
     }
   }
 
-  async function verifyCode() {
+  async function verifyPhone() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        channel === "email" ? "/api/auth/email-login" : "/api/auth/phone-login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            channel === "email"
-              ? { email: target.trim(), code: code.trim() }
-              : { phone: target.trim(), code: code.trim(), purpose: "otp_login" },
-          ),
-        },
-      );
+      const res = await fetch("/api/auth/phone-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          code: phoneCode.trim(),
+          purpose: "otp_login",
+        }),
+      });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Sign-in failed");
       finish();
@@ -114,121 +115,364 @@ export function AuthPanel({
     }
   }
 
-  if (usePassword) {
-    return (
-      <div className="space-y-4">
-        <LoginForm />
-        <button
-          type="button"
-          onClick={() => setUsePassword(false)}
-          className="w-full text-sm font-medium text-primary"
-        >
-          ← Back to quick sign-in
-        </button>
-      </div>
-    );
+  async function sendEmailCode() {
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    setDevHint(null);
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          purpose: "otp_login",
+          channel: "email",
+        }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        message?: string;
+        devCode?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Could not send code");
+      setEmailSent(true);
+      setInfo(data.message ?? "Code sent.");
+      if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
+    } catch (e) {
+      setError(toUserFacingError(e, "Could not send code"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyEmail() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/email-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), code: emailCode.trim() }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Sign-in failed");
+      finish();
+    } catch (e) {
+      setError(toUserFacingError(e, "Sign-in failed"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loginWithPassword() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Login failed");
+      finish();
+    } catch (e) {
+      setError(toUserFacingError(e, "Login failed"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendReset() {
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    setDevHint(null);
+    try {
+      const looksPhone = !resetTarget.includes("@");
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          looksPhone
+            ? { phone: resetTarget, purpose: "reset", channel: "sms" }
+            : { email: resetTarget, purpose: "reset", channel: "email" },
+        ),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        message?: string;
+        devCode?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Could not send code");
+      setResetSent(true);
+      setInfo(data.message ?? "Code sent.");
+      if (data.devCode) setDevHint(`Dev code: ${data.devCode}`);
+    } catch (e) {
+      setError(toUserFacingError(e, "Could not send code"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitReset() {
+    setLoading(true);
+    setError(null);
+    try {
+      const looksPhone = !resetTarget.includes("@");
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          looksPhone
+            ? { phone: resetTarget, code: resetCode, password: resetPassword }
+            : { email: resetTarget, code: resetCode, password: resetPassword },
+        ),
+      });
+      const data = (await res.json()) as { error?: string; message?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not reset password");
+      setInfo(data.message ?? "Password updated. You can sign in now.");
+      setEmail(looksPhone ? "" : resetTarget);
+      openView("password");
+    } catch (e) {
+      setError(toUserFacingError(e, "Could not reset password"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="space-y-5">
       <div className="text-center">
         <h2 className="font-[family-name:var(--font-display)] text-[26px] leading-tight text-foreground">
-          {heading}
+          {view === "phone" ? heading : "Welcome back"}
         </h2>
-        <p className="mt-2 text-sm text-foreground/65">{subheading}</p>
+        <p className="mt-2 text-sm text-foreground/65">
+          {view === "phone"
+            ? subheading
+            : "Use Gmail, the email on your account, or the password you set."}
+        </p>
       </div>
 
-      {googleSignInAvailable() ? (
-        <>
-          <GoogleSignInButton
-            onSignedIn={finish}
-            onError={(message) => setError(message)}
+      {view === "phone" ? (
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!phoneSent) void sendPhoneCode();
+            else void verifyPhone();
+          }}
+        >
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="10-digit mobile number"
+            value={phone}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              setPhoneSent(false);
+              setPhoneCode("");
+            }}
+            className={inputClass}
           />
-          <div className="flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-foreground/45">
-            <span className="h-px flex-1 bg-foreground/15" />
-            or use a code
-            <span className="h-px flex-1 bg-foreground/15" />
-          </div>
-        </>
+          {phoneSent ? (
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="6-digit SMS code"
+              value={phoneCode}
+              onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className={`${inputClass} tracking-[0.4em]`}
+              autoFocus
+            />
+          ) : null}
+          <button
+            type="submit"
+            disabled={loading || !phoneValid || (phoneSent && phoneCode.length < 4)}
+            className={primaryButtonClass}
+          >
+            {loading
+              ? phoneSent
+                ? "Verifying…"
+                : "Sending…"
+              : phoneSent
+                ? "Verify & continue"
+                : "Send code"}
+          </button>
+          {phoneSent ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void sendPhoneCode()}
+              className="w-full text-sm font-medium text-primary disabled:opacity-40"
+            >
+              Resend code
+            </button>
+          ) : null}
+        </form>
       ) : null}
 
-      <div className="flex rounded-full bg-[#efe8f7] p-1">
-        {(
-          [
-            ["email", "Email"],
-            ["phone", "Phone"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => switchChannel(id)}
-            className={`flex-1 rounded-full py-2 text-sm font-semibold transition ${
-              channel === id ? "bg-white text-primary shadow-sm" : "text-foreground/60"
-            }`}
+      {view === "return" ? (
+        <div className="space-y-4">
+          {googleSignInAvailable() ? <GoogleSignInButton onSignedIn={finish} onError={setError} /> : null}
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!emailSent) void sendEmailCode();
+              else void verifyEmail();
+            }}
           >
-            {label}
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder="Email on your account"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setEmailSent(false);
+                setEmailCode("");
+              }}
+              className={inputClass}
+            />
+            {emailSent ? (
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit email code"
+                value={emailCode}
+                onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className={`${inputClass} tracking-[0.4em]`}
+                autoFocus
+              />
+            ) : null}
+            <button
+              type="submit"
+              disabled={loading || !emailValid || (emailSent && emailCode.length < 4)}
+              className={primaryButtonClass}
+            >
+              {loading
+                ? emailSent
+                  ? "Verifying…"
+                  : "Sending…"
+                : emailSent
+                  ? "Verify & continue"
+                  : "Email me a code"}
+            </button>
+          </form>
+          <button
+            type="button"
+            onClick={() => openView("password")}
+            className="w-full text-sm font-medium text-primary"
+          >
+            Use the password you set
           </button>
-        ))}
-      </div>
+        </div>
+      ) : null}
 
-      <form
-        className="space-y-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!sent) void sendCode();
-          else void verifyCode();
-        }}
-      >
-        <input
-          type={channel === "email" ? "email" : "tel"}
-          inputMode={channel === "email" ? "email" : "tel"}
-          autoComplete={channel === "email" ? "email" : "tel"}
-          placeholder={channel === "email" ? "you@example.com" : "10-digit mobile number"}
-          value={target}
-          onChange={(e) => {
-            setTarget(e.target.value);
-            setSent(false);
-            setCode("");
+      {view === "password" ? (
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void loginWithPassword();
           }}
-          className={inputClass}
-        />
-        {sent ? (
+        >
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="Email on your account"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+          />
+          <input
+            type="password"
+            autoComplete="current-password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={inputClass}
+          />
+          <button
+            type="submit"
+            disabled={loading || !emailValid || password.length < 8}
+            className={primaryButtonClass}
+          >
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setResetTarget(email);
+              setResetSent(false);
+              openView("forgot");
+            }}
+            className="w-full text-sm font-medium text-primary"
+          >
+            Forgot password?
+          </button>
+        </form>
+      ) : null}
+
+      {view === "forgot" ? (
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!resetSent) void sendReset();
+            else void submitReset();
+          }}
+        >
           <input
             type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="6-digit code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className={`${inputClass} tracking-[0.4em]`}
-            autoFocus
+            autoComplete="username"
+            placeholder="Email or 10-digit mobile"
+            value={resetTarget}
+            onChange={(e) => {
+              setResetTarget(e.target.value);
+              setResetSent(false);
+            }}
+            className={inputClass}
           />
-        ) : null}
-        <button
-          type="submit"
-          disabled={loading || !targetValid || (sent && code.length < 4)}
-          className="h-12 w-full rounded-full bg-primary text-[15px] font-semibold text-white shadow-md shadow-primary/25 transition active:scale-[0.99] disabled:opacity-40"
-        >
-          {loading
-            ? sent
-              ? "Verifying…"
-              : "Sending…"
-            : sent
-              ? "Verify & continue"
-              : "Send code"}
-        </button>
-        {sent ? (
+          {resetSent ? (
+            <>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit code"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className={inputClass}
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder="New password (min 8 characters)"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                className={inputClass}
+              />
+            </>
+          ) : null}
           <button
-            type="button"
-            disabled={loading}
-            onClick={() => void sendCode()}
-            className="w-full text-sm font-medium text-primary disabled:opacity-40"
+            type="submit"
+            disabled={
+              loading ||
+              resetTarget.trim().length < 5 ||
+              (resetSent && (resetCode.length < 4 || resetPassword.length < 8))
+            }
+            className={primaryButtonClass}
           >
-            Resend code
+            {loading ? "Please wait…" : resetSent ? "Update password" : "Send reset code"}
           </button>
-        ) : null}
-      </form>
+        </form>
+      ) : null}
 
       {devHint ? (
         <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{devHint}</p>
@@ -240,13 +484,23 @@ export function AuthPanel({
         </p>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setUsePassword(true)}
-        className="w-full text-sm text-foreground/60 underline-offset-2 hover:underline"
-      >
-        Use password instead
-      </button>
+      {view === "phone" ? (
+        <button
+          type="button"
+          onClick={() => openView("return")}
+          className="w-full text-sm text-foreground/60 underline-offset-2 hover:underline"
+        >
+          Already signed in before? Use Gmail, email, or password
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => openView("phone")}
+          className="w-full text-sm font-medium text-primary"
+        >
+          ← First time? Use your phone number
+        </button>
+      )}
 
       <p className="text-center text-xs leading-relaxed text-foreground/50">
         By continuing you agree to our{" "}
@@ -318,7 +572,7 @@ export function AuthSheet({
           heading="Sign in to continue"
           subheading={
             reason ??
-            "Sign in to generate. New accounts get 5 free credits — no card needed."
+            "First time? Enter your mobile number. We’ll text you a code and start you with 5 free credits."
           }
         />
       </div>

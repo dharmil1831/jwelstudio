@@ -1,11 +1,15 @@
 import { normalizeEmail } from "@/lib/auth-utils";
-import { findOrCreateVerifiedAccount, SuperAdminSignInError } from "@/lib/auto-account";
+import {
+  findExistingVerifiedAccount,
+  FIRST_PHONE_SIGN_IN_MESSAGE,
+  SuperAdminSignInError,
+} from "@/lib/auto-account";
 import { verifyEmailOtp } from "@/lib/otp";
 import { setSession } from "@/lib/session";
 import { ensureAuthUser } from "@/lib/supabase-auth";
 import { NextResponse } from "next/server";
 
-/** Passwordless sign-in with an emailed code. Creates the account the first time. */
+/** Passwordless sign-in with an emailed code. Only for an account that already exists. */
 export async function POST(req: Request) {
   let body: { email?: string; code?: string };
   try {
@@ -33,7 +37,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await findOrCreateVerifiedAccount({ kind: "email", email });
+    const user = await findExistingVerifiedAccount({ kind: "email", email });
+    if (!user) {
+      return NextResponse.json({ error: FIRST_PHONE_SIGN_IN_MESSAGE }, { status: 403 });
+    }
     await ensureAuthUser(user.id);
     await setSession(user.id, user.email);
 

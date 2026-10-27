@@ -27,6 +27,44 @@ export class SuperAdminSignInError extends Error {
   }
 }
 
+export const FIRST_PHONE_SIGN_IN_MESSAGE =
+  "Your first sign-in has to be with your phone number and SMS code. After that, use Gmail, email, or the password you set.";
+
+/**
+ * Sign in an account that already exists. Does not create one.
+ * Gmail, email codes, and passwords use this so the first sign-in stays on the phone.
+ */
+export async function findExistingVerifiedAccount(
+  identity: SignInIdentity,
+): Promise<SignedInAccount | null> {
+  const email =
+    identity.kind === "email" ? normalizeEmail(identity.email) : null;
+  const phone = identity.kind === "phone" ? normalizePhone(identity.phone) : null;
+
+  if (email && (await isSuperAdminEmail(email))) throw new SuperAdminSignInError();
+
+  const existing = phone
+    ? await prisma.user.findUnique({ where: { phone } })
+    : await prisma.user.findUnique({ where: { email: email! } });
+
+  if (!existing) return null;
+  if (await isSuperAdminEmail(existing.email)) throw new SuperAdminSignInError();
+
+  const verified = await prisma.user.update({
+    where: { id: existing.id },
+    data: phone
+      ? { phoneVerifiedAt: existing.phoneVerifiedAt ?? new Date() }
+      : { emailVerifiedAt: existing.emailVerifiedAt ?? new Date() },
+  });
+  return {
+    id: verified.id,
+    email: verified.email,
+    phone: verified.phone,
+    credits: verified.credits,
+    created: false,
+  };
+}
+
 /**
  * Sign in with a verified email or phone. Creates the account the first time.
  * The free credits are granted once per email or phone, even if an earlier account was deleted.
@@ -34,34 +72,14 @@ export class SuperAdminSignInError extends Error {
 export async function findOrCreateVerifiedAccount(
   identity: SignInIdentity,
 ): Promise<SignedInAccount> {
+  const existing = await findExistingVerifiedAccount(identity);
+  if (existing) return existing;
+
   const email =
     identity.kind === "email"
       ? normalizeEmail(identity.email)
       : phonePlaceholderEmail(normalizePhone(identity.phone));
   const phone = identity.kind === "phone" ? normalizePhone(identity.phone) : null;
-
-  if (await isSuperAdminEmail(email)) throw new SuperAdminSignInError();
-
-  const existing = phone
-    ? await prisma.user.findUnique({ where: { phone } })
-    : await prisma.user.findUnique({ where: { email } });
-
-  if (existing) {
-    if (await isSuperAdminEmail(existing.email)) throw new SuperAdminSignInError();
-    const verified = await prisma.user.update({
-      where: { id: existing.id },
-      data: phone
-        ? { phoneVerifiedAt: existing.phoneVerifiedAt ?? new Date() }
-        : { emailVerifiedAt: existing.emailVerifiedAt ?? new Date() },
-    });
-    return {
-      id: verified.id,
-      email: verified.email,
-      phone: verified.phone,
-      credits: verified.credits,
-      created: false,
-    };
-  }
 
   const ledgerKey = phone
     ? { phoneHash: hashIdentity(phone) }
