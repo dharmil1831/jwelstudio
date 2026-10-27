@@ -14,6 +14,7 @@ type TokenClient = {
 
 type TokenResponse = {
   access_token?: string;
+  id_token?: string;
   error?: string;
 };
 
@@ -95,25 +96,6 @@ function googleFailure(type?: string): string | null {
   return "Google sign-in was cancelled.";
 }
 
-function googlePopupFeatures(): string {
-  const width = 480;
-  const height = 640;
-  const left = Math.max(0, Math.round((window.screen.width - width) / 2));
-  const top = Math.max(0, Math.round((window.screen.height - height) / 2));
-  return [
-    "toolbar=no",
-    "location=no",
-    "status=no",
-    "menubar=no",
-    "scrollbars=yes",
-    "resizable=yes",
-    `width=${width}`,
-    `height=${height}`,
-    `left=${left}`,
-    `top=${top}`,
-  ].join(",");
-}
-
 /** Read Google's sign-in address while keeping its reply listener on this page. */
 function captureGoogleUrl(client: TokenClient): string | null {
   let url: string | null = null;
@@ -163,11 +145,19 @@ export function GoogleSignInButton({
     () => false,
   );
   const clientRef = useRef<TokenClient | null>(null);
+  const settledRef = useRef(false);
+  const waitRef = useRef<number | null>(null);
   const handlers = useRef({ onSignedIn, onError });
 
   useEffect(() => {
     handlers.current = { onSignedIn, onError };
   }, [onSignedIn, onError]);
+
+  useEffect(() => {
+    return () => {
+      if (waitRef.current) window.clearTimeout(waitRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (native || !WEB_CLIENT_ID) return;
@@ -179,13 +169,19 @@ export function GoogleSignInButton({
           client_id: WEB_CLIENT_ID,
           scope: "openid email profile",
           callback: (res) => {
-            if (!res.access_token) {
+            if (settledRef.current) return;
+            if (!res.access_token && !res.id_token) {
               const message = googleFailure(res.error);
               if (message) handlers.current.onError(message);
               setBusy(false);
               return;
             }
-            exchangeGoogle({ accessToken: res.access_token })
+            settledRef.current = true;
+            if (waitRef.current) window.clearTimeout(waitRef.current);
+            exchangeGoogle({
+              accessToken: res.access_token,
+              idToken: res.id_token,
+            })
               .then(() => handlers.current.onSignedIn())
               .catch((e: unknown) =>
                 handlers.current.onError(
@@ -195,6 +191,7 @@ export function GoogleSignInButton({
               .finally(() => setBusy(false));
           },
           error_callback: (err) => {
+            if (err.type === "popup_closed" || err.type === "popup_failed_to_open") return;
             const message = googleFailure(err.type);
             if (message) handlers.current.onError(message);
             setBusy(false);
@@ -212,6 +209,36 @@ export function GoogleSignInButton({
     };
   }, [native]);
 
+  useEffect(() => {
+    if (native) return;
+    function onMessage(event: MessageEvent) {
+      if (settledRef.current || event.origin !== "https://accounts.google.com") return;
+      let payload: unknown = event.data;
+      if (typeof payload === "string") {
+        try {
+          payload = JSON.parse(payload);
+        } catch {
+          return;
+        }
+      }
+      if (!payload || typeof payload !== "object") return;
+      const params = (payload as { params?: { authResult?: TokenResponse } }).params;
+      const result = params?.authResult;
+      if (!result?.access_token && !result?.id_token) return;
+      settledRef.current = true;
+      if (waitRef.current) window.clearTimeout(waitRef.current);
+      setBusy(true);
+      exchangeGoogle({ accessToken: result.access_token, idToken: result.id_token })
+        .then(() => handlers.current.onSignedIn())
+        .catch((e: unknown) =>
+          handlers.current.onError(e instanceof Error ? e.message : "Google sign-in failed."),
+        )
+        .finally(() => setBusy(false));
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [native]);
+
   if (!WEB_CLIENT_ID) return null;
 
   if (!native) {
@@ -220,9 +247,9 @@ export function GoogleSignInButton({
         href="#google-sign-in"
         target="_blank"
         rel="opener"
-        aria-disabled={busy || !ready || undefined}
+        aria-disabled={!ready || undefined}
         onClick={(event) => {
-          if (busy || !ready || !clientRef.current) {
+          if (!ready || !clientRef.current) {
             event.preventDefault();
             return;
           }
@@ -232,25 +259,16 @@ export function GoogleSignInButton({
             onError("Google sign-in didn't start. Try again.");
             return;
           }
-          const name = `jwelpixel_google_${Date.now()}`;
-          const popup = window.open(url, name, googlePopupFeatures());
+          settledRef.current = false;
           const link = event.currentTarget;
           link.href = url;
-          link.target = name;
+          link.target = "_blank";
           link.rel = "opener";
-          if (popup && popup.closed !== true) {
-            event.preventDefault();
-          }
+          if (waitRef.current) window.clearTimeout(waitRef.current);
+          waitRef.current = window.setTimeout(() => {
+            if (!settledRef.current) setBusy(false);
+          }, 180_000);
           window.setTimeout(() => setBusy(true), 0);
-          if (popup && popup.closed !== true) {
-            const watch = window.setInterval(() => {
-              if (!popup.closed) return;
-              window.clearInterval(watch);
-              setBusy(false);
-            }, 500);
-          } else {
-            window.setTimeout(() => setBusy(false), 120_000);
-          }
         }}
         className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] aria-disabled:pointer-events-none aria-disabled:opacity-60"
       >
