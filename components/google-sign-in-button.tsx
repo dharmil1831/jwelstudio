@@ -95,33 +95,6 @@ function googleFailure(type?: string): string | null {
   return "Google sign-in was cancelled.";
 }
 
-function googlePopupFeatures(): string {
-  const width = 480;
-  const height = 640;
-  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
-  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
-  return `popup=yes,width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`;
-}
-
-/** Ask Google for its normal sign-in address without letting it open a window yet. */
-function captureGoogleUrl(client: TokenClient): string | null {
-  let url: string | null = null;
-  const original = window.open.bind(window);
-  const hold = { closed: false, focus() {}, close() {} } as Window;
-  window.open = ((next?: string | URL) => {
-    const value =
-      typeof next === "string" ? next : next instanceof URL ? next.href : String(next ?? "");
-    if (value.startsWith("https://accounts.google.com/")) url = value;
-    return hold;
-  }) as typeof window.open;
-  try {
-    client.requestAccessToken({ prompt: "select_account" });
-  } finally {
-    window.open = original;
-  }
-  return url;
-}
-
 function GoogleMark() {
   return (
     <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden>
@@ -205,42 +178,21 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <a
-        href="#google-sign-in"
-        target="_blank"
-        rel="opener"
-        aria-disabled={busy || !ready || undefined}
-        onClick={(event) => {
-          if (busy || !ready || !clientRef.current) {
-            event.preventDefault();
-            return;
-          }
+      <button
+        type="button"
+        disabled={busy || !ready}
+        onClick={() => {
+          if (!clientRef.current) return;
           onError("");
-          const url = captureGoogleUrl(clientRef.current);
-          if (!url) {
-            event.preventDefault();
-            onError("Google sign-in didn't start. Try again.");
-            return;
-          }
-          const name = `jwelpixel_google_${Date.now()}`;
-          const popup = window.open(url, name, googlePopupFeatures());
-          if (popup && popup.closed !== true) {
-            event.preventDefault();
-            setBusy(true);
-            const watch = window.setInterval(() => {
-              if (!popup.closed) return;
-              window.clearInterval(watch);
-              setBusy(false);
-            }, 400);
-            return;
-          }
-          const link = event.currentTarget;
-          link.href = url;
-          link.target = name;
           setBusy(true);
-          window.setTimeout(() => setBusy(false), 90_000);
+          try {
+            clientRef.current.requestAccessToken({ prompt: "select_account" });
+          } catch {
+            setBusy(false);
+            onError("Google sign-in didn't start. Try again.");
+          }
         }}
-        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] aria-disabled:pointer-events-none aria-disabled:opacity-60"
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:opacity-60"
       >
         {busy ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
@@ -248,7 +200,7 @@ export function GoogleSignInButton({
           <GoogleMark />
         )}
         {busy ? "Signing in…" : "Continue with Google"}
-      </a>
+      </button>
     );
   }
 
