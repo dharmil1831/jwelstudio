@@ -1,5 +1,5 @@
 import { verifyWebhookSignature } from "@/lib/razorpay";
-import { fulfillPayment } from "@/lib/payments";
+import { fulfillPayment, fulfillSubscriptionCharge } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -26,6 +26,9 @@ export async function POST(req: Request) {
           status?: string;
         };
       };
+      subscription?: {
+        entity?: { id?: string };
+      };
     };
   };
 
@@ -36,7 +39,32 @@ export async function POST(req: Request) {
   }
 
   const paymentEntity = event.payload?.payment?.entity;
+  const subscriptionId = event.payload?.subscription?.entity?.id;
+
+  if (event.event === "subscription.charged" && subscriptionId && paymentEntity?.id) {
+    const eventId = `sub:${paymentEntity.id}`;
+    const existing = await prisma.processedPaymentEvent.findUnique({
+      where: { id: eventId },
+    });
+    if (existing) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    const result = await fulfillSubscriptionCharge(subscriptionId, paymentEntity.id);
+    if (!result) {
+      return NextResponse.json({ received: true, ignored: true });
+    }
+    await prisma.processedPaymentEvent.create({ data: { id: eventId } });
+    return NextResponse.json({ received: true, autopay: true });
+  }
+
   if (event.event !== "payment.captured" || !paymentEntity?.order_id) {
+    return NextResponse.json({ received: true, ignored: true });
+  }
+
+  const knownOrder = await prisma.payment.findUnique({
+    where: { razorpayOrderId: paymentEntity.order_id },
+  });
+  if (!knownOrder) {
     return NextResponse.json({ received: true, ignored: true });
   }
 

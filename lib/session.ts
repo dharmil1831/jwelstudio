@@ -13,6 +13,16 @@ import { cookies } from "next/headers";
 
 const ONE_MONTH = 60 * 60 * 24 * 30;
 const THIRTY_MIN = 60 * 30;
+const SEEN_REFRESH_MS = 2 * 60 * 1000;
+
+function noteLastSeen(userId: string, lastSeenAt: Date | null | undefined) {
+  if (lastSeenAt && Date.now() - lastSeenAt.getTime() < SEEN_REFRESH_MS) return;
+  void prisma.user
+    .update({ where: { id: userId }, data: { lastSeenAt: new Date() } })
+    .catch((error) => {
+      console.error("[session] lastSeenAt update failed", error);
+    });
+}
 
 export type SessionUser = {
   id: string;
@@ -47,6 +57,7 @@ async function sessionFromSupabase(): Promise<SessionUser | null> {
   if (!data.user) return null;
   const user = await prisma.user.findUnique({ where: { authUserId: data.user.id } });
   if (!user) return null;
+  noteLastSeen(user.id, user.lastSeenAt);
   return toSessionUser(user);
 }
 
@@ -70,6 +81,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) return null;
+    noteLastSeen(user.id, user.lastSeenAt);
     return toSessionUser(user);
   } catch (error) {
     if (isPrismaConnectivityError(error)) {
@@ -87,6 +99,14 @@ export async function setSession(userId: string, email: string): Promise<void> {
     where: { id: userId },
     select: { authUserId: true, email: true },
   });
+  await prisma.user
+    .update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date(), lastSeenAt: new Date() },
+    })
+    .catch((error) => {
+      console.error("[session] last login stamp failed", error);
+    });
   if (linked?.authUserId) {
     await openSupabaseSession(linked.email || email);
     return;

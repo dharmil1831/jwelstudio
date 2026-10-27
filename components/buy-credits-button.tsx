@@ -122,8 +122,78 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
         }}
         className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-background disabled:opacity-50 hover:bg-accent hover:text-foreground"
       >
-        {loading ? "Opening checkout…" : "Buy with Razorpay"}
+        {loading ? "Opening checkout…" : "Buy once"}
       </button>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => {
+          setError(null);
+          setLoading(true);
+          void (async () => {
+            try {
+              const r = await fetch("/api/razorpay/create-subscription", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ packId }),
+              });
+              const data = (await r.json()) as {
+                error?: string;
+                keyId?: string;
+                subscriptionId?: string;
+                pack?: Pack;
+                prefill?: { email?: string; contact?: string };
+              };
+              if (r.status === 401) throw new Error("Please log in to buy credits.");
+              if (!r.ok) throw new Error(data.error ?? "Auto-pay failed");
+              const ready = await waitForRazorpay();
+              if (!ready || !data.keyId || !data.subscriptionId) {
+                throw new Error("Razorpay failed to load. Check your connection.");
+              }
+              const rzp = new window.Razorpay!({
+                key: data.keyId,
+                subscription_id: data.subscriptionId,
+                name: "Jwelpixel",
+                description: `${data.pack?.label ?? "Plan"} · ${data.pack?.credits ?? ""} credits every month`,
+                prefill: data.prefill,
+                theme: { color: "#7c5cbf" },
+                handler: (response: {
+                  razorpay_payment_id: string;
+                  razorpay_subscription_id: string;
+                  razorpay_signature: string;
+                }) => {
+                  void fetch("/api/razorpay/verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(response),
+                  })
+                    .then(async (vr) => {
+                      const vd = (await vr.json()) as { error?: string };
+                      if (!vr.ok) throw new Error(vd.error ?? "Verification failed");
+                      router.push("/pricing?paid=1");
+                      router.refresh();
+                    })
+                    .catch((e: unknown) => {
+                      setError(toUserFacingError(e, "Payment verify failed"));
+                      setLoading(false);
+                    });
+                },
+                modal: { ondismiss: () => setLoading(false) },
+              });
+              rzp.open();
+            } catch (e) {
+              setError(toUserFacingError(e, "Auto-pay failed"));
+              setLoading(false);
+            }
+          })();
+        }}
+        className="mt-2 w-full rounded-xl border border-primary/40 bg-secondary py-3 text-sm font-semibold text-foreground disabled:opacity-50 hover:bg-primary/15"
+      >
+        {loading ? "Opening checkout…" : "Auto-pay monthly"}
+      </button>
+      <p className="mt-2 text-center text-[11px] leading-relaxed text-foreground/55">
+        Auto-pay bills this pack every month for 12 months. The first payment starts the mandate.
+      </p>
       {error ? (
         <p className="mt-2 text-center text-xs text-red-600" role="alert">
           {error}

@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 
 /** Bump when Generation fields change or to force a fresh PrismaClient after DB outages. */
-const PRISMA_SCHEMA_ID = "generation-format-v2-connect-timeout";
+const PRISMA_SCHEMA_ID = "user-last-seen-v1";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

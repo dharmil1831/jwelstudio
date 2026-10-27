@@ -24,6 +24,8 @@ model User {
   credits         Int          @default(5)
   /// free | silver | gold | platinum | diamond
   plan            String       @default("free")
+  lastLoginAt     DateTime?
+  lastSeenAt      DateTime?
   createdAt       DateTime     @default(now())
   generations     Generation[]
   payments        Payment[]

@@ -89,6 +89,86 @@ export function verifyPaymentSignature(params: {
   return expected === params.signature;
 }
 
+/** Razorpay subscription checkout signs `payment_id|subscription_id`. */
+export function verifySubscriptionSignature(params: {
+  subscriptionId: string;
+  paymentId: string;
+  signature: string;
+}): boolean {
+  const secret = getKeySecret();
+  if (!secret) return false;
+  const body = `${params.paymentId}|${params.subscriptionId}`;
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(body)
+    .digest("hex");
+  return expected === params.signature;
+}
+
+async function razorpayFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const secret = getKeySecret();
+  if (!secret) throw new Error("Razorpay is not configured.");
+  const res = await fetch(`https://api.razorpay.com/v1${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${getKeyId()}:${secret}`).toString("base64")}`,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Razorpay ${path} failed: ${msg.slice(0, 240)}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+const AUTOPAY_CYCLES = 12;
+
+/** Reuse a monthly plan for this pack, or create one. */
+export async function ensureMonthlyPlan(pack: CreditPack): Promise<string> {
+  const marker = `jwelpixel-${pack.id}-monthly-${pack.amountPaise}-${pack.credits}`;
+  const listed = await razorpayFetch<{
+    items?: { id: string; notes?: Record<string, string> }[];
+  }>("/plans?count=100");
+  const existing = listed.items?.find((p) => p.notes?.marker === marker);
+  if (existing?.id) return existing.id;
+
+  const created = await razorpayFetch<{ id: string }>("/plans", {
+    method: "POST",
+    body: JSON.stringify({
+      period: "monthly",
+      interval: 1,
+      item: {
+        name: `Jwelpixel ${pack.label} monthly`,
+        amount: pack.amountPaise,
+        currency: "INR",
+        description: `${pack.credits} credits each month`,
+      },
+      notes: { marker, packId: pack.id },
+    }),
+  });
+  return created.id;
+}
+
+export async function createRazorpaySubscription(params: {
+  planId: string;
+  notes: Record<string, string>;
+}): Promise<{ id: string }> {
+  return razorpayFetch<{ id: string }>("/subscriptions", {
+    method: "POST",
+    body: JSON.stringify({
+      plan_id: params.planId,
+      total_count: AUTOPAY_CYCLES,
+      quantity: 1,
+      customer_notify: 1,
+      notes: params.notes,
+    }),
+  });
+}
+
+export { AUTOPAY_CYCLES };
+
 export function verifyWebhookSignature(
   body: string,
   signature: string,

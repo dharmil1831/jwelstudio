@@ -71,3 +71,82 @@ export async function fulfillPayment(
     };
   });
 }
+
+/**
+ * First charge uses the subscription id row. Later months insert one row per
+ * Razorpay payment id so credits are added again without double-counting.
+ */
+export async function fulfillSubscriptionCharge(
+  subscriptionId: string,
+  paymentId: string,
+): Promise<FulfillPaymentResult | null> {
+  return prisma.$transaction(async (tx) => {
+    const anchor = await tx.payment.findUnique({
+      where: { razorpayOrderId: subscriptionId },
+    });
+    if (!anchor) return null;
+
+    const already = await tx.payment.findFirst({
+      where: {
+        OR: [
+          { razorpayPaymentId: paymentId },
+          { razorpayOrderId: paymentId },
+        ],
+      },
+    });
+    if (already) {
+      const user = await tx.user.findUnique({ where: { id: anchor.userId } });
+      return {
+        userId: anchor.userId,
+        creditsAdded: anchor.creditsAdded,
+        credits: user?.credits ?? 0,
+        plan: normalizePlanId(user?.plan),
+        alreadyPaid: true,
+      };
+    }
+
+    const current = await tx.user.findUnique({
+      where: { id: anchor.userId },
+      select: { plan: true },
+    });
+    const purchased = anchor.packId ? normalizePlanId(anchor.packId) : "free";
+    const nextPlan = isPaidPlanId(purchased)
+      ? higherPlan(normalizePlanId(current?.plan), purchased)
+      : normalizePlanId(current?.plan);
+
+    if (anchor.status === "created") {
+      await tx.payment.update({
+        where: { id: anchor.id },
+        data: { status: "active", razorpayPaymentId: paymentId },
+      });
+    } else {
+      await tx.payment.create({
+        data: {
+          userId: anchor.userId,
+          razorpayOrderId: paymentId,
+          razorpayPaymentId: paymentId,
+          amountPaise: anchor.amountPaise,
+          creditsAdded: anchor.creditsAdded,
+          packId: anchor.packId,
+          status: "paid",
+        },
+      });
+    }
+
+    const user = await tx.user.update({
+      where: { id: anchor.userId },
+      data: {
+        credits: { increment: anchor.creditsAdded },
+        plan: nextPlan,
+      },
+    });
+
+    return {
+      userId: anchor.userId,
+      creditsAdded: anchor.creditsAdded,
+      credits: user.credits,
+      plan: normalizePlanId(user.plan),
+      alreadyPaid: false,
+    };
+  });
+}
