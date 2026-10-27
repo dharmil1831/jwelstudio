@@ -96,6 +96,25 @@ function googleFailure(type?: string): string | null {
   return "Google sign-in was cancelled.";
 }
 
+function googlePopupFeatures(): string {
+  const width = 480;
+  const height = 640;
+  const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+  const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+  return [
+    "toolbar=no",
+    "location=no",
+    "status=no",
+    "menubar=no",
+    "scrollbars=yes",
+    "resizable=yes",
+    `width=${width}`,
+    `height=${height}`,
+    `left=${left}`,
+    `top=${top}`,
+  ].join(",");
+}
+
 /** Read Google's sign-in address while keeping its reply listener on this page. */
 function captureGoogleUrl(client: TokenClient): string | null {
   let url: string | null = null;
@@ -243,34 +262,27 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <a
-        href="#google-sign-in"
-        target="_blank"
-        rel="opener"
-        aria-disabled={!ready || undefined}
-        onClick={(event) => {
-          if (!ready || !clientRef.current) {
-            event.preventDefault();
-            return;
-          }
+      <button
+        type="button"
+        disabled={!ready || busy}
+        onClick={() => {
+          if (!ready || !clientRef.current) return;
           const url = captureGoogleUrl(clientRef.current);
           if (!url) {
-            event.preventDefault();
             onError("Google sign-in didn't start. Try again.");
             return;
           }
           settledRef.current = false;
-          const link = event.currentTarget;
-          link.href = url;
-          link.target = "_blank";
-          link.rel = "opener";
+          const popup = window.open(url, `jwelpixel_google_${Date.now()}`, googlePopupFeatures());
+          if (!popup) return;
+          popup.focus();
           if (waitRef.current) window.clearTimeout(waitRef.current);
           waitRef.current = window.setTimeout(() => {
             if (!settledRef.current) setBusy(false);
           }, 180_000);
-          window.setTimeout(() => setBusy(true), 0);
+          setBusy(true);
         }}
-        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] aria-disabled:pointer-events-none aria-disabled:opacity-60"
+        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:cursor-default disabled:opacity-60"
       >
         {busy ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
@@ -278,7 +290,7 @@ export function GoogleSignInButton({
           <GoogleMark />
         )}
         {busy ? "Signing in…" : "Continue with Google"}
-      </a>
+      </button>
     );
   }
 
