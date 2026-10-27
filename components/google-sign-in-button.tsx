@@ -153,7 +153,6 @@ export function GoogleSignInButton({
     () => false,
   );
   const clientRef = useRef<TokenClient | null>(null);
-  const googleUrl = useRef<string | null>(null);
   const handlers = useRef({ onSignedIn, onError });
 
   useEffect(() => {
@@ -210,24 +209,23 @@ export function GoogleSignInButton({
       <button
         type="button"
         disabled={busy || !ready}
-        onPointerDown={() => {
-          const client = clientRef.current;
-          if (!client || googleUrl.current) return;
-          googleUrl.current = captureGoogleUrl(client);
-        }}
         onClick={() => {
-          const client = clientRef.current;
-          const url = googleUrl.current ?? (client ? captureGoogleUrl(client) : null);
-          if (!url) {
-            onError(ready ? "Google sign-in didn't start. Try again." : "Google sign-in is still loading. Try again in a moment.");
-            return;
-          }
-          googleUrl.current = url;
-          const popup = window.open(url, `jwelpixel_google_${Date.now()}`, googlePopupFeatures());
+          const popup = window.open(
+            "about:blank",
+            `jwelpixel_google_${Date.now()}`,
+            googlePopupFeatures(),
+          );
           if (!popup) {
             onError("Allow popups for this site, then click Continue with Google again.");
             return;
           }
+          const url = clientRef.current ? captureGoogleUrl(clientRef.current) : null;
+          if (!url) {
+            popup.close();
+            onError("Google sign-in didn't start. Try again.");
+            return;
+          }
+          popup.location.replace(url);
           setBusy(true);
           const watch = window.setInterval(() => {
             if (!popup.closed) return;
