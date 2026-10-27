@@ -153,7 +153,6 @@ export function GoogleSignInButton({
     () => false,
   );
   const clientRef = useRef<TokenClient | null>(null);
-  const linkRef = useRef<HTMLAnchorElement>(null);
   const googleUrl = useRef<string | null>(null);
   const handlers = useRef({ onSignedIn, onError });
 
@@ -208,32 +207,35 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <a
-        ref={linkRef}
-        href="#google-sign-in"
-        target="_blank"
-        rel="opener"
-        aria-disabled={busy || !ready}
+      <button
+        type="button"
+        disabled={busy || !ready}
         onPointerDown={() => {
           const client = clientRef.current;
           if (!client || googleUrl.current) return;
-          const url = captureGoogleUrl(client);
-          if (!url || !linkRef.current) return;
-          googleUrl.current = url;
-          linkRef.current.href = url;
+          googleUrl.current = captureGoogleUrl(client);
         }}
-        onClick={(event) => {
-          const href = event.currentTarget.href;
-          if (!href.includes("accounts.google.com")) {
-            event.preventDefault();
+        onClick={() => {
+          const client = clientRef.current;
+          const url = googleUrl.current ?? (client ? captureGoogleUrl(client) : null);
+          if (!url) {
             onError(ready ? "Google sign-in didn't start. Try again." : "Google sign-in is still loading. Try again in a moment.");
             return;
           }
+          googleUrl.current = url;
+          const popup = window.open(url, `jwelpixel_google_${Date.now()}`, googlePopupFeatures());
+          if (!popup) {
+            onError("Allow popups for this site, then click Continue with Google again.");
+            return;
+          }
           setBusy(true);
-          const popup = window.open(href, "jwelpixel_google", googlePopupFeatures());
-          if (popup) event.preventDefault();
+          const watch = window.setInterval(() => {
+            if (!popup.closed) return;
+            window.clearInterval(watch);
+            setBusy(false);
+          }, 400);
         }}
-        className={`flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] ${busy || !ready ? "pointer-events-none opacity-60" : ""}`}
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:opacity-60"
       >
         {busy ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
@@ -241,7 +243,7 @@ export function GoogleSignInButton({
           <GoogleMark />
         )}
         {busy ? "Signing in…" : "Continue with Google"}
-      </a>
+      </button>
     );
   }
 
