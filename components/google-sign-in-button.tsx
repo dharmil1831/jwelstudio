@@ -91,18 +91,15 @@ async function nativeGoogleIdToken(): Promise<string> {
 }
 
 function googleFailure(type?: string): string | null {
-  if (type === "popup_closed") return null;
-  if (type === "popup_failed_to_open") {
-    return "Allow popups for this site, then click Continue with Google again.";
-  }
+  if (type === "popup_closed" || type === "popup_failed_to_open") return null;
   return "Google sign-in was cancelled.";
 }
 
 function googlePopupFeatures(): string {
   const width = 480;
   const height = 640;
-  const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
-  const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
   return `popup=yes,width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`;
 }
 
@@ -112,7 +109,9 @@ function captureGoogleUrl(client: TokenClient): string | null {
   const original = window.open.bind(window);
   const hold = { closed: false, focus() {}, close() {} } as Window;
   window.open = ((next?: string | URL) => {
-    if (typeof next === "string" && next.startsWith("https://accounts.google.com/")) url = next;
+    const value =
+      typeof next === "string" ? next : next instanceof URL ? next.href : String(next ?? "");
+    if (value.startsWith("https://accounts.google.com/")) url = value;
     return hold;
   }) as typeof window.open;
   try {
@@ -206,34 +205,42 @@ export function GoogleSignInButton({
 
   if (!native) {
     return (
-      <button
-        type="button"
-        disabled={busy || !ready}
-        onClick={() => {
-          const popup = window.open(
-            "about:blank",
-            `jwelpixel_google_${Date.now()}`,
-            googlePopupFeatures(),
-          );
-          if (!popup) {
-            onError("Allow popups for this site, then click Continue with Google again.");
+      <a
+        href="#google-sign-in"
+        target="_blank"
+        rel="opener"
+        aria-disabled={busy || !ready || undefined}
+        onClick={(event) => {
+          if (busy || !ready || !clientRef.current) {
+            event.preventDefault();
             return;
           }
-          const url = clientRef.current ? captureGoogleUrl(clientRef.current) : null;
+          onError("");
+          const url = captureGoogleUrl(clientRef.current);
           if (!url) {
-            popup.close();
+            event.preventDefault();
             onError("Google sign-in didn't start. Try again.");
             return;
           }
-          popup.location.replace(url);
+          const name = `jwelpixel_google_${Date.now()}`;
+          const popup = window.open(url, name, googlePopupFeatures());
+          if (popup && popup.closed !== true) {
+            event.preventDefault();
+            setBusy(true);
+            const watch = window.setInterval(() => {
+              if (!popup.closed) return;
+              window.clearInterval(watch);
+              setBusy(false);
+            }, 400);
+            return;
+          }
+          const link = event.currentTarget;
+          link.href = url;
+          link.target = name;
           setBusy(true);
-          const watch = window.setInterval(() => {
-            if (!popup.closed) return;
-            window.clearInterval(watch);
-            setBusy(false);
-          }, 400);
+          window.setTimeout(() => setBusy(false), 90_000);
         }}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+        className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#d9cfe8] bg-white text-[15px] font-semibold text-[#2a2140] no-underline shadow-sm transition active:scale-[0.99] aria-disabled:pointer-events-none aria-disabled:opacity-60"
       >
         {busy ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9cfe8] border-t-[#7c5cbf]" />
@@ -241,7 +248,7 @@ export function GoogleSignInButton({
           <GoogleMark />
         )}
         {busy ? "Signing in…" : "Continue with Google"}
-      </button>
+      </a>
     );
   }
 
