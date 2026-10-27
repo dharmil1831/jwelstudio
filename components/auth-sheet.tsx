@@ -412,7 +412,7 @@ export function AuthPanel({
               setResetSent(false);
               openView("forgot");
             }}
-            className="w-full text-sm font-medium text-primary"
+            className="h-12 w-full rounded-full border-2 border-primary/40 bg-white text-sm font-semibold text-primary"
           >
             Forgot password?
           </button>
