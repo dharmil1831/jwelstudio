@@ -102,12 +102,27 @@ function googlePopupFeatures(): string {
   const left = Math.max(0, Math.round((window.screen.width - width) / 2));
   const top = Math.max(0, Math.round((window.screen.height - height) / 2));
   return [
-    "popup=yes",
+    "toolbar=no",
+    "location=no",
+    "status=no",
+    "menubar=no",
+    "scrollbars=yes",
+    "resizable=yes",
     `width=${width}`,
     `height=${height}`,
     `left=${left}`,
     `top=${top}`,
   ].join(",");
+}
+
+function openGooglePage(url: string): void {
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "opener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 /** Read Google's sign-in address while keeping its reply listener on this page. */
@@ -262,25 +277,21 @@ export function GoogleSignInButton({
         disabled={!ready || busy}
         onClick={() => {
           if (!ready || !clientRef.current) return;
-          // Chrome only allows this window if it is the first thing the click does.
-          const popup = window.open(
-            "about:blank",
-            `jwelpixel_google_${Date.now()}`,
-            googlePopupFeatures(),
-          );
           const url = captureGoogleUrl(clientRef.current);
-          if (!popup || !url) {
-            if (popup && popup.closed !== true) popup.close();
-            if (!url) onError("Google sign-in didn't start. Try again.");
+          if (!url) {
+            onError("Google sign-in didn't start. Try again.");
             return;
           }
-          settledRef.current = false;
-          try {
-            popup.location.replace(url);
-            popup.focus();
-          } catch {
-            /* The popup is already open. */
+          const popup = window.open(url, `jwelpixel_google_${Date.now()}`, googlePopupFeatures());
+          if (!popup) openGooglePage(url);
+          else {
+            try {
+              popup.focus();
+            } catch {
+              /* The window is already open. */
+            }
           }
+          settledRef.current = false;
           if (waitRef.current) window.clearTimeout(waitRef.current);
           waitRef.current = window.setTimeout(() => {
             if (!settledRef.current) setBusy(false);
