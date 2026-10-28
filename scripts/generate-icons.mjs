@@ -39,8 +39,8 @@ async function writePng(rel, size, opts) {
 }
 
 async function writeIco() {
-  // Multi-size ICO: 16 + 32 + 48 as PNG-compressed ICO header.
-  const sizes = [16, 32, 48];
+  // Multi-size ICO. 256 is what the browser tab requests from app/favicon.ico.
+  const sizes = [16, 32, 48, 256];
   const images = [];
   for (const size of sizes) {
     images.push(await squareIcon(size, { padRatio: 0.08 }));
@@ -81,12 +81,18 @@ async function writeIco() {
     entry.png.copy(buf, entry.offset);
   }
 
-  const out = path.join(root, "public", "favicon.ico");
-  await writeFile(out, buf);
-  console.log("wrote public/favicon.ico");
+  for (const rel of ["public/favicon.ico", "app/favicon.ico"]) {
+    await writeFile(path.join(root, rel), buf);
+    console.log("wrote", rel);
+  }
 }
 
 async function main() {
+  if (process.argv.includes("--ico-only")) {
+    await writeIco();
+    return;
+  }
+
   // Next.js App Router metadata icons
   await writePng("app/icon.png", 512, { padRatio: 0.1 });
   await writePng("app/apple-icon.png", 180, { padRatio: 0.1 });
