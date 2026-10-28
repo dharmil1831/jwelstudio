@@ -14,10 +14,10 @@ export function MarketingShowcase({ images }: { images: HomePlaceholderSelection
     <div className="w-full min-w-0 bg-background text-foreground">
       <section className="pt-10 text-center sm:pt-16">
         <p className="px-4 text-[11px] font-semibold tracking-[0.18em] text-primary sm:tracking-[0.32em]">
-          AI JEWELLERY PHOTOS
+          MODEL SHOTS & VIDEOS
         </p>
         <h1 className="mx-auto mt-5 max-w-4xl px-4 font-[family-name:var(--font-display)] text-[clamp(2rem,7vw,3.75rem)] leading-[1.08] font-normal text-balance text-foreground sm:px-6">
-          Turn one jewellery photo into a premium catalog.
+          Model shots and videos from one photo.
         </h1>
         <div className="mt-8 overflow-hidden sm:mt-10">
           <div className="flex w-max animate-marquee gap-3 sm:gap-4">
@@ -33,7 +33,7 @@ export function MarketingShowcase({ images }: { images: HomePlaceholderSelection
           </div>
         </div>
         <p className="mx-auto mt-8 max-w-md px-4 text-sm leading-relaxed text-foreground/70 sm:px-6">
-          Upload one photograph. Receive a styled, catalog-ready photo in seconds.
+          Pick a look. Jwelpixel puts your jewelry on a model, or on a clean backdrop.
         </p>
         <Link
           href="/login"
