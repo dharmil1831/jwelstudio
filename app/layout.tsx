@@ -29,9 +29,7 @@ const sans = Manrope({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
-  title: {
-    default: defaultTitle,
-  },
+  title: defaultTitle,
   description: defaultDescription,
   applicationName: siteName,
   openGraph: {
