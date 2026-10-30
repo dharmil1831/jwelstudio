@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 
+const PRODUCTION_SITE_URL = "https://jwelpixel.xyz";
+
 export function siteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  if (explicit && !explicit.endsWith(".vercel.app")) return explicit;
+  if (process.env.VERCEL_ENV === "production") return PRODUCTION_SITE_URL;
   if (explicit) return explicit;
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, "")}`;
