@@ -1,8 +1,12 @@
-import { appBaseUrl } from "@/lib/app-url";
 import type { Metadata } from "next";
 
 export function siteUrl(): string {
-  return appBaseUrl();
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  if (explicit) return explicit;
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, "")}`;
+  }
+  return "http://localhost:3000";
 }
 
 export const siteName = "Jwelpixel";
