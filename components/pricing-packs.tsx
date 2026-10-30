@@ -1,7 +1,6 @@
 "use client";
 
-import { BuyCreditsButton } from "@/components/buy-credits-button";
-import { DodoBuyButton } from "@/components/dodo-buy-button";
+import { SubscribeButton } from "@/components/subscribe-button";
 import Link from "next/link";
 
 export type PricingPack = {
@@ -68,11 +67,7 @@ export function PricingPacks({
             ))}
           </ul>
           {loggedIn ? (
-            dodoOn ? (
-              <DodoBuyButton packId={pack.id} />
-            ) : (
-              <BuyCreditsButton packId={pack.id} />
-            )
+            <SubscribeButton packId={pack.id} dodoOn={dodoOn} />
           ) : (
             <Link
               href="/login"
