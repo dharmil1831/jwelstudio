@@ -11,17 +11,6 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
 }
 
 export async function middleware(request: NextRequest) {
-  const verificationFile = request.nextUrl.pathname.match(/^\/(google[a-f0-9]+\.html)$/);
-  if (verificationFile) {
-    return new NextResponse(`google-site-verification: ${verificationFile[1]}\n`, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=0, must-revalidate",
-      },
-    });
-  }
-
   const url = supabaseUrl();
   const key = supabaseAuthKey();
   const hasAuthCookie = request.cookies.getAll().some((cookie) => cookie.name.startsWith("sb-"));
