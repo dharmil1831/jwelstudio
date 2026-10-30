@@ -5,6 +5,9 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Log in — Jwelpixel",
+  description:
+    "Sign in to Jwelpixel with your phone number, Gmail, or email. New accounts start with a phone code.",
+  alternates: { canonical: "/login" },
 };
 
 export default async function LoginPage() {

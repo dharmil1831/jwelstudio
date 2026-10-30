@@ -1,3 +1,4 @@
+import { HomeFaq } from "@/components/home-faq";
 import type { HomePlaceholderSelection } from "@/lib/home-placeholders";
 import Link from "next/link";
 
@@ -155,6 +156,7 @@ export function MarketingShowcase({ images }: { images: HomePlaceholderSelection
           ))}
         </div>
       </section>
+      <HomeFaq />
     </div>
   );
 }

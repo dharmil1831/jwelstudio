@@ -5,6 +5,8 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Contact — Jwelpixel",
+  description: "Email jwelpixel@gmail.com for account help, failed generations, and refund requests.",
+  alternates: { canonical: "/contact" },
 };
 
 export default function ContactPage() {
@@ -37,7 +39,7 @@ export default function ContactPage() {
           <Link href="/pricing" className="text-primary underline">
             pricing page
           </Link>{" "}
-          and charged in INR by Razorpay. Refund rules are on the{" "}
+          and charged by Dodo Payments. In India that is rupees, by card or UPI. Refund rules are on the{" "}
           <Link href="/refund" className="text-primary underline">
             refund page
           </Link>

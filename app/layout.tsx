@@ -1,9 +1,18 @@
 import type { Metadata } from "next";
 import { Manrope, Newsreader } from "next/font/google";
+import { GoogleTagManager } from "@/components/google-tag-manager";
+import { JsonLd } from "@/components/json-ld";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { hasAdminSession } from "@/lib/admin";
 import { getSessionUser } from "@/lib/session";
+import {
+  defaultDescription,
+  defaultTitle,
+  googleSiteVerification,
+  siteName,
+  siteUrl,
+} from "@/lib/site-seo";
 import "./globals.css";
 
 const display = Newsreader({
@@ -19,10 +28,30 @@ const sans = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Jwelpixel — AI model shots for jewelry",
-  description:
-    "Upload jewelry, pick your style, and generate model shots. 5 free generations for new accounts.",
-  applicationName: "Jwelpixel",
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: defaultTitle,
+  },
+  description: defaultDescription,
+  applicationName: siteName,
+  openGraph: {
+    type: "website",
+    siteName,
+    locale: "en_IN",
+    title: defaultTitle,
+    description: defaultDescription,
+    images: [{ url: "/brand/jwelpixel-emblem-v4.png", alt: "Jwelpixel" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: defaultTitle,
+    description: defaultDescription,
+    images: ["/brand/jwelpixel-emblem-v4.png"],
+  },
+  robots: { index: true, follow: true },
+  ...(googleSiteVerification()
+    ? { verification: { google: googleSiteVerification() } }
+    : {}),
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -61,6 +90,27 @@ export default async function RootLayout({
       className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col overflow-x-hidden bg-background font-sans text-foreground">
+        <GoogleTagManager />
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "Organization",
+                name: siteName,
+                url: siteUrl(),
+                logo: `${siteUrl()}/brand/jwelpixel-emblem-v4.png`,
+                email: "jwelpixel@gmail.com",
+              },
+              {
+                "@type": "WebSite",
+                name: siteName,
+                url: siteUrl(),
+                description: defaultDescription,
+              },
+            ],
+          }}
+        />
         <SiteHeader initialSession={initialSession} />
         <div className="flex-1">{children}</div>
         <SiteFooter />

@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Profile — Jwelpixel",
+  robots: { index: false, follow: false },
 };
 
 function initials(label: string): string {

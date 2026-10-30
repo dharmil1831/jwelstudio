@@ -2,6 +2,7 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Font preview — Jwelpixel",
+  robots: { index: false, follow: false },
 };
 
 export default function FontPreviewPage() {

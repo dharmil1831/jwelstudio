@@ -11,13 +11,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     where: { id, shareEnabled: true, status: "succeeded" },
     select: { resultUrl: true, mode: true },
   });
-  if (!row) return { title: "Shared image — Jwelpixel" };
-  const title =
-    row.mode === "background"
-      ? "Jewelry background — Jwelpixel"
-      : "Jewelry model shot — Jwelpixel";
+  if (!row) return { title: "Shared image — Jwelpixel", robots: { index: false, follow: false } };
+  const title = row.mode === "background" ? "Jewelry background — Jwelpixel" : "Jewelry model shot — Jwelpixel";
   return {
     title,
+    robots: { index: false, follow: false },
     openGraph: {
       title,
       images: [{ url: row.resultUrl }],
