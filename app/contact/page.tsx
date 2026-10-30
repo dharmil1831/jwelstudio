@@ -39,7 +39,7 @@ export default function ContactPage() {
           <Link href="/pricing" className="text-primary underline">
             pricing page
           </Link>{" "}
-          and charged by Dodo Payments. In India that is rupees, by card or UPI. Refund rules are on the{" "}
+          and charged by Dodo Payments in US dollars each month. Refund rules are on the{" "}
           <Link href="/refund" className="text-primary underline">
             refund page
           </Link>

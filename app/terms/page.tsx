@@ -4,7 +4,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms — Jwelpixel",
+  title: "Terms of use — Jwelpixel",
+  description: "Terms for using Jwelpixel to generate jewelry model shots, backgrounds, and videos.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {
@@ -48,8 +50,9 @@ export default function TermsPage() {
       <section>
         <h2>Credits and payment</h2>
         <p className="mt-3">
-          Paid plans are prepaid credit packs in Indian rupees, charged through
-          Razorpay. Credits are added after a successful payment. One generation
+          Paid plans are monthly subscriptions. Dodo Payments charges in US
+          dollars each month. Credits are added
+          after a successful payment. One generation
           uses credits as shown in the studio before you start it. Prices are
           listed on the{" "}
           <Link href="/pricing" className="text-primary underline">

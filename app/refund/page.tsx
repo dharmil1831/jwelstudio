@@ -5,6 +5,8 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Refunds — Jwelpixel",
+  description: "How refunds and cancellations work for Jwelpixel generation credits.",
+  alternates: { canonical: "/refund" },
 };
 
 export default function RefundPage() {
@@ -13,9 +15,10 @@ export default function RefundPage() {
       <section>
         <h2>What you buy</h2>
         <p className="mt-3">
-          {sitePublic.name} sells digital generation credits in Indian rupees.
-          Credits are added to your account as soon as Razorpay confirms the
-          payment. There is no physical shipment. Prices are on the{" "}
+          {sitePublic.name} sells monthly digital generation credits. Dodo
+          Payments charges in US dollars each month. Credits are added as
+          soon as the payment is confirmed. There is no physical shipment.
+          Prices are on the{" "}
           <Link href="/pricing" className="text-primary underline">
             pricing page
           </Link>
@@ -58,8 +61,8 @@ export default function RefundPage() {
       <section>
         <h2>Cancellation</h2>
         <p className="mt-3">
-          One-time credit packs do not renew. If a monthly plan is active, you
-          can ask us to cancel it. Cancellation stops future charges. Credits
+          Monthly plans renew until you cancel. You
+          can ask us to cancel a plan. Cancellation stops future charges. Credits
           already added for the current period stay on the account and are not
           refunded.
         </p>
@@ -76,7 +79,7 @@ export default function RefundPage() {
           </a>{" "}
           from the address on your account. Include the date, the amount, and
           what went wrong. We reply within 3 business days. Approved refunds go
-          back through Razorpay to the original payment method. Your bank can
+          back through Dodo Payments to the original payment method. Your bank can
           take several working days to show the money.
         </p>
       </section>

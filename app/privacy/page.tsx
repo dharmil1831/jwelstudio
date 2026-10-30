@@ -3,7 +3,9 @@ import { sitePublic } from "@/lib/site-public";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy — Jwelpixel",
+  title: "Privacy policy — Jwelpixel",
+  description: "What Jwelpixel collects when you use the website or the Android app, and why.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
@@ -24,7 +26,7 @@ export default function PrivacyPage() {
           <li>If you continue with Google: your Google account email and the fact that Google verified it. We do not get your Google password or contacts.</li>
           <li>Login codes sent by email or SMS, and the time they were used.</li>
           <li>Photos you upload, the style options you pick, and the images or videos we generate.</li>
-          <li>Credit balance, plan, and payment records: order id, amount, and status. Card, UPI, and bank details are handled by Razorpay. We do not store them.</li>
+          <li>Credit balance, plan, and payment records: order id, amount, and status. Card, UPI, and bank details are handled by Dodo Payments. We do not store them.</li>
           <li>A session cookie that keeps you signed in.</li>
         </ul>
       </section>
@@ -42,7 +44,7 @@ export default function PrivacyPage() {
         <p className="mt-3">
           Uploaded photos and generation instructions are sent to our AI
           providers (Google Gemini, and OpenAI when it is used as a fallback) so
-          they can create the result. Payments go through Razorpay. Email codes
+          they can create the result. Payments go through Dodo Payments. Email codes
           go through our email provider, and SMS codes through our SMS provider.
           Files may be stored with our database and file host. These providers
           process data only to perform that work.
@@ -65,7 +67,7 @@ export default function PrivacyPage() {
           >
             {sitePublic.supportEmail}
           </a>
-          . Payment receipts stay with Razorpay where the law requires it. We
+          . Payment receipts stay with Dodo Payments where the law requires it. We
           keep a one-way fingerprint of your email or phone so free credits are
           not granted twice.
         </p>
