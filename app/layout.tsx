@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Manrope, Newsreader } from "next/font/google";
 import { GoogleTagManager } from "@/components/google-tag-manager";
 import { JsonLd } from "@/components/json-ld";
 import { SiteFooter } from "@/components/site-footer";
@@ -14,18 +13,6 @@ import {
   siteUrl,
 } from "@/lib/site-seo";
 import "./globals.css";
-
-const display = Newsreader({
-  variable: "--font-display-family",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const sans = Manrope({
-  variable: "--font-sans-family",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -85,8 +72,18 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${display.variable} ${sans.variable} h-full antialiased`}
+      className="h-full antialiased"
+      style={{
+        ["--font-display-family" as string]: "Newsreader",
+        ["--font-sans-family" as string]: "Manrope",
+      }}
     >
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Newsreader:wght@400;500;600;700&display=swap"
+      />
       <body className="flex min-h-full flex-col overflow-x-hidden bg-background font-sans text-foreground">
         <GoogleTagManager />
         <JsonLd
