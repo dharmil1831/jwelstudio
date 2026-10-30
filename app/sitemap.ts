@@ -1,6 +1,8 @@
 import { publicSeoRoutes, siteUrl } from "@/lib/site-seo";
 import type { MetadataRoute } from "next";
 
+export const dynamic = "force-dynamic";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = siteUrl();
   return publicSeoRoutes.map((route) => ({
