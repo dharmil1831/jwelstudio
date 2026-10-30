@@ -64,9 +64,7 @@ export default async function Home() {
             </p>
           </section>
           <section id="studio" className="scroll-mt-20 mt-0 lg:mt-16">
-            <StudioApp
-              initialSession={{ email: user.email, credits: user.credits }}
-            />
+            <StudioApp />
           </section>
         </main>
       ) : null}
