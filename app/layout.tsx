@@ -65,6 +65,7 @@ export default async function RootLayout({
         authenticated: true as const,
         user: { email: user.email, phone: user.phone },
         credits: user.credits,
+        plan: user.plan,
         isAdmin,
       }
     : { authenticated: false as const, isAdmin };
