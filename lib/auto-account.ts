@@ -16,7 +16,6 @@ export type SignedInAccount = {
   created: boolean;
 };
 
-/** Accounts made from a phone number get a placeholder email until they add a real one. */
 export function phonePlaceholderEmail(phone: string): string {
   return `phone-${phone.replace(/\D/g, "")}@users.jwelpixel.app`;
 }
@@ -27,13 +26,15 @@ export class SuperAdminSignInError extends Error {
   }
 }
 
+/** Kept for older clients that still import this name. */
 export const FIRST_PHONE_SIGN_IN_MESSAGE =
-  "Your first sign-in has to be with your phone number and SMS code. After that, use Gmail, email, or the password you set.";
+  "Your first sign-in has to be with Gmail. After that, you can use Gmail again, an email code, or the password you set.";
 
-/**
- * Sign in an account that already exists. Does not create one.
- * Gmail, email codes, and passwords use this so the first sign-in stays on the phone.
- */
+export const FIRST_GOOGLE_SIGN_IN_MESSAGE = FIRST_PHONE_SIGN_IN_MESSAGE;
+
+export const PHONE_SIGN_IN_PAUSED_MESSAGE =
+  "Phone SMS sign-in is paused. Create your account with Gmail, then use Gmail, an email code, or your password to return.";
+
 export async function findExistingVerifiedAccount(
   identity: SignInIdentity,
 ): Promise<SignedInAccount | null> {
@@ -65,10 +66,6 @@ export async function findExistingVerifiedAccount(
   };
 }
 
-/**
- * Sign in with a verified email or phone. Creates the account the first time.
- * The free credits are granted once per email or phone, even if an earlier account was deleted.
- */
 export async function findOrCreateVerifiedAccount(
   identity: SignInIdentity,
 ): Promise<SignedInAccount> {

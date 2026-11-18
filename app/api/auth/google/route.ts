@@ -1,6 +1,5 @@
 import {
-  findExistingVerifiedAccount,
-  FIRST_PHONE_SIGN_IN_MESSAGE,
+  findOrCreateVerifiedAccount,
   SuperAdminSignInError,
 } from "@/lib/auto-account";
 import { prisma } from "@/lib/prisma";
@@ -39,7 +38,6 @@ async function emailFromAccessToken(accessToken: string): Promise<string | null>
   return info.email;
 }
 
-/** Continue with Google: verifies a Google token (web popup or Android) and signs in. */
 export async function POST(req: Request) {
   let body: { idToken?: string; accessToken?: string };
   try {
@@ -97,10 +95,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const user = await findExistingVerifiedAccount({ kind: "email", email });
-    if (!user) {
-      return NextResponse.json({ error: FIRST_PHONE_SIGN_IN_MESSAGE }, { status: 403 });
-    }
+    const user = await findOrCreateVerifiedAccount({ kind: "email", email });
     await ensureAuthUser(user.id);
     await prisma.user.updateMany({
       where: { id: user.id, googleVerifiedAt: null },

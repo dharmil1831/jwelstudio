@@ -6,7 +6,7 @@ import Link from "next/link";
 export const metadata = {
   title: "Log in — Jwelpixel",
   description:
-    "Sign in to Jwelpixel with your phone number, Gmail, or email. New accounts start with a phone code.",
+    "Sign in to Jwelpixel with Gmail. Returning users can also use an email code or password.",
   alternates: { canonical: "/login" },
 };
 
@@ -24,7 +24,7 @@ export default async function LoginPage() {
           Welcome to Jwelpixel
         </h1>
         <p className="mt-2 text-foreground/70">
-          See how the app works, then sign up or log in.
+          See how the app works, then continue with Gmail to create your account.
         </p>
 
         <div className="mt-8 grid items-start gap-6 md:grid-cols-2 md:gap-8">

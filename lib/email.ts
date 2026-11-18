@@ -8,16 +8,24 @@ function parseResendErrorMessage(body: string): string {
   return body.slice(0, 200);
 }
 
-export async function sendEmailOtp(email: string, code: string, purpose: "signup" | "reset"): Promise<void> {
+export async function sendEmailOtp(
+  email: string,
+  code: string,
+  purpose: "signup" | "reset" | "login",
+): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const subject =
     purpose === "reset"
       ? "Reset your Jwelpixel password"
-      : "Your Jwelpixel verification code";
+      : purpose === "login"
+        ? "Your Jwelpixel sign-in code"
+        : "Your Jwelpixel verification code";
   const text =
     purpose === "reset"
       ? `Your password reset code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`
-      : `Your verification code is ${code}. It expires in 10 minutes.`;
+      : purpose === "login"
+        ? `Your sign-in code is ${code}. It expires in 10 minutes.`
+        : `Your verification code is ${code}. It expires in 10 minutes.`;
 
   if (!apiKey) {
     if (process.env.NODE_ENV === "production") {

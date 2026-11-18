@@ -14,7 +14,6 @@ const MAX_ATTEMPTS = 5;
 const RESEND_COOLDOWN_MS = 45 * 1000;
 const MAX_SMS_PER_PHONE_PER_DAY = 10;
 
-/** otp_login signs in or creates the account, so the code is sent whether or not it exists. */
 export type OtpPurpose =
   | "signup"
   | "reset"
@@ -76,7 +75,8 @@ export async function sendEmailChannelOtp(
     },
   });
 
-  const emailPurpose = purpose === "reset" ? "reset" : "signup";
+  const emailPurpose =
+    purpose === "reset" ? "reset" : purpose === "otp_login" || purpose === "login" ? "login" : "signup";
   await sendEmailOtp(email, code, emailPurpose);
 
   if (process.env.NODE_ENV !== "production") {
@@ -85,7 +85,7 @@ export async function sendEmailChannelOtp(
   return {};
 }
 
-/** @deprecated Prefer sendEmailChannelOtp — kept for existing callers. */
+/** @deprecated Prefer sendEmailChannelOtp */
 export async function sendOtp(
   purpose: "signup" | "reset",
   rawEmail: string,
@@ -154,7 +154,7 @@ export async function verifyEmailOtp(
   return consumeChallenge(challenge, code);
 }
 
-/** @deprecated Prefer verifyEmailOtp */
+/** @deprecated */
 export async function verifyOtp(
   purpose: "signup" | "reset",
   rawEmail: string,
