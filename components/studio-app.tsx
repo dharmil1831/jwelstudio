@@ -179,6 +179,15 @@ export function StudioApp() {
   });
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof credits !== "number") return;
+    window.dispatchEvent(
+      new CustomEvent("jewel-credits-changed", {
+        detail: { credits },
+      }),
+    );
+  }, [credits]);
   const [generationReady, setGenerationReady] = useState<boolean | null>(null);
   const [canCustomPrompt, setCanCustomPrompt] = useState(false);
   const [canBrand, setCanBrand] = useState(false);
@@ -1497,10 +1506,10 @@ export function StudioApp() {
       <aside className="flex flex-col gap-5 rounded-2xl border border-primary/20 bg-secondary/95 p-6 shadow-md">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-foreground/70">
-            Credits:{" "}
-            <span className="text-lg font-medium text-foreground">
+            <span className="text-lg font-semibold text-foreground">
               {credits ?? "—"}
-            </span>
+            </span>{" "}
+            left
           </p>
           {credits === 0 ? (
             <Link
