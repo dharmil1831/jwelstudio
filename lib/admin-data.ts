@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-/** Calendar day in India, YYYY-MM-DD. The admin "today" uses this, not the server clock. */
 export function todayInIndia(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -10,7 +9,6 @@ export function todayInIndia(): string {
   }).format(new Date());
 }
 
-/** Midnight-to-midnight IST for a YYYY-MM-DD date. */
 export function indiaDayRange(
   date: string,
 ): { start: Date; end: Date } | null {
@@ -20,37 +18,49 @@ export function indiaDayRange(
   return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
 }
 
+const ACTIVE_WINDOW_MS = 15 * 60 * 1000;
+
+function asCount(value: unknown): number {
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "number") return value;
+  return Number(value ?? 0);
+}
+
 export async function getAdminStats() {
   const startOfDay = indiaDayRange(todayInIndia())!.start;
-
-  const [
-    userCount,
-    generationCount,
-    generationsToday,
-    paidPayments,
-    revenue,
-    creditsSum,
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.generation.count(),
-    prisma.generation.count({
-      where: { createdAt: { gte: startOfDay } },
-    }),
-    prisma.payment.count({ where: { status: "paid" } }),
-    prisma.payment.aggregate({
-      where: { status: "paid" },
-      _sum: { amountPaise: true },
-    }),
-    prisma.user.aggregate({ _sum: { credits: true } }),
-  ]);
+  const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MS);
+  const [row] = await prisma.$queryRaw<
+    Array<{
+      userCount: unknown;
+      generationCount: unknown;
+      generationsToday: unknown;
+      paidPayments: unknown;
+      revenuePaise: unknown;
+      revenueUsdCents: unknown;
+      creditsInCirculation: unknown;
+      activeNow: unknown;
+    }>
+  >`
+    SELECT
+      (SELECT COUNT(*) FROM "User") AS "userCount",
+      (SELECT COUNT(*) FROM "Generation") AS "generationCount",
+      (SELECT COUNT(*) FROM "Generation" WHERE "createdAt" >= ${startOfDay}) AS "generationsToday",
+      (SELECT COUNT(*) FROM "Payment" WHERE "status" = 'paid') AS "paidPayments",
+      (SELECT COALESCE(SUM("amountPaise"), 0) FROM "Payment" WHERE "status" = 'paid' AND "currency" = 'inr') AS "revenuePaise",
+      (SELECT COALESCE(SUM("amountPaise"), 0) FROM "Payment" WHERE "status" = 'paid' AND "currency" = 'usd') AS "revenueUsdCents",
+      (SELECT COALESCE(SUM("credits"), 0) FROM "User") AS "creditsInCirculation",
+      (SELECT COUNT(*) FROM "User" WHERE "lastSeenAt" >= ${activeSince}) AS "activeNow"
+  `;
 
   return {
-    userCount,
-    generationCount,
-    generationsToday,
-    paidPayments,
-    revenuePaise: revenue._sum.amountPaise ?? 0,
-    creditsInCirculation: creditsSum._sum.credits ?? 0,
+    userCount: asCount(row?.userCount),
+    generationCount: asCount(row?.generationCount),
+    generationsToday: asCount(row?.generationsToday),
+    paidPayments: asCount(row?.paidPayments),
+    revenuePaise: asCount(row?.revenuePaise),
+    revenueUsdCents: asCount(row?.revenueUsdCents),
+    creditsInCirculation: asCount(row?.creditsInCirculation),
+    activeNow: asCount(row?.activeNow),
   };
 }
 
@@ -82,30 +92,24 @@ export async function listAdminPayments(limit = 100) {
   });
 }
 
-const ACTIVE_WINDOW_MS = 15 * 60 * 1000;
-
 export async function listActiveUsers() {
   const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MS);
-  const [activeNow, recent] = await Promise.all([
-    prisma.user.count({ where: { lastSeenAt: { gte: activeSince } } }),
-    prisma.user.findMany({
-      where: { lastSeenAt: { not: null } },
-      orderBy: { lastSeenAt: "desc" },
-      take: 25,
-      select: {
-        id: true,
-        email: true,
-        phone: true,
-        plan: true,
-        credits: true,
-        lastSeenAt: true,
-        lastLoginAt: true,
-      },
-    }),
-  ]);
+  const recent = await prisma.user.findMany({
+    where: { lastSeenAt: { not: null } },
+    orderBy: { lastSeenAt: "desc" },
+    take: 25,
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      plan: true,
+      credits: true,
+      lastSeenAt: true,
+      lastLoginAt: true,
+    },
+  });
 
   return {
-    activeNow,
     activeSince,
     recent: recent.map((user) => ({
       ...user,
