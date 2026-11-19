@@ -1,5 +1,7 @@
+import { getAdminSessionUser } from "@/lib/admin";
 import { getAdminStats, listActiveUsers } from "@/lib/admin-data";
 import { PLAN_LABELS, normalizePlanId } from "@/lib/entitlements";
+import { isPrismaConnectivityError } from "@/lib/prisma";
 
 function StatCard({
   label,
@@ -26,11 +28,42 @@ function formatWhen(value: Date | null): string {
   return value.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 }
 
+export const maxDuration = 30;
+
 export default async function AdminDashboardPage() {
-  const [stats, activity] = await Promise.all([
-    getAdminStats(),
-    listActiveUsers(),
-  ]);
+  await getAdminSessionUser();
+
+  let stats: Awaited<ReturnType<typeof getAdminStats>> | null = null;
+  let activity: Awaited<ReturnType<typeof listActiveUsers>> | null = null;
+  let loadError: string | null = null;
+
+  try {
+    stats = await getAdminStats();
+    activity = await listActiveUsers();
+  } catch (error) {
+    console.error("[admin-dashboard]", error);
+    loadError = isPrismaConnectivityError(error)
+      ? "Database is busy right now. Wait a few seconds and reload."
+      : "Could not load dashboard data. Reload to try again.";
+  }
+
+  if (loadError || !stats || !activity) {
+    return (
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+        <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-5 text-sm text-amber-950">
+          <p className="font-semibold">Dashboard temporarily unavailable</p>
+          <p className="mt-1">{loadError ?? "Could not load dashboard data."}</p>
+          <a
+            href="/admin"
+            className="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white"
+          >
+            Reload
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -40,7 +73,7 @@ export default async function AdminDashboardPage() {
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Active now"
-          value={activity.activeNow}
+          value={stats.activeNow}
           sub="Opened the app in the last 15 minutes"
         />
         <StatCard label="Users" value={stats.userCount} />
@@ -53,8 +86,12 @@ export default async function AdminDashboardPage() {
         <StatCard label="Paid orders" value={stats.paidPayments} />
         <StatCard
           label="Revenue"
-          value={`₹${(stats.revenuePaise / 100).toFixed(0)}`}
-          sub="Successful Razorpay payments"
+          value={
+            stats.revenueUsdCents > 0
+              ? `₹${(stats.revenuePaise / 100).toFixed(0)} · $${(stats.revenueUsdCents / 100).toFixed(0)}`
+              : `₹${(stats.revenuePaise / 100).toFixed(0)}`
+          }
+          sub="Paid card orders"
         />
         <StatCard
           label="Credits in circulation"
