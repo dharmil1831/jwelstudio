@@ -36,7 +36,6 @@ export async function getAdminStats() {
       generationsToday: unknown;
       paidPayments: unknown;
       revenuePaise: unknown;
-      revenueUsdCents: unknown;
       creditsInCirculation: unknown;
       activeNow: unknown;
     }>
@@ -46,8 +45,7 @@ export async function getAdminStats() {
       (SELECT COUNT(*) FROM "Generation") AS "generationCount",
       (SELECT COUNT(*) FROM "Generation" WHERE "createdAt" >= ${startOfDay}) AS "generationsToday",
       (SELECT COUNT(*) FROM "Payment" WHERE "status" = 'paid') AS "paidPayments",
-      (SELECT COALESCE(SUM("amountPaise"), 0) FROM "Payment" WHERE "status" = 'paid' AND "currency" = 'inr') AS "revenuePaise",
-      (SELECT COALESCE(SUM("amountPaise"), 0) FROM "Payment" WHERE "status" = 'paid' AND "currency" = 'usd') AS "revenueUsdCents",
+      (SELECT COALESCE(SUM("amountPaise"), 0) FROM "Payment" WHERE "status" = 'paid') AS "revenuePaise",
       (SELECT COALESCE(SUM("credits"), 0) FROM "User") AS "creditsInCirculation",
       (SELECT COUNT(*) FROM "User" WHERE "lastSeenAt" >= ${activeSince}) AS "activeNow"
   `;
@@ -58,7 +56,7 @@ export async function getAdminStats() {
     generationsToday: asCount(row?.generationsToday),
     paidPayments: asCount(row?.paidPayments),
     revenuePaise: asCount(row?.revenuePaise),
-    revenueUsdCents: asCount(row?.revenueUsdCents),
+    revenueUsdCents: 0,
     creditsInCirculation: asCount(row?.creditsInCirculation),
     activeNow: asCount(row?.activeNow),
   };
