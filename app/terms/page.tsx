@@ -71,6 +71,11 @@ export default function TermsPage() {
           <li>No illegal content, fraud, or impersonation.</li>
           <li>No uploads you do not have rights to use.</li>
           <li>No attempts to break, overload, or bypass the service.</li>
+          <li>
+            Custom prompts are for jewelry product marketing only. Do not request
+            nude, sexual, NSFW, violent, hateful, or otherwise unsafe images.
+            We may block prompts and suspend accounts that break this rule.
+          </li>
         </ul>
         <p className="mt-3">
           We may suspend an account that breaks these terms. Unused paid credits

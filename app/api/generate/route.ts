@@ -161,6 +161,14 @@ export async function POST(req: Request) {
     );
   }
 
+  if (style.customPrompt) {
+    const { assertPromptSafe } = await import("@/lib/prompt-safety");
+    const safety = assertPromptSafe(style.customPrompt);
+    if (!safety.ok) {
+      return NextResponse.json({ error: safety.error }, { status: 400 });
+    }
+  }
+
   if (
     brandHasContent(brand) &&
     (!canUseFeature(user.plan, "brandOverlay") || !settings.featureBrandEnabled)

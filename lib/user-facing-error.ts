@@ -1,5 +1,3 @@
-/** User-facing error copy — never expose provider/infra details to clients. */
-
 export const GENERIC_ERROR = "Something went wrong. Please try again.";
 export const GENERIC_GENERATION_ERROR =
   "Could not generate right now. Please try again in a moment.";
@@ -12,6 +10,8 @@ const SAFE_EXACT = new Set([
   "Please log in to generate images.",
   "Please log in to generate video.",
   "Please log in to buy credits.",
+  "Checkout is not open yet.",
+  "Top-up is not open yet.",
   "Please log in as admin.",
   "No credits left. Buy a credit pack to continue.",
   "Could not deduct credits",
@@ -39,12 +39,15 @@ const SAFE_EXACT = new Set([
   "Saved themes unlock on Platinum and Diamond.",
   "Saved looks unlock on Platinum and above.",
   "Video unlocks on Diamond. See Pricing.",
-  "Razorpay is not configured.",
-  "Razorpay failed to load. Check your connection.",
+  "Card checkout is not open yet.",
+  "Card checkout failed.",
+  "Card checkout failed to load.",
   "Invalid payment signature.",
   "Missing payment fields.",
   "Order not found.",
   "Checkout failed",
+  "Play billing is not open yet.",
+  "App Store billing is not open yet.",
   "Payment verify failed",
   "Could not create share link",
   "Could not share",
@@ -91,10 +94,6 @@ function isTechnicalLeak(message: string): boolean {
   );
 }
 
-/**
- * Map any thrown/API error to safe UI copy.
- * Keep short product messages; hide provider/infra details.
- */
 export function toUserFacingError(
   err: unknown,
   fallback: string = GENERIC_ERROR,
@@ -169,9 +168,8 @@ export function toUserFacingError(
     return message;
   }
 
-  // Prefix match for dynamic but safe copy (theme limits, credit costs, etc.)
   if (
-    /^(Saved themes unlock|Theme limit reached|Video needs|Custom prompt is available|Brand \/ festival|Selfie \/ own-model|Photo is too large|This photo is too large|SMS limit|Please wait a moment|Enter a valid|Provide a valid|An account with|This email|This phone|Cannot |generationId)/i.test(
+    /^(Saved themes unlock|Theme limit reached|Video needs|Custom prompt is available|This prompt was blocked|Please accept the custom prompt|Brand \/ festival|Selfie \/ own-model|Photo is too large|This photo is too large|SMS limit|Please wait a moment|Enter a valid|Provide a valid|An account with|This email|This phone|Cannot |generationId)/i.test(
       message,
     ) &&
     message.length <= 200 &&
@@ -187,7 +185,6 @@ export function toUserFacingError(
     return fallback;
   }
 
-  // Short, plain product copy without technical markers — keep it.
   if (
     message.length <= 140 &&
     !/[`{}<>]|Exception|Error:|status\s*\d{3}/i.test(message) &&

@@ -1,12 +1,19 @@
 "use client";
 
 import { BrandMarketingPanel, type BrandFormState } from "@/components/brand-marketing-panel";
+import {
+  CreditsUsageCard,
+  CreditsUsageSheet,
+  planCreditAllotment,
+} from "@/components/credits-usage-card";
 import { MobileStudioNav, type StudioScreen } from "@/components/mobile-studio-nav";
 import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { ReflectionControls } from "@/components/reflection-controls";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
+import { PromptConsentFields } from "@/components/prompt-consent-fields";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ImageLightbox } from "@/components/image-lightbox";
+import { PLAN_LABELS, normalizePlanId } from "@/lib/entitlements";
 import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fields";
 import { videoLengthLabel } from "@/lib/brand-video";
 import { VideoIdlePreview } from "@/components/video-idle-preview";
@@ -88,7 +95,6 @@ type Tool =
   | "shadow"
   | "resize";
 
-/** Home browse cards — slightly broader than the edit Resize tool. */
 const SOCIAL_CARDS: { id: OutputFormat; label: string }[] = [
   { id: "instagram_story", label: "Instagram Story" },
   { id: "square", label: "Instagram Post" },
@@ -108,7 +114,6 @@ const TOOL_CARDS: {
 }[] = [
   { id: "model", label: "Model shot", job: "model", image: "/mobile-looks/look-bridal.jpg" },
   { id: "backdrop", label: "Background", job: "background", image: "/mobile-looks/product-white.jpg" },
-  // Jewelry product placeholders for non-model tools (not look/model photos)
   { id: "video", label: "Video", job: "video", image: "/mobile-looks/product-white.jpg" },
   { id: "prompt", label: "Prompt", job: "model", image: "/mobile-looks/product-white.jpg" },
   { id: "brand", label: "Brand", job: "model", image: "/mobile-looks/product-white.jpg" },
@@ -159,6 +164,7 @@ const TOOLS: { id: Tool; label: string }[] = [
 
 export type StudioMobileHomeProps = {
   credits: number | null;
+  plan?: string | null;
   userEmail?: string | null;
   previewUrl: string | null;
   fileName: string | null;
@@ -176,6 +182,8 @@ export type StudioMobileHomeProps = {
   generationReady: boolean | null;
   customPrompt: string;
   onCustomPrompt: (value: string) => void;
+  promptConsent: boolean;
+  onPromptConsent: (value: boolean) => void;
   brand: BrandFormState;
   onBrand: (value: BrandFormState) => void;
   subject: Subject;
@@ -246,7 +254,6 @@ export type StudioMobileHomeProps = {
   onSaveTheme: () => void;
   onLeaveEditor: () => void;
   lookNotice: string | null;
-  /** Signed-out visitor: the UI works, account actions open the sign-in sheet. */
   guest?: boolean;
   onRequireSignIn?: (reason?: string) => void;
 };
@@ -275,7 +282,6 @@ function Chip({
   );
 }
 
-/** White backdrop becomes transparent so the necklace stays gold on any color. */
 function useJewelryCutout(src: string): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -323,13 +329,16 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   const [tool, setTool] = useState<Tool>("model");
   const [zoomOpen, setZoomOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  const planId = normalizePlanId(props.plan);
+  const planLabel = PLAN_LABELS[planId];
+  const allotment = planCreditAllotment(planId);
   const previewSlotRef = useRef<HTMLElement | null>(null);
   const screenRef = useRef<Screen>("home");
   const show = (id: Feed) => feed === "all" || feed === id;
   const isVideoResult =
     Boolean(props.resultMime?.startsWith("video/")) ||
     Boolean(props.resultUrl && /\.(mp4|webm)(\?|$)/i.test(props.resultUrl));
-  // Never fall back to the jewelry upload thumbnail for a finished video.
   const piece = isVideoResult
     ? props.resultUrl
     : props.finishedPreviewUrl || props.resultUrl || props.previewUrl;
@@ -423,11 +432,19 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background font-sans text-foreground">
       <header className="relative z-10 flex items-center gap-2 border-b border-primary/15 bg-background px-4 pb-2.5 pt-3 shadow-[0_2px_12px_rgba(76,45,120,0.10)]">
-        <img
-          src="/brand/jwelpixel-logo-v4.png"
-          alt="Jwelpixel"
-          className="h-8 w-auto max-w-[58%] min-w-0 object-contain object-left"
-        />
+        <button
+          type="button"
+          onClick={() => showScreen("home")}
+          className="min-w-0 max-w-[58%] shrink text-left"
+          aria-label="Jwelpixel home"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/jwelpixel-logo-v4.png"
+            alt="Jwelpixel"
+            className="h-8 w-auto max-w-full object-contain object-left"
+          />
+        </button>
         <span className="min-w-2 flex-1" />
         {props.guest ? (
           <button
@@ -437,7 +454,28 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
           >
             Sign in · 5 free credits
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            onClick={() => setCreditsOpen(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-white py-1 pl-1 pr-2.5 ring-1 ring-primary/25"
+            aria-label="Open credit usage"
+          >
+            <span
+              className="grid h-7 w-7 place-items-center rounded-full text-[10px] font-bold text-primary"
+              style={{
+                background: `radial-gradient(closest-side, white 68%, transparent 69% 100%), conic-gradient(var(--primary) ${Math.min(100, Math.round(((props.credits ?? 0) / allotment) * 100))}%, #ebe4f4 0)`,
+              }}
+              aria-hidden
+            />
+            <span className="text-left leading-tight">
+              <span className="block text-[11px] font-bold text-foreground">
+                {props.credits ?? "—"} left
+              </span>
+              <span className="block text-[9px] text-foreground/55">{planLabel}</span>
+            </span>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => showScreen("profile")}
@@ -652,7 +690,6 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               const showVideoIdle =
                 !props.loading && !props.brandingVideo && !showVideoPlayer && tool === "video";
 
-              // Generating / video player must not sit inside a file <label>.
               if (props.loading || props.brandingVideo) {
                 return (
                   <div
@@ -1210,16 +1247,13 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 </div>
               ) : null}
               {tool === "prompt" ? (
-                props.canCustomPrompt ? (
-                  <textarea
-                    value={props.customPrompt}
-                    onChange={(e) => props.onCustomPrompt(e.target.value)}
-                    placeholder="Soft temple light. Keep every stone exact."
-                    className="min-h-24 w-full rounded-xl bg-background px-3 py-2 text-sm outline-none ring-1 ring-primary/20"
-                  />
-                ) : (
-                  <p className="text-xs text-foreground/70">Custom prompts unlock on higher plans.</p>
-                )
+                <PromptConsentFields
+                  value={props.customPrompt}
+                  consented={props.promptConsent}
+                  onChange={props.onCustomPrompt}
+                  onConsentChange={props.onPromptConsent}
+                  locked={!props.canCustomPrompt}
+                />
               ) : null}
               {tool === "brand" ? (
                 <BrandMarketingPanel value={props.brand} onChange={props.onBrand} locked={!props.canBrand} initialOpen />
@@ -1237,15 +1271,59 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               ) : null}
               {tool === "selfie" ? (
                 props.canSelfie ? (
-                  <label className="block rounded-xl border border-dashed border-primary p-3 text-sm">
-                    {props.selfiePreviewUrl ? "Selfie added. Tap to replace." : "Optional selfie for try-on"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(e) => props.onPickSelfie(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
+                  <div className="flex flex-col gap-2">
+                    {props.selfiePreviewUrl ? (
+                      <div className="overflow-hidden rounded-xl border border-primary/20 bg-white p-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={props.selfiePreviewUrl}
+                          alt="Selfie"
+                          className="mx-auto max-h-28 rounded-lg object-contain"
+                        />
+                        <p className="mt-1.5 text-center text-[11px] text-foreground/60">
+                          Selfie added — your photo is the model
+                        </p>
+                        <button
+                          type="button"
+                          className="mt-1 w-full text-center text-[11px] font-semibold text-primary"
+                          onClick={() => props.onPickSelfie(null)}
+                        >
+                          Remove selfie
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-foreground/70">
+                        Use your face as the model. Camera asks for permission; gallery picks an existing photo.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl bg-primary px-2 py-3 text-center text-xs font-bold text-white">
+                        Take selfie
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="user"
+                          className="sr-only"
+                          onChange={(e) => {
+                            props.onPickSelfie(e.target.files?.[0] ?? null);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-primary/30 bg-white px-2 py-3 text-center text-xs font-bold text-primary">
+                        From gallery
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => {
+                            props.onPickSelfie(e.target.files?.[0] ?? null);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
                 ) : (
                   <p className="text-xs text-foreground/70">Selfie try-on unlocks on Platinum and above.</p>
                 )
@@ -1365,40 +1443,43 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         ) : null}
 
         {screen === "profile" && !props.guest ? (
-          <div className="rounded-2xl border border-primary/15 bg-white p-5">
-            <h2 className="font-[family-name:var(--font-display)] text-3xl font-normal">Your profile</h2>
-            <p className="mt-1 text-sm font-semibold text-foreground">
-              {profileLabel(props.userEmail)}
-            </p>
-            {props.userEmail ? (
-              <p className="mt-0.5 truncate text-xs text-foreground/55">{props.userEmail}</p>
-            ) : null}
-            <p className="mt-2 text-sm text-foreground/70">
-              {props.credits ?? "—"} credits left
-            </p>
-            <div className="mt-6 flex flex-col gap-2">
-              <Link href="/profile" className="rounded-xl bg-primary py-3 text-center text-sm font-semibold text-white">
-                Profile
-              </Link>
-              <Link href="/gallery" className="rounded-xl border border-primary/25 py-3 text-center text-sm font-semibold">
-                Gallery
-              </Link>
-              <Link href="/pricing" className="rounded-xl border border-primary/25 py-3 text-center text-sm font-semibold">
-                Pricing
-              </Link>
-              <button
-                type="button"
-                disabled={loggingOut}
-                onClick={() => void logout()}
-                className="rounded-xl border border-red-300 bg-white py-3 text-sm font-semibold text-red-600 shadow-sm disabled:opacity-50"
-              >
-                {loggingOut ? "Logging out…" : "Log out"}
-              </button>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-primary/15 bg-white p-5">
+              <h2 className="font-[family-name:var(--font-display)] text-3xl font-normal">Your profile</h2>
+              <p className="mt-1 text-sm font-semibold text-foreground">
+                {profileLabel(props.userEmail)}
+              </p>
+              {props.userEmail ? (
+                <p className="mt-0.5 truncate text-xs text-foreground/55">{props.userEmail}</p>
+              ) : null}
+              <div className="mt-6 flex flex-col gap-2">
+                <Link href="/profile" className="rounded-xl bg-primary py-3 text-center text-sm font-semibold text-white">
+                  Profile
+                </Link>
+                <Link href="/gallery" className="rounded-xl border border-primary/25 py-3 text-center text-sm font-semibold">
+                  Gallery
+                </Link>
+                <button
+                  type="button"
+                  disabled={loggingOut}
+                  onClick={() => void logout()}
+                  className="rounded-xl border border-red-300 bg-white py-3 text-sm font-semibold text-red-600 shadow-sm disabled:opacity-50"
+                >
+                  {loggingOut ? "Logging out…" : "Log out"}
+                </button>
+              </div>
             </div>
+            <CreditsUsageCard credits={props.credits} plan={props.plan ?? null} />
           </div>
         ) : null}
       </div>
 
+      <CreditsUsageSheet
+        open={creditsOpen}
+        onClose={() => setCreditsOpen(false)}
+        credits={props.credits}
+        plan={props.plan ?? null}
+      />
       <MobileStudioNav active={screen} onSelect={showScreen} />
       {stillResultUrl ? (
         <ImageLightbox

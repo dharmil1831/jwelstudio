@@ -7,6 +7,7 @@ import { StudioMobileHome } from "@/components/studio-mobile-home";
 import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
+import { PromptConsentFields } from "@/components/prompt-consent-fields";
 import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fields";
 import { renderBrandedVideo, videoLengthLabel } from "@/lib/brand-video";
 import { ImageLightbox } from "@/components/image-lightbox";
@@ -17,7 +18,14 @@ import type { PublicModelTemplate } from "@/lib/model-template-categories";
 import { prepareImageForUpload } from "@/lib/image-resize";
 import { downloadFilename } from "@/lib/download-image";
 import { finishProductImage } from "@/lib/product-finish";
+import {
+  assertPromptSafe,
+  PROMPT_CONSENT_REQUIRED_MESSAGE,
+  readPromptConsent,
+  writePromptConsent,
+} from "@/lib/prompt-safety";
 import { ReflectionControls } from "@/components/reflection-controls";
+import { fetchClientSession } from "@/lib/fetch-session";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
 import { toUserFacingError } from "@/lib/user-facing-error";
 import type { ThemeStyleSnapshot } from "@/lib/themes";
@@ -85,7 +93,7 @@ import {
   type LookPresetId,
 } from "@/lib/look-presets";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type StudioTab = GenerationMode | "video" | "batch";
@@ -104,7 +112,6 @@ type BatchItem = {
   error?: string;
 };
 
-/** One photo at a time. Parallel calls were hitting the Vercel time limit after the first image. */
 const BATCH_CONCURRENCY = 1;
 
 type BatchBackdropMode = "white" | "soft_studio" | "scene";
@@ -131,7 +138,6 @@ function festivalSelected(brand: BrandFormState): boolean {
   return Boolean(brand.festivalId && brand.festivalId !== "none");
 }
 
-/** Batch / festival: solid white kills festive scene — prefer scene mode. */
 function resolveBackdropPayload(
   opts: {
     batchMode?: BatchBackdropMode;
@@ -170,24 +176,42 @@ function isAcceptedImage(file: File): boolean {
   );
 }
 
-export function StudioApp() {
+export function StudioApp({
+  initialSession,
+}: {
+  initialSession?: { email: string; credits: number } | null;
+}) {
   const pathname = usePathname();
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const wasAuthenticatedRef = useRef(false);
+  const router = useRouter();
+  const seededRef = useRef(Boolean(initialSession));
+  const [authenticated, setAuthenticated] = useState<boolean | null>(
+    initialSession ? true : null,
+  );
+  const wasAuthenticatedRef = useRef(Boolean(initialSession));
   const [authSheet, setAuthSheet] = useState<{ open: boolean; reason?: string }>({
     open: false,
   });
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (typeof credits !== "number") return;
-    window.dispatchEvent(
-      new CustomEvent("jewel-credits-changed", {
-        detail: { credits },
-      }),
-    );
-  }, [credits]);
+  const [userEmail, setUserEmail] = useState<string | null>(
+    initialSession?.email ?? null,
+  );
+  const [credits, setCredits] = useState<number | null>(
+    initialSession?.credits ?? null,
+  );
+  const [plan, setPlan] = useState<string | null>(null);
+  const syncCredits = useCallback((next: number | null, nextPlan?: string | null) => {
+    setCredits(next);
+    if (typeof nextPlan === "string" || nextPlan === null) setPlan(nextPlan);
+    if (typeof next === "number") {
+      window.dispatchEvent(
+        new CustomEvent("jewel-credits-changed", {
+          detail: {
+            credits: next,
+            plan: typeof nextPlan === "string" ? nextPlan : undefined,
+          },
+        }),
+      );
+    }
+  }, []);
   const [generationReady, setGenerationReady] = useState<boolean | null>(null);
   const [canCustomPrompt, setCanCustomPrompt] = useState(false);
   const [canBrand, setCanBrand] = useState(false);
@@ -195,6 +219,7 @@ export function StudioApp() {
   const [canSelfie, setCanSelfie] = useState(false);
   const [canVideo, setCanVideo] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [promptConsent, setPromptConsent] = useState(false);
   const [brand, setBrand] = useState<BrandFormState>(EMPTY_BRAND);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -320,6 +345,10 @@ export function StudioApp() {
   }, []);
 
   useEffect(() => {
+    setPromptConsent(readPromptConsent());
+  }, []);
+
+  useEffect(() => {
     if (!festivalSelected(brand)) return;
     setBatchBackdropMode("scene");
     setScene("festive_indoor");
@@ -329,64 +358,87 @@ export function StudioApp() {
   useEffect(() => {
     let cancelled = false;
 
-    function loadSession() {
-      void fetch("/api/session")
-        .then((r) => r.json())
-        .then(
-          (d: {
-            authenticated?: boolean;
-            credits?: number;
-            generationConfigured?: boolean;
-            user?: { email?: string | null };
-            features?: {
-              customPrompt?: boolean;
-              brandOverlay?: boolean;
-              themes?: boolean;
-              selfieTryOn?: boolean;
-              videoGeneration?: boolean;
-              modelTemplates?: boolean;
-            };
-          }) => {
-            if (cancelled) return;
-            const signedOut = wasAuthenticatedRef.current && !d.authenticated;
-            wasAuthenticatedRef.current = Boolean(d.authenticated);
-            setAuthenticated(Boolean(d.authenticated));
-            setCanCustomPrompt(Boolean(d.features?.customPrompt));
-            setCanBrand(Boolean(d.features?.brandOverlay));
-            setCanThemes(Boolean(d.features?.themes));
-            setCanSelfie(Boolean(d.features?.selfieTryOn));
-            setCanVideo(Boolean(d.features?.videoGeneration));
-            setCanModelTemplates(Boolean(d.features?.modelTemplates));
-            if (d.authenticated && typeof d.credits === "number") {
-              setCredits(d.credits);
-              setUserEmail(
-                typeof d.user?.email === "string" ? d.user.email : null,
-              );
-            } else {
-              setCredits(null);
-              setUserEmail(null);
-              setCanCustomPrompt(false);
-              setCanBrand(false);
-              setCanThemes(false);
-              setCanSelfie(false);
-              setCanVideo(false);
-              setCanModelTemplates(false);
-              setModelTemplateId(null);
-              if (signedOut) {
-                setFile(null);
-                setSelfieFile(null);
-                setResultUrl(null);
-                setResultMime(null);
-                setGenerationId(null);
+    function loadSession(attempt = 0) {
+      void fetchClientSession()
+        .then((d) => {
+          if (cancelled) return;
+          if (!d.authenticated && seededRef.current) {
+            if (attempt < 1) {
+              window.setTimeout(() => {
+                if (!cancelled) loadSession(1);
+              }, 400);
+              return;
+            }
+            try {
+              if (sessionStorage.getItem("jwel-session-resync") !== "1") {
+                sessionStorage.setItem("jwel-session-resync", "1");
+                router.refresh();
               }
+            } catch {
+              /* ignore */
             }
-            if (typeof d.generationConfigured === "boolean") {
-              setGenerationReady(d.generationConfigured);
+            return;
+          }
+          if (d.authenticated) {
+            try {
+              sessionStorage.removeItem("jwel-session-resync");
+            } catch {
+              /* ignore */
             }
-          },
-        )
+          }
+          const signedOut = wasAuthenticatedRef.current && !d.authenticated;
+          wasAuthenticatedRef.current = Boolean(d.authenticated);
+          setAuthenticated(Boolean(d.authenticated));
+          setCanCustomPrompt(Boolean(d.features?.customPrompt));
+          setCanBrand(Boolean(d.features?.brandOverlay));
+          setCanThemes(Boolean(d.features?.themes));
+          setCanSelfie(Boolean(d.features?.selfieTryOn));
+          setCanVideo(Boolean(d.features?.videoGeneration));
+          setCanModelTemplates(Boolean(d.features?.modelTemplates));
+          if (d.authenticated && typeof d.credits === "number") {
+            const nextPlan =
+              typeof d.plan === "string"
+                ? d.plan
+                : typeof d.user?.plan === "string"
+                  ? d.user.plan
+                  : "free";
+            syncCredits(d.credits, nextPlan);
+            setUserEmail(
+              typeof d.user?.email === "string" ? d.user.email : null,
+            );
+          } else {
+            setCredits(null);
+            setPlan(null);
+            setUserEmail(null);
+            setCanCustomPrompt(false);
+            setCanBrand(false);
+            setCanThemes(false);
+            setCanSelfie(false);
+            setCanVideo(false);
+            setCanModelTemplates(false);
+            setModelTemplateId(null);
+            if (signedOut) {
+              setFile(null);
+              setSelfieFile(null);
+              setResultUrl(null);
+              setResultMime(null);
+              setGenerationId(null);
+            }
+          }
+          if (typeof d.generationConfigured === "boolean") {
+            setGenerationReady(d.generationConfigured);
+          }
+        })
         .catch(() => {
           if (cancelled) return;
+          if (seededRef.current || wasAuthenticatedRef.current) {
+            if (attempt < 1) {
+              window.setTimeout(() => {
+                if (!cancelled) loadSession(1);
+              }, 400);
+            }
+            return;
+          }
           setAuthenticated(false);
           setCredits(null);
           setUserEmail(null);
@@ -416,7 +468,7 @@ export function StudioApp() {
       cancelled = true;
       window.removeEventListener("jewel-auth-changed", onAuthChanged);
     };
-  }, [pathname]);
+  }, [pathname, router, syncCredits]);
 
   useEffect(() => {
     const open = () => setAuthSheet({ open: true });
@@ -749,8 +801,24 @@ export function StudioApp() {
     }
   }, [resultUrl, resultMime, canThemes, themeSnapshot, applyTheme]);
 
+  const ensurePromptAllowed = useCallback((): boolean => {
+    const text = customPrompt.trim();
+    if (!text) return true;
+    if (!promptConsent) {
+      setError(PROMPT_CONSENT_REQUIRED_MESSAGE);
+      return false;
+    }
+    const safety = assertPromptSafe(text);
+    if (!safety.ok) {
+      setError(safety.error);
+      return false;
+    }
+    return true;
+  }, [customPrompt, promptConsent]);
+
   const generate = useCallback(async (modeOverride?: "model" | "background") => {
     if (!file) return;
+    if (!ensurePromptAllowed()) return;
     const useMode = modeOverride ?? (mode === "background" ? "background" : "model");
     setLoading(true);
     setError(null);
@@ -843,7 +911,7 @@ export function StudioApp() {
       }>(res);
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
-      if (typeof data.credits === "number") setCredits(data.credits);
+      if (typeof data.credits === "number") syncCredits(data.credits);
       if (data.resultUrl) {
         setResultUrl(data.resultUrl);
         releaseSavedLook();
@@ -880,11 +948,14 @@ export function StudioApp() {
     releaseSavedLook,
     canModelTemplates,
     modelTemplateId,
+    ensurePromptAllowed,
+    syncCredits,
   ]);
 
   const runBatchIds = useCallback(
     async (ids: string[]) => {
       if (ids.length === 0 || batchRunning) return;
+      if (!ensurePromptAllowed()) return;
       const need = ids.length * CREDIT_COST_PER_GENERATION;
       if (credits !== null && credits < need) {
         setError(
@@ -914,7 +985,6 @@ export function StudioApp() {
 
       let lastCredits = credits;
       const snapshot = batchItems.filter((i) => ids.includes(i.id));
-      // Retries reuse a photo that already succeeded so the backdrop stays the same.
       let lockGenerationId = batchItems.find(
         (i) =>
           !ids.includes(i.id) &&
@@ -990,7 +1060,7 @@ export function StudioApp() {
 
           if (typeof data.credits === "number") {
             lastCredits = data.credits;
-            setCredits(data.credits);
+            syncCredits(data.credits);
           }
           if (!res.ok) throw new Error(data.error ?? "Request failed");
 
@@ -1034,7 +1104,6 @@ export function StudioApp() {
         }
       };
 
-      // First success becomes the shared background for the rest of the set.
       while (
         !lockGenerationId &&
         pending.length > 0 &&
@@ -1094,6 +1163,7 @@ export function StudioApp() {
       customPrompt,
       brand,
       releaseSavedLook,
+      ensurePromptAllowed,
     ],
   );
 
@@ -1123,6 +1193,7 @@ export function StudioApp() {
 
   const generateVideo = useCallback(async () => {
     if (!file) return;
+    if (!ensurePromptAllowed()) return;
     setLoading(true);
     setError(null);
     setLookNotice(null);
@@ -1166,7 +1237,7 @@ export function StudioApp() {
       }>(res);
 
       if (!res.ok) throw new Error(data.error ?? "Video failed");
-      if (typeof data.credits === "number") setCredits(data.credits);
+      if (typeof data.credits === "number") syncCredits(data.credits);
       const mime =
         typeof data.mimeType === "string" && data.mimeType.startsWith("video/")
           ? data.mimeType
@@ -1244,6 +1315,7 @@ export function StudioApp() {
     videoShopName,
     videoLogoSrc,
     videoEndCard,
+    ensurePromptAllowed,
   ]);
 
   const selectTab = useCallback((next: StudioTab) => {
@@ -1301,6 +1373,7 @@ export function StudioApp() {
           guest={guest}
           onRequireSignIn={requireSignIn}
           credits={credits}
+          plan={plan}
           userEmail={userEmail}
           previewUrl={previewUrl}
           fileName={file?.name ?? null}
@@ -1318,6 +1391,11 @@ export function StudioApp() {
           generationReady={generationReady}
           customPrompt={customPrompt}
           onCustomPrompt={editPrompt}
+          promptConsent={promptConsent}
+          onPromptConsent={(next) => {
+            setPromptConsent(next);
+            writePromptConsent(next);
+          }}
           onLeaveEditor={leaveEditor}
           lookNotice={lookNotice}
           brand={brand}
@@ -1504,22 +1582,28 @@ export function StudioApp() {
       {authSheetEl}
       <div className="hidden gap-8 lg:grid lg:grid-cols-[minmax(0,360px)_1fr]">
       <aside className="flex flex-col gap-5 rounded-2xl border border-primary/20 bg-secondary/95 p-6 shadow-md">
-        <div className="flex items-center justify-between gap-3">
+        {!authenticated ? (
           <p className="text-sm text-foreground/70">
-            <span className="text-lg font-semibold text-foreground">
-              {credits ?? "—"}
-            </span>{" "}
-            left
+            Sign in for credits and saves
           </p>
-          {credits === 0 ? (
-            <Link
-              href="/pricing"
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-background"
-            >
-              Buy credits
-            </Link>
-          ) : null}
-        </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-foreground/70">
+              <span className="text-lg font-semibold text-foreground">
+                {credits ?? "—"}
+              </span>{" "}
+              left
+            </p>
+            {credits === 0 ? (
+              <Link
+                href="/pricing"
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-background"
+              >
+                Buy credits
+              </Link>
+            ) : null}
+          </div>
+        )}
 
         {generationReady === false ? (
           <p className="rounded-lg bg-primary/15 px-3 py-2 text-xs text-primary">
@@ -1811,49 +1895,51 @@ export function StudioApp() {
               Your photo / selfie
             </p>
             {canSelfie ? (
-              <>
-                <input
-                  id="selfie-upload"
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  className="sr-only"
-                  onChange={onSelfiePick}
-                />
-                <label
-                  htmlFor="selfie-upload"
-                  className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-background/40 px-4 py-4 text-center text-sm text-foreground/70 hover:border-primary"
-                >
-                  {selfieFile && selfiePreviewUrl ? (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={selfiePreviewUrl}
-                        alt="Selfie"
-                        className="mb-2 max-h-20 w-full rounded-lg object-contain"
-                      />
-                      <span className="text-xs">{selfieFile.name}</span>
-                      <button
-                        type="button"
-                        className="mt-2 text-[11px] text-primary underline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setSelfieFile(null);
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      Optional: upload selfie for try-on
-                      <span className="mt-1 block text-xs text-foreground/45">
-                        Platinum+ · face identity preserved
-                      </span>
-                    </>
-                  )}
-                </label>
-              </>
+              <div className="mt-2 flex flex-col gap-2">
+                {selfieFile && selfiePreviewUrl ? (
+                  <div className="flex flex-col items-center rounded-xl border border-primary/20 bg-background/40 px-4 py-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={selfiePreviewUrl}
+                      alt="Selfie"
+                      className="mb-2 max-h-20 w-full rounded-lg object-contain"
+                    />
+                    <span className="text-xs text-foreground/70">{selfieFile.name}</span>
+                    <button
+                      type="button"
+                      className="mt-2 text-[11px] text-primary underline"
+                      onClick={() => setSelfieFile(null)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-foreground/55">
+                    Optional try-on · Platinum+ · camera asks for permission, or pick from gallery
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex cursor-pointer items-center justify-center rounded-xl bg-primary px-3 py-3 text-center text-xs font-semibold text-white hover:opacity-95">
+                    Take selfie
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      className="sr-only"
+                      onChange={onSelfiePick}
+                    />
+                  </label>
+                  <label className="flex cursor-pointer items-center justify-center rounded-xl border border-primary/30 bg-background/60 px-3 py-3 text-center text-xs font-semibold text-primary hover:border-primary">
+                    From gallery
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={onSelfiePick}
+                    />
+                  </label>
+                </div>
+              </div>
             ) : (
               <p className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-[11px] text-foreground/65">
                 Selfie try-on unlocks on{" "}
@@ -2053,13 +2139,17 @@ export function StudioApp() {
             <p className="text-xs font-medium uppercase tracking-widest text-primary/90">
               Custom prompt
             </p>
-            <textarea
-              value={customPrompt}
-              onChange={(e) => editPrompt(e.target.value.slice(0, 2000))}
-              rows={3}
-              placeholder="Describe the look in your own words. When filled, style chips below are ignored."
-              className="mt-2 w-full rounded-lg border border-primary/25 bg-background/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-primary"
-            />
+            <div className="mt-2">
+              <PromptConsentFields
+                value={customPrompt}
+                consented={promptConsent}
+                onChange={editPrompt}
+                onConsentChange={(next) => {
+                  setPromptConsent(next);
+                  writePromptConsent(next);
+                }}
+              />
+            </div>
             <p className="mt-1 text-[11px] text-foreground/50">
               Gold+ feature. Leave empty to use the options below.
             </p>
@@ -2453,12 +2543,20 @@ export function StudioApp() {
             {batchItems.filter((i) => i.status === "failed").length})
           </button>
         ) : null}
+        {!(batchItems.length > 0 && tab !== "video") ? (
+          <p className="text-center text-[11px] text-foreground/55">
+            {tab === "video"
+              ? `Uses ${CREDIT_COST_PER_VIDEO} credits when the video finishes. Failed attempts return credits.`
+              : "Uses 1 credit when the photo finishes. Failed attempts return the credit — Retry only charges if it succeeds."}
+          </p>
+        ) : null}
         {batchItems.length > 0 && tab !== "video" ? (
           <p className="text-center text-[11px] text-foreground/55">
             {tab === "background"
               ? "The first photo locks the backdrop. The rest use that same color"
               : "Each photo uses the model look selected above"}
-            {appliedThemeId ? ", using your applied theme" : ""}.
+            {appliedThemeId ? ", using your applied theme" : ""}.{" "}
+            1 credit per finished photo; failed ones return the credit.
           </p>
         ) : null}
         {tab !== "video" && !(batchItems.length > 0) && appliedThemeId ? (
@@ -2510,15 +2608,22 @@ export function StudioApp() {
                         />
                       </button>
                     ) : item.status === "failed" ? (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-red-50/80 p-2 text-center">
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-red-50/90 p-3 text-center">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.previewUrl}
                           alt=""
-                          className="mb-1 h-12 w-12 rounded object-cover opacity-50"
+                          className="mb-0.5 h-16 w-16 rounded-lg object-cover opacity-60 ring-1 ring-red-200"
                         />
-                        <p className="text-[10px] font-medium text-red-700">
+                        <p className="text-[11px] font-semibold text-red-700">
                           Failed
+                        </p>
+                        <p className="line-clamp-3 text-[10px] leading-snug text-red-700/85">
+                          {item.error ??
+                            "Could not generate right now. Please try again."}
+                        </p>
+                        <p className="text-[9px] text-foreground/55">
+                          Credit returned
                         </p>
                       </div>
                     ) : (
@@ -2559,7 +2664,7 @@ export function StudioApp() {
                         onClick={() => void runBatchIds([item.id])}
                         className="shrink-0 text-[10px] font-semibold text-primary underline"
                       >
-                        Retry
+                        Retry · 1 credit if it succeeds
                       </button>
                     ) : null}
                   </div>

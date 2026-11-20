@@ -87,6 +87,13 @@ export async function POST(req: Request) {
   const cast = parseVideoCast(json.cast);
   const subject = parseVideoSubject(json.subject);
   const customPrompt = typeof json.customPrompt === "string" ? json.customPrompt.trim().slice(0, 2000) : null;
+  if (customPrompt) {
+    const { assertPromptSafe } = await import("@/lib/prompt-safety");
+    const safety = assertPromptSafe(customPrompt);
+    if (!safety.ok) {
+      return NextResponse.json({ error: safety.error }, { status: 400 });
+    }
+  }
   const lookPreset =
     typeof json.lookPreset === "string"
       ? json.lookPreset
@@ -135,9 +142,6 @@ export async function POST(req: Request) {
 
 
   try {
-    // Jewelry USP: a model video must not start from the catalog photo.
-    // That includes unboxing. The model is already wearing the piece, then the case opens on top.
-    // Do not skip the model when the type is reveal.
     let videoImage = imageBase64;
     let videoMime = mimeType;
     if (wantsWornFrame) {
