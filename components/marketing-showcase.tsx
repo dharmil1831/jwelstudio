@@ -146,7 +146,7 @@ export function MarketingShowcase({ images }: { images: HomePlaceholderSelection
 
       <section id="gallery" className="scroll-mt-20 bg-background px-4 py-12 sm:px-6 sm:py-16">
         <h2 className="text-center font-[family-name:var(--font-display)] text-[clamp(1.75rem,5vw,2.25rem)] font-normal text-balance text-foreground">
-          Gallery
+          Studio
         </h2>
         <span className="mx-auto mt-3 block h-px w-16 bg-primary" />
         <div className="mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-2 sm:mt-10 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">

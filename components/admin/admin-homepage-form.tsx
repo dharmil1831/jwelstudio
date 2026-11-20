@@ -231,7 +231,7 @@ export function AdminHomepageForm() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-[family-name:var(--font-display)] text-2xl text-foreground">Gallery</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-2xl text-foreground">Studio</h2>
         <p className="text-sm text-foreground/70">The grid at the bottom. Pick 4 to 16.</p>
         <div className="flex flex-wrap gap-2">
           {images.gallery.map((src, index) => (
