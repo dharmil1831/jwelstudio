@@ -4,6 +4,7 @@ import {
   parseLookPreset,
   resolvedLookImageLine,
 } from "@/lib/look-presets";
+import { PROMPT_MODEL_SAFETY_LOCK } from "@/lib/prompt-safety";
 
 const jewelryFidelityRules = [
   "CRITICAL JEWELRY FIDELITY RULES (must obey — highest priority):",
@@ -12,29 +13,55 @@ const jewelryFidelityRules = [
   "PROPORTIONS LOCK: Never stretch, squash, elongate, widen, warp, or perspective-distort the jewelry. Keep the same aspect ratio and relative dimensions as the upload — if the canvas is taller/wider, zoom out or add background margin; do not reshape the product to fill the frame.",
   "Do NOT redesign, restyle, simplify, embellish, swap stones, change metal, add extra sparkle, change stone hue, or invent new jewelry.",
   "Do NOT invent matching earrings, rings, bracelets, or set pieces that are not clearly present in the uploaded reference. Show only what is in the reference photo.",
-  "COMPLETE PIECE: Show every part of the jewelry that is visible in the upload — top, middle, and bottom, including long hanging rows, side pieces, earrings beside a necklace, and the lower pendant. Do not stop at the upper or first section. Do not leave a detached fragment, hook, or partial piece floating away from the product.",
+  "COMPLETE PIECE: Show every part of the jewelry that is visible in the upload — top, middle, and bottom, including long hanging rows, side pieces, earrings beside a necklace, and the lower pendant. Do not stop at the upper or first section. Do not leave a detached fragment, hook, or partial piece floating away from the product. Never enlarge the jewelry past real-life scale just to show every detail.",
   "SINGLE FRAME: Output exactly ONE product photograph — never a collage, contact sheet, split panel, before/after, or stacked duplicate. If the upload already shows two copies of the same set or a multi-panel catalog layout, keep only the clearest single product arrangement once. A necklace with matching earrings in one arrangement is fine; repeating that set twice in the same frame is not.",
   "If any style, scene, mood, casting, or camera instruction conflicts with jewelry accuracy, jewelry accuracy always wins.",
 ].join(" ");
 
 const placementCopy: Record<StudioStyle["placement"], string> = {
   auto:
-    "Place the jewelry naturally according to what the uploaded product is; frame the shot so placement is obvious.",
-  neck: "Show the piece on the neck and upper chest: necklaces, chains, pendants, chokers.",
-  ears: "Show the piece on the ears: earrings or studs — ear in sharp focus.",
-  hands: "Show the piece on hands: elegant pose, manicured hands, jewelry in focus.",
-  finger: "Show rings on fingers with shallow depth of field and clean skin tones.",
-  wrist: "Show bracelets or bangles on wrist and forearm.",
-  ankle: "Show anklets on ankle or foot with tasteful crop.",
-  waist: "Show waist chains, kamarbandh, or belt jewelry on midsection.",
+    "Place the jewelry by product type from the upload. Circular open/closed bangles or kada → on the wrist only (never on the neck). Rings → fingers. Earrings → ears. Necklaces/chains/pendants → neck. Do not guess a necklace when the upload is bangles.",
+  neck: "Show the piece on the neck and upper chest: necklaces, chains, pendants, chokers only.",
+  ears: "Show the piece on the ears: earrings or studs — ear in sharp focus. Not a necklace.",
+  hands: "Show the piece on hands/fingers with an elegant manicured pose. Frame hands as the hero. Not a neck portrait with a necklace.",
+  finger: "Show rings on fingers with shallow depth of field and clean skin tones. Hands/fingers in focus — not a necklace on the neck.",
+  wrist:
+    "CATEGORY LOCK — BANGLE / BRACELET ON WRIST ONLY: The upload is wrist jewelry (bangle, kada, bracelet, or cuff). Wear it on the wrist and/or forearm. Frame hands and wrists as the hero — crop or pose so the wrists are clearly visible. Keep the circular band shape as a rigid wrist ring. NEVER convert it into a necklace, choker, haar, or pendant. NEVER place it on the neck or chest. No bare neck with a necklace instead of bangles.",
+  ankle: "Show anklets on ankle or foot with tasteful crop. Not a necklace.",
+  waist: "Show waist chains, kamarbandh, or belt jewelry on midsection. Not a necklace on the neck.",
   hair: "Show hair jewelry: maang tikka, jhoomar, or hair pins integrated in styled hair.",
-  nose: "Show nose ring or nath on the nose with respectful beauty framing.",
-  chest_brooch: "Show brooch pinned on chest, lapel, or saree blouse.",
+  nose: "Show the exact nose ring or nath from the upload on the nose at real facial scale — smaller than the nose, not a giant face-covering ornament. Soft beauty framing.",
+  chest_brooch: "Show brooch pinned on chest, lapel, or saree blouse. Not a full necklace set.",
   multi_piece:
-    "Show the coordinated jewelry pieces that appear in the uploaded reference only — do not invent extra matching items.",
+    "Show the coordinated jewelry pieces that appear in the uploaded reference only — do not invent extra matching items. Keep each piece on its correct body part (bangles on wrists, necklace on neck, earrings on ears).",
   full_outfit:
-    "Full upper-body or full-length fashion shot where the uploaded jewelry is clearly visible in a styled look.",
+    "Full upper-body or full-length fashion shot where the uploaded jewelry is clearly visible in a styled look, each piece on the correct body part.",
 };
+
+function placementLockRules(placement: StudioStyle["placement"]): string {
+  switch (placement) {
+    case "wrist":
+      return [
+        "PLACEMENT OVERRIDE (highest priority with jewelry fidelity):",
+        "Selected category is WRIST / BANGLE. Output must show bangles or bracelets on the wrist.",
+        "Reject any result that puts this jewelry on the neck as a necklace, choker, or pendant.",
+        "If the catalog photo shows round bands, those are wrist bangles — keep them as wrist bands, do not drape them as a necklace.",
+        "Preferred framing: hands and wrists prominent; face optional or secondary.",
+      ].join(" ");
+    case "finger":
+      return "PLACEMENT OVERRIDE: rings on fingers only. Do not turn rings into a necklace or earrings.";
+    case "hands":
+      return "PLACEMENT OVERRIDE: jewelry on hands/fingers/wrists. Do not invent a necklace on the neck.";
+    case "ears":
+      return "PLACEMENT OVERRIDE: earrings on ears only. Do not place this jewelry on the neck as a necklace.";
+    case "ankle":
+      return "PLACEMENT OVERRIDE: anklet on ankle/foot only. Do not place it on the neck.";
+    case "auto":
+      return "PLACEMENT AUTO: If the upload looks like one or more circular bangles/kadas (often sold as a set of 2), wear them on the wrists — never reinterpret circular bangles as a necklace.";
+    default:
+      return "";
+  }
+}
 
 const subjectCopy: Record<StudioStyle["subject"], string> = {
   auto: "Casting: believable adult model fitting the jewelry; professional campaign look. Wardrobe should suit the selected mood (bridal/festive/luxury → formal or traditional; everyday → contemporary).",
@@ -159,12 +186,15 @@ const modelShotRules = [
   "Wear the design once. A necklace closes at the neck and lies on the chest. Side chains and long panels hang down and stay inside the width of the body.",
   "The highest gold is at the neck. No gold above the head. No tall bars beside the face.",
   "Do not paste, overlay, or enlarge the catalog photo in front of the model. Do not show a second copy of the necklace.",
-  "Scale: about the width of the chest, smaller than the torso.",
+  "REAL-LIFE SCALE (critical): Jewelry must look naturally sized on a real adult body — never oversized, giant, or chest-filling.",
+  "A long haar / har / multi-medallion necklace keeps small medallions relative to the face; it hangs down the torso instead of being enlarged so every link covers the upper body.",
+  "Necklace width stays within the collarbone-to-shoulder area; pendants stay smaller than the face. Earrings stay smaller than the ear and cheek. A nath / nose ring stays smaller than the nose and does not dominate the face.",
+  "Do not scale the jewelry up to fill the frame or to show every catalog detail larger than life. Prefer natural worn scale; zoom the camera out if needed.",
   "Keep the same motifs, metal color, stones, and strand design. Do not invent extra jewelry.",
 ].join(" ");
 
 const modelFinalCheck =
-  "Final check: one model, the jewelry worn once, same motifs and metal as the upload. Reject a second enlarged copy, a floating catalog layout, and any gold standing above the head.";
+  "Final check: one model, the jewelry worn once at natural body scale (not oversized), same motifs and metal as the upload. Reject a second enlarged copy, a floating catalog layout, giant jewelry covering most of the chest or face, and any gold standing above the head.";
 
 const fullViewRules = [
   "FULL VIEW:",
@@ -194,17 +224,26 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     parseLookPreset(style.lookPreset ?? "auto") === "couple_wedding" ||
     style.subject === "couple";
 
+  const placementLock = placementLockRules(style.placement);
+
   if (style.customPrompt) {
     return [
+      jewelryFidelityRules,
       modelShotRules,
+      placementLock,
+      PROMPT_MODEL_SAFETY_LOCK,
+      "",
+      "Jewelry placement (must obey even with custom direction):",
+      placementCopy[style.placement],
       "",
       "Task: one photorealistic photograph of an adult model wearing that jewelry in the scene the user describes.",
       polishedSkinRule,
-      "Anatomy correct. Adult model only.",
+      "Anatomy correct. Adult model only. Fully clothed fashion / traditional attire only.",
       "",
       "The user direction decides casting, clothing, pose, framing, and background, including Hindi or mixed Hindi and English.",
       "If they name a garment, the model wears that garment — for example a burkha, abaya, saree, or lehenga. Do not replace it with a bridal, western, or campaign outfit.",
       "Do not switch this into a product-only shot and do not omit the model when the user asked for one.",
+      "If the user direction conflicts with jewelry identity, placement category, safety, or real-life worn scale — jewelry identity, placement, safety, and natural scale win.",
       "",
       "User creative direction:",
       style.customPrompt,
@@ -214,6 +253,8 @@ export function buildJewelryPrompt(style: StudioStyle): string {
       formatCopy[style.format],
       "",
       modelShotRules,
+      placementLock,
+      PROMPT_MODEL_SAFETY_LOCK,
       modelFinalCheck,
     ]
       .filter(Boolean)
@@ -221,7 +262,9 @@ export function buildJewelryPrompt(style: StudioStyle): string {
   }
 
   return [
+    jewelryFidelityRules,
     modelShotRules,
+    placementLock,
     "",
     couple
       ? "Task: one photorealistic photograph of a bride and a groom together. Both people are in the frame. Not a solo portrait."
@@ -247,9 +290,10 @@ export function buildJewelryPrompt(style: StudioStyle): string {
     vibeCopy[style.vibe],
     "",
     modelShotRules,
+    placementLock,
     couple
-      ? "Final check: exactly two adults, bride and groom, both in the frame. Reject a photo of only one lady or only one man. Jewelry worn once, same motifs and metal as the upload. No second invented jewelry set."
-      : modelFinalCheck,
+      ? "Final check: exactly two adults, bride and groom, both in the frame. Reject a photo of only one lady or only one man. Jewelry worn once on the correct body part for the selected placement, same motifs and metal as the upload. No second invented jewelry set."
+      : `${modelFinalCheck} Placement must match the selected category (bangles stay on wrists, never become a necklace).`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -275,13 +319,14 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
   if (style.customPrompt) {
     return [
       jewelryFidelityRules,
+      PROMPT_MODEL_SAFETY_LOCK,
       "Only change the backdrop, surface, lighting, and camera — never the jewelry identity.",
       "",
       "Task: create one photorealistic product photograph of this exact jewelry piece on a styled background.",
       "No model, no person, no hands, no body, no mannequin, no neck form.",
       "The jewelry must remain the hero subject, sharp and true to the reference.",
       "",
-      "User creative direction (follow unless it conflicts with jewelry fidelity):",
+      "User creative direction (follow unless it conflicts with jewelry fidelity or safety):",
       style.customPrompt,
       style.backdropColor
         ? `Backdrop color: use a clean, even solid fill of exact hex ${style.backdropColor} as the main background color behind the jewelry.`
@@ -339,11 +384,9 @@ export function withBrandPrompt(
   if (!brand) return basePrompt;
   const lines = buildBrandPromptLines(brand);
   if (!lines) return basePrompt;
-  // Brand block last so it overrides earlier “clean photo” framing defaults.
   return `${basePrompt}\n\n${lines}`;
 }
 
-/** Append selfie / own-model try-on instructions (Platinum+). */
 export function withSelfieTryOnPrompt(basePrompt: string): string {
   return [
     basePrompt,
@@ -358,7 +401,6 @@ export function withSelfieTryOnPrompt(basePrompt: string): string {
   ].join(" ");
 }
 
-/** Primary prompt when swapping new jewelry onto a saved theme look. */
 export function buildThemeSwapPrompt(style: StudioStyle): string {
   return [
     jewelryFidelityRules,
@@ -381,10 +423,6 @@ export function buildThemeSwapPrompt(style: StudioStyle): string {
   ].join(" ");
 }
 
-/**
- * Batch: later SKUs must reuse the first result's backdrop exactly.
- * Jewelry still comes only from the new product upload.
- */
 export function withSharedBackgroundLockPrompt(basePrompt: string): string {
   return [
     basePrompt,
@@ -402,7 +440,6 @@ export function withSharedBackgroundLockPrompt(basePrompt: string): string {
   ].join(" ");
 }
 
-/** When a saved theme preview is used as style reference. */
 export function withThemeReferencePrompt(basePrompt: string): string {
   return [
     basePrompt,

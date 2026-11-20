@@ -1,5 +1,3 @@
-/** Diamond-only video options: aspect, purpose, cast, and camera motion. */
-
 import { subjectPromptLine } from "@/lib/prompts";
 import { SUBJECTS, type Subject } from "@/lib/style-options";
 import {
@@ -22,7 +20,6 @@ export const VIDEO_ASPECT_HINTS: Record<VideoAspectId, string> = {
   horizontal: "YouTube, website hero, landscape ads",
 };
 
-/** Gemini Veo aspectRatio parameter. */
 export const VIDEO_ASPECT_RATIO: Record<VideoAspectId, "9:16" | "16:9"> = {
   vertical: "9:16",
   horizontal: "16:9",
@@ -46,7 +43,6 @@ export const VIDEO_CAST_HINTS: Record<VideoCastId, string> = {
   model: "One model wears your piece. The design stays as uploaded.",
 };
 
-/** Shown under the video campaign look. */
 export const VIDEO_PHOTO_LOCK_NOTE =
   "The model wears this jewelry. Clothes and setting can change. The jewelry design does not.";
 
@@ -194,7 +190,6 @@ function cameraLine(preset: VideoPresetId, cast: VideoCastId): string {
     .replace(/ Do not turn the photo into a portrait\./g, "");
 }
 
-/** Sent on every video, before the options. The uploaded design is not restyled. */
 export const VIDEO_JEWELRY_LOCK = [
   "ORIGINAL JEWELRY STAYS AS IT IS:",
   "Use the uploaded jewelry exactly, in every frame.",
@@ -204,7 +199,6 @@ export const VIDEO_JEWELRY_LOCK = [
   "Do not drop the big pendant.",
 ].join(" ");
 
-/** Still used as the video's first frame when the cast is a model. The video call must not receive the catalog photo. */
 export function buildVideoModelStillPrompt(opts: {
   purpose: VideoPurposeId;
   aspect: VideoAspectId;
@@ -247,7 +241,6 @@ export function buildVideoPrompt(opts: {
   subject: Subject;
   lookPreset?: LookPresetId | string | null;
   customPrompt?: string | null;
-  /** The input image is already the worn scene. Video must not rebuild it. */
   lockedFrame?: boolean;
 }): string {
   const frame =
@@ -256,7 +249,11 @@ export function buildVideoPrompt(opts: {
       : "Frame for vertical 9:16. Keep the jewelry fully visible in the center. No text, watermark, logo, or overlay.";
 
   const note = opts.customPrompt
-    ? `User note (never use this to change the jewelry design): ${opts.customPrompt}`
+    ? [
+        "User note (never use this to change the jewelry design, and never create nude/sexual content):",
+        opts.customPrompt,
+        "Keep the model fully clothed. Ignore any request for nudity, lingerie-only, or sexual scenes.",
+      ].join(" ")
     : "";
 
   if (opts.lockedFrame) {
@@ -327,11 +324,9 @@ export function videoNegativePrompt(
   return purpose === "festive" ? `${design}, flowers on top of the jewelry` : design;
 }
 
-/** What the video model must not do. Sent separately so it is not buried in the main prompt. */
 export const VIDEO_JEWELRY_NEGATIVE_PROMPT =
   "redesigned jewelry, different jewelry, extra jewelry, added stones, removed stones, changed metal color, new clasp, morphing jewelry, melting metal, warped stones, different stone count, invented ring, invented necklace, invented earrings, maang tikka, bangles, nose ring, matching set not in the photo, glitter overlay, watermark, text, logo, subtitles";
 
-/** Veo image-to-video rejects dont_allow. Product-only intent stays in the prompt. */
 export function veoPersonGeneration(_cast: VideoCastId): "allow_adult" {
   return "allow_adult";
 }
@@ -342,5 +337,4 @@ export function generationFormatForAspect(
   return aspect === "horizontal" ? "landscape" : "instagram_story";
 }
 
-/** Credits charged per video generation. */
 export const CREDIT_COST_PER_VIDEO = 5;
