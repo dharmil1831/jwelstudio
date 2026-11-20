@@ -1,6 +1,7 @@
 import { LegalPage } from "@/components/legal-page";
 import { sitePublic } from "@/lib/site-public";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy policy — Jwelpixel",
@@ -37,7 +38,41 @@ export default function PrivacyPage() {
           <li>To generate, store, and show your results.</li>
           <li>To take payment and add credits.</li>
           <li>To fix failures, prevent abuse, and answer support requests.</li>
+          <li>To enforce content safety rules and block NSFW or abusive requests.</li>
         </ul>
+      </section>
+      <section>
+        <h2>Content safety and NSFW</h2>
+        <p className="mt-3">
+          {sitePublic.name} is for jewelry product marketing only — clothed
+          catalog and campaign shots and videos. Custom prompts and uploads must
+          not ask for nude, sexual, pornographic, violent, hateful, or illegal
+          content.
+        </p>
+        <p className="mt-3">
+          We may automatically block unsafe prompts and refuse or stop
+          generations that look unsafe. Uploads and prompts are sent to our AI
+          providers (Google Gemini, and OpenAI when used as a fallback), which
+          may also apply their own safety filters.
+        </p>
+        <p className="mt-3">
+          We may keep limited records of blocked or abusive requests to prevent
+          misuse and support enforcement. We do not intentionally create or sell
+          NSFW imagery. If something slips through, email{" "}
+          <a
+            href={`mailto:${sitePublic.supportEmail}`}
+            className="text-primary underline"
+          >
+            {sitePublic.supportEmail}
+          </a>{" "}
+          and we will remove it. Deleting your account removes your uploads and
+          results as described below. Full rules and suspension language are in
+          our{" "}
+          <Link href="/terms" className="text-primary underline">
+            Terms of use — Acceptable use
+          </Link>
+          .
+        </p>
       </section>
       <section>
         <h2>Who else sees it</h2>
