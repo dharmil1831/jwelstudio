@@ -1,6 +1,8 @@
 "use client";
 
-/** Animated preview slot while image/video generates — moving plum canvas + JP mark. */
+import { useEffect, useState } from "react";
+import { estimatedGenerationPercent } from "@/lib/generation-progress";
+
 export function GenerationPreviewPlaceholder({
   aspectClass,
   label,
@@ -8,9 +10,21 @@ export function GenerationPreviewPlaceholder({
 }: {
   aspectClass: string;
   label: string;
-  /** Smaller chrome for batch grid tiles */
   compact?: boolean;
 }) {
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    setElapsedSec(0);
+    const id = window.setInterval(() => {
+      setElapsedSec((n) => n + 1);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [label]);
+
+  const video = /video/i.test(label);
+  const percent = estimatedGenerationPercent(elapsedSec, video);
+  const progressLabel = `${percent}%`;
+
   return (
     <div
       className={`relative mx-auto w-full overflow-hidden border border-primary/30 shadow-lg ${
@@ -19,7 +33,10 @@ export function GenerationPreviewPlaceholder({
       role="status"
       aria-live="polite"
       aria-busy="true"
-      aria-label={label}
+      aria-label={`${label} ${progressLabel}`}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
     >
       <div className="absolute inset-0 gen-preview-base" />
 
@@ -42,11 +59,11 @@ export function GenerationPreviewPlaceholder({
 
       <div
         className={`absolute inset-0 flex flex-col items-center justify-center text-center ${
-          compact ? "gap-1.5 px-3" : "gap-3 px-6"
+          compact ? "gap-1.5 px-3 pb-2" : "gap-2.5 px-5 pb-4 pt-2"
         }`}
       >
         <div
-          className={`gen-preview-rings ${compact ? "scale-75" : ""}`}
+          className={`gen-preview-rings shrink-0 ${compact ? "scale-75" : ""}`}
           aria-hidden
         >
           <span />
@@ -60,17 +77,36 @@ export function GenerationPreviewPlaceholder({
           />
         </div>
         <p
-          className={`relative z-10 font-semibold text-white drop-shadow-sm ${
+          className={`relative z-10 shrink-0 font-semibold text-white drop-shadow-sm ${
             compact ? "text-[11px]" : "text-sm"
           }`}
         >
           {label}
         </p>
-        {!compact ? (
-          <p className="relative z-10 text-xs text-white/75">
-            Painting light, metal &amp; sparkle…
-          </p>
-        ) : null}
+        <p
+          className={`relative z-20 shrink-0 font-bold tabular-nums leading-none text-white drop-shadow-md ${
+            compact ? "text-xl" : "text-4xl sm:text-3xl"
+          }`}
+        >
+          {progressLabel}
+        </p>
+        <div
+          className={`relative z-10 w-full shrink-0 ${
+            compact ? "max-w-[7rem]" : "max-w-[14rem]"
+          }`}
+        >
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/25">
+            <div
+              className="h-full rounded-full bg-white transition-[width] duration-700 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          {!compact ? (
+            <p className="mt-1.5 text-[11px] font-medium text-white/90">
+              Painting light, metal & sparkle…
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

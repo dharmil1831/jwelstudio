@@ -10,6 +10,7 @@ import { MobileStudioNav, type StudioScreen } from "@/components/mobile-studio-n
 import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { ReflectionControls } from "@/components/reflection-controls";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
+import { estimatedGenerationPercent } from "@/lib/generation-progress";
 import { PromptConsentFields } from "@/components/prompt-consent-fields";
 import { SelfieConsentFields } from "@/components/selfie-consent-fields";
 import { DownloadImageButton } from "@/components/download-image-button";
@@ -373,6 +374,23 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
     if (!props.loading || screen !== "edit") return;
     previewSlotRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [props.loading, screen]);
+
+  const [loadingElapsedSec, setLoadingElapsedSec] = useState(0);
+  useEffect(() => {
+    if (!props.loading) {
+      setLoadingElapsedSec(0);
+      return;
+    }
+    setLoadingElapsedSec(0);
+    const id = window.setInterval(() => {
+      setLoadingElapsedSec((n) => n + 1);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [props.loading]);
+  const loadingPercent = estimatedGenerationPercent(
+    loadingElapsedSec,
+    tool === "video" || Boolean(props.brandingVideo),
+  );
 
   async function logout() {
     setLoggingOut(true);
@@ -1409,12 +1427,12 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 ? props.videoPurpose === "reveal" &&
                   !props.videoShopName.trim() &&
                   !props.videoLogoSrc
-                  ? "Opening the box…"
-                  : "Adding your brand…"
+                  ? `Opening the box… ${loadingPercent}%`
+                  : `Adding your brand… ${loadingPercent}%`
                 : props.loading
                 ? tool === "video"
-                  ? "Generating video…"
-                  : "Generating…"
+                  ? `Generating video… ${loadingPercent}%`
+                  : `Generating… ${loadingPercent}%`
                 : !props.previewUrl
                   ? "Upload jewelry to generate"
                   : props.guest
