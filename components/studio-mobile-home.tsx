@@ -11,6 +11,7 @@ import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { ReflectionControls } from "@/components/reflection-controls";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { PromptConsentFields } from "@/components/prompt-consent-fields";
+import { SelfieConsentFields } from "@/components/selfie-consent-fields";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { PLAN_LABELS, normalizePlanId } from "@/lib/entitlements";
@@ -184,6 +185,8 @@ export type StudioMobileHomeProps = {
   onCustomPrompt: (value: string) => void;
   promptConsent: boolean;
   onPromptConsent: (value: boolean) => void;
+  selfieConsent: boolean;
+  onSelfieConsent: (value: boolean) => void;
   brand: BrandFormState;
   onBrand: (value: BrandFormState) => void;
   subject: Subject;
@@ -1272,6 +1275,13 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               {tool === "selfie" ? (
                 props.canSelfie ? (
                   <div className="flex flex-col gap-2">
+                    <SelfieConsentFields
+                      consented={props.selfieConsent}
+                      onConsentChange={(next) => {
+                        props.onSelfieConsent(next);
+                        if (!next) props.onPickSelfie(null);
+                      }}
+                    />
                     {props.selfiePreviewUrl ? (
                       <div className="overflow-hidden rounded-xl border border-primary/20 bg-white p-2">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1293,16 +1303,23 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                       </div>
                     ) : (
                       <p className="text-xs text-foreground/70">
-                        Use your face as the model. Camera asks for permission; gallery picks an existing photo.
+                        Accept the disclaimer, then use your face as the model. Camera asks for permission; gallery picks an existing photo.
                       </p>
                     )}
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl bg-primary px-2 py-3 text-center text-xs font-bold text-white">
+                      <label
+                        className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-3 text-center text-xs font-bold text-white ${
+                          props.selfieConsent
+                            ? "cursor-pointer bg-primary"
+                            : "cursor-not-allowed bg-primary/40"
+                        }`}
+                      >
                         Take selfie
                         <input
                           type="file"
                           accept="image/*"
                           capture="user"
+                          disabled={!props.selfieConsent}
                           className="sr-only"
                           onChange={(e) => {
                             props.onPickSelfie(e.target.files?.[0] ?? null);
@@ -1310,11 +1327,18 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                           }}
                         />
                       </label>
-                      <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-primary/30 bg-white px-2 py-3 text-center text-xs font-bold text-primary">
+                      <label
+                        className={`flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-center text-xs font-bold ${
+                          props.selfieConsent
+                            ? "cursor-pointer border-primary/30 bg-white text-primary"
+                            : "cursor-not-allowed border-primary/15 bg-white/70 text-primary/40"
+                        }`}
+                      >
                         From gallery
                         <input
                           type="file"
                           accept="image/*"
+                          disabled={!props.selfieConsent}
                           className="sr-only"
                           onChange={(e) => {
                             props.onPickSelfie(e.target.files?.[0] ?? null);
@@ -1325,7 +1349,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-foreground/70">Selfie try-on unlocks on Platinum and above.</p>
+                  <SelfieConsentFields consented={false} onConsentChange={() => {}} locked />
                 )
               ) : null}
               {tool === "shadow" ? (

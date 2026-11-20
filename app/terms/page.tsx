@@ -33,9 +33,12 @@ export default function TermsPage() {
         <p className="mt-3">
           You must have the right to upload every photo you send us. Do not
           upload someone else’s jewelry, a person’s photo, or any image you are
-          not allowed to use. You keep ownership of your uploads. We use them
-          only to run the service: generating the result, showing it in your
-          gallery, and storing it for your account.
+          not allowed to use. For selfie try-on, you must upload your own image
+          or an image you have clear permission to use, and you consent to it
+          being used to generate try-on results for your account. You keep
+          ownership of your uploads. We use them only to run the service:
+          generating the result, showing it in your Studio, and storing it for
+          your account.
         </p>
       </section>
       <section>

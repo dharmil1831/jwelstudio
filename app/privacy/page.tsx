@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           <li>Account details: email, phone number if you add one, and a scrambled password if you set one. We cannot read your password back.</li>
           <li>If you continue with Google: your Google account email and the fact that Google verified it. We do not get your Google password or contacts.</li>
           <li>Login codes sent by email or SMS, and the time they were used.</li>
-          <li>Photos you upload, the style options you pick, and the images or videos we generate.</li>
+          <li>Photos you upload (including optional selfies for try-on), the style options you pick, and the images or videos we generate.</li>
           <li>Credit balance, plan, and payment records: order id, amount, and status. Card, UPI, and bank details are handled by Dodo Payments. We do not store them.</li>
           <li>A session cookie that keeps you signed in.</li>
         </ul>
@@ -65,11 +65,13 @@ export default function PrivacyPage() {
           >
             {sitePublic.supportEmail}
           </a>{" "}
-          and we will remove it. The account holder is solely responsible for
-          prompts, uploads, and how generated results are used;{" "}
-          {sitePublic.name} is not responsible for misuse of generations. Deleting
-          your account removes your uploads and results as described below. Full
-          rules and suspension language are in our{" "}
+          and we will remove it.           The account holder is solely responsible for
+          prompts, uploads (including selfies), and how generated results are
+          used; {sitePublic.name} is not responsible for misuse of generations.
+          Selfie try-on requires your consent that the photo is yours or that you
+          have permission to use it. Deleting your account removes your uploads
+          and results as described below. Full rules and suspension language are
+          in our{" "}
           <Link href="/terms" className="text-primary underline">
             Terms of use — Acceptable use
           </Link>

@@ -8,6 +8,7 @@ import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { PromptConsentFields } from "@/components/prompt-consent-fields";
+import { SelfieConsentFields } from "@/components/selfie-consent-fields";
 import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fields";
 import { renderBrandedVideo, videoLengthLabel } from "@/lib/brand-video";
 import { ImageLightbox } from "@/components/image-lightbox";
@@ -24,6 +25,11 @@ import {
   readPromptConsent,
   writePromptConsent,
 } from "@/lib/prompt-safety";
+import {
+  SELFIE_CONSENT_REQUIRED_MESSAGE,
+  readSelfieConsent,
+  writeSelfieConsent,
+} from "@/lib/selfie-consent";
 import { ReflectionControls } from "@/components/reflection-controls";
 import { fetchClientSession } from "@/lib/fetch-session";
 import { friendlyClientError, readApiJson } from "@/lib/read-api-json";
@@ -220,6 +226,7 @@ export function StudioApp({
   const [canVideo, setCanVideo] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
   const [promptConsent, setPromptConsent] = useState(false);
+  const [selfieConsent, setSelfieConsent] = useState(false);
   const [brand, setBrand] = useState<BrandFormState>(EMPTY_BRAND);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -346,6 +353,7 @@ export function StudioApp({
 
   useEffect(() => {
     setPromptConsent(readPromptConsent());
+    setSelfieConsent(readSelfieConsent());
   }, []);
 
   useEffect(() => {
@@ -573,14 +581,21 @@ export function StudioApp({
     setBatchRunning(false);
   }, []);
 
-  const applySelfie = useCallback((next: File | null) => {
-    if (next && !isAcceptedImage(next)) {
-      setError("Please choose a JPG, PNG, or WebP selfie.");
-      return;
-    }
-    setSelfieFile(next);
-    setError(null);
-  }, []);
+  const applySelfie = useCallback(
+    (next: File | null) => {
+      if (next && !selfieConsent) {
+        setError(SELFIE_CONSENT_REQUIRED_MESSAGE);
+        return;
+      }
+      if (next && !isAcceptedImage(next)) {
+        setError("Please choose a JPG, PNG, or WebP selfie.");
+        return;
+      }
+      setSelfieFile(next);
+      setError(null);
+    },
+    [selfieConsent],
+  );
 
   const onPick = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -816,9 +831,19 @@ export function StudioApp({
     return true;
   }, [customPrompt, promptConsent]);
 
+  const ensureSelfieAllowed = useCallback((): boolean => {
+    if (!selfieFile) return true;
+    if (!selfieConsent) {
+      setError(SELFIE_CONSENT_REQUIRED_MESSAGE);
+      return false;
+    }
+    return true;
+  }, [selfieFile, selfieConsent]);
+
   const generate = useCallback(async (modeOverride?: "model" | "background") => {
     if (!file) return;
     if (!ensurePromptAllowed()) return;
+    if (!ensureSelfieAllowed()) return;
     const useMode = modeOverride ?? (mode === "background" ? "background" : "model");
     setLoading(true);
     setError(null);
@@ -929,6 +954,8 @@ export function StudioApp({
     file,
     selfieFile,
     canSelfie,
+    ensurePromptAllowed,
+    ensureSelfieAllowed,
     mode,
     placement,
     subject,
@@ -1395,6 +1422,11 @@ export function StudioApp({
           onPromptConsent={(next) => {
             setPromptConsent(next);
             writePromptConsent(next);
+          }}
+          selfieConsent={selfieConsent}
+          onSelfieConsent={(next) => {
+            setSelfieConsent(next);
+            writeSelfieConsent(next);
           }}
           onLeaveEditor={leaveEditor}
           lookNotice={lookNotice}
@@ -1896,6 +1928,14 @@ export function StudioApp({
             </p>
             {canSelfie ? (
               <div className="mt-2 flex flex-col gap-2">
+                <SelfieConsentFields
+                  consented={selfieConsent}
+                  onConsentChange={(next) => {
+                    setSelfieConsent(next);
+                    writeSelfieConsent(next);
+                    if (!next) setSelfieFile(null);
+                  }}
+                />
                 {selfieFile && selfiePreviewUrl ? (
                   <div className="flex flex-col items-center rounded-xl border border-primary/20 bg-background/40 px-4 py-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1915,25 +1955,39 @@ export function StudioApp({
                   </div>
                 ) : (
                   <p className="text-xs text-foreground/55">
-                    Optional try-on · Platinum+ · camera asks for permission, or pick from gallery
+                    Optional try-on · Platinum+ · accept the disclaimer, then use camera or gallery
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="flex cursor-pointer items-center justify-center rounded-xl bg-primary px-3 py-3 text-center text-xs font-semibold text-white hover:opacity-95">
+                  <label
+                    className={`flex items-center justify-center rounded-xl px-3 py-3 text-center text-xs font-semibold text-white ${
+                      selfieConsent
+                        ? "cursor-pointer bg-primary hover:opacity-95"
+                        : "cursor-not-allowed bg-primary/40"
+                    }`}
+                  >
                     Take selfie
                     <input
                       type="file"
                       accept="image/*"
                       capture="user"
+                      disabled={!selfieConsent}
                       className="sr-only"
                       onChange={onSelfiePick}
                     />
                   </label>
-                  <label className="flex cursor-pointer items-center justify-center rounded-xl border border-primary/30 bg-background/60 px-3 py-3 text-center text-xs font-semibold text-primary hover:border-primary">
+                  <label
+                    className={`flex items-center justify-center rounded-xl border px-3 py-3 text-center text-xs font-semibold ${
+                      selfieConsent
+                        ? "cursor-pointer border-primary/30 bg-background/60 text-primary hover:border-primary"
+                        : "cursor-not-allowed border-primary/15 bg-background/40 text-primary/40"
+                    }`}
+                  >
                     From gallery
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={!selfieConsent}
                       className="sr-only"
                       onChange={onSelfiePick}
                     />
