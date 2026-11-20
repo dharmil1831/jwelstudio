@@ -123,23 +123,23 @@ export const VIDEO_PRESET_LABELS: Record<VideoPresetId, string> = {
 
 export const VIDEO_PRESET_PROMPTS: Record<VideoPresetId, string> = {
   slow_orbit:
-    "CAMERA: a small slow arc. Do not add a person or a new background. The jewelry design stays rigid.",
+    "CAMERA: a very small, slow arc only. Keep motion gentle. Do not add a person or a new background. The jewelry stays rigid — no morphing, no flicker.",
   necklace_sway:
-    "CAMERA: a small drift. Do not rock the jewelry apart and do not change its shape.",
+    "CAMERA: a tiny light drift only. Do not rock, bounce, or reshape the jewelry. No flicker.",
   ring_turntable:
-    "CAMERA: a small arc around the uploaded piece. Do not invent a ring. Do not add a person.",
+    "CAMERA: a tiny slow arc around the uploaded piece. Do not invent a ring. Do not add a person. Keep the piece rigid.",
   festive_sparkle:
-    "CAMERA: a small reflection across the stones that are already in the photo. Do not add stones, glitter, flowers, or a person.",
+    "CAMERA: a soft reflection sweep across stones already in the photo. Do not add stones, glitter particles, flowers, or a person. No flicker.",
   soft_zoom:
-    "CAMERA: a slow zoom in. The jewelry design does not change. Do not add a person.",
+    "CAMERA: a very slow gentle zoom in. The jewelry design does not change. Do not add a person. No morphing.",
   hero_push:
-    "CAMERA: a steady push-in. The jewelry design does not change. Do not add a person.",
+    "CAMERA: a slow steady push-in. The jewelry design does not change. Do not add a person. No flicker.",
   macro_glide:
-    "CAMERA: a short sideways glide. Do not invent engraving or extra stones. Do not add a person.",
+    "CAMERA: a short slow sideways glide. Do not invent engraving or extra stones. Do not add a person. Keep metal and stones stable.",
   worn_turn:
-    "CAMERA: a small slow arc. Do not add a person. Do not turn the photo into a portrait.",
+    "CAMERA: a tiny slow arc. Do not add a person. Do not turn the photo into a portrait. Jewelry stays locked.",
   portrait_move:
-    "CAMERA: a small sideways drift. Do not add a person or a new background.",
+    "CAMERA: a tiny sideways drift. Do not add a person or a new background. No morphing of the jewelry.",
 };
 
 export function parseVideoAspect(raw: unknown): VideoAspectId {
@@ -192,11 +192,12 @@ function cameraLine(preset: VideoPresetId, cast: VideoCastId): string {
 
 export const VIDEO_JEWELRY_LOCK = [
   "ORIGINAL JEWELRY STAYS AS IT IS:",
-  "Use the uploaded jewelry exactly, in every frame.",
+  "Use the uploaded jewelry exactly, in every frame from first to last.",
   "Keep the large center pendant, every hanging drop, every colored stone, the chains, the cords, and the earrings.",
-  "Same size, same outline, same metal, same stone layout.",
-  "Do not simplify, shrink, remove, or redesign any part.",
-  "Do not drop the big pendant.",
+  "Same size, same outline, same metal color/temperature, same stone layout and facet pattern.",
+  "STABLE IDENTITY: stable silhouette, stable color, stable size, stable stone positions across all frames — no flicker, no morphing, no melting metal, no warped prongs.",
+  "Do not simplify, shrink, remove, redesign, or replace any part.",
+  "Do not drop the big pendant. Do not invent a second copy of the jewelry.",
 ].join(" ");
 
 export function buildVideoModelStillPrompt(opts: {
@@ -317,15 +318,17 @@ export function videoNegativePrompt(
   purpose: VideoPurposeId,
   cast: VideoCastId = "product",
 ): string {
+  const glitch =
+    "flicker, frame flicker, morphing jewelry, melting metal, warped stones, warped prongs, stretching jewelry, popping stones, glitch, smear, double exposure, unstable silhouette";
   const design =
     cast === "model"
-      ? "missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, morphing jewelry, changed stone layout, second necklace, duplicate jewelry, flat catalog copy, cloth covering the jewelry, hands covering the jewelry, box, lid, watermark, text, logo, subtitles"
-      : "added person, extra face, couple, bride, groom, hands, fingers, cloth, fabric, velvet, box, lid, new background, wedding portrait, double exposure, redesigned jewelry, different jewelry, morphing jewelry, missing center pendant, pendant removed, simplified jewelry, changed stone layout, second jewelry set, watermark, text, logo, subtitles";
+      ? `${glitch}, missing center pendant, pendant removed, simplified jewelry, redesigned jewelry, different jewelry, changed stone layout, second necklace, duplicate jewelry, flat catalog copy, cloth covering the jewelry, hands covering the jewelry, box, lid, watermark, text, logo, subtitles`
+      : `${glitch}, added person, extra face, couple, bride, groom, hands, fingers, cloth, fabric, velvet, box, lid, new background, wedding portrait, redesigned jewelry, different jewelry, missing center pendant, pendant removed, simplified jewelry, changed stone layout, second jewelry set, watermark, text, logo, subtitles`;
   return purpose === "festive" ? `${design}, flowers on top of the jewelry` : design;
 }
 
 export const VIDEO_JEWELRY_NEGATIVE_PROMPT =
-  "redesigned jewelry, different jewelry, extra jewelry, added stones, removed stones, changed metal color, new clasp, morphing jewelry, melting metal, warped stones, different stone count, invented ring, invented necklace, invented earrings, maang tikka, bangles, nose ring, matching set not in the photo, glitter overlay, watermark, text, logo, subtitles";
+  "flicker, morphing jewelry, melting metal, warped stones, redesigned jewelry, different jewelry, extra jewelry, added stones, removed stones, changed metal color, new clasp, different stone count, invented ring, invented necklace, invented earrings, maang tikka, bangles, nose ring, matching set not in the photo, glitter overlay, watermark, text, logo, subtitles";
 
 export function veoPersonGeneration(_cast: VideoCastId): "allow_adult" {
   return "allow_adult";

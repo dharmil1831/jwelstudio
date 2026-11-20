@@ -67,10 +67,6 @@ async function readInteraction(res: Response): Promise<Interaction> {
   }
 }
 
-/**
- * Generate a short product video from a jewelry image via Gemini Omni Flash.
- * Uses the Interactions API (image-to-video). Polls when the job is backgrounded.
- */
 export async function generateJewelryVideoWithGemini(params: {
   imageBase64: string;
   mimeType: string;
@@ -79,7 +75,6 @@ export async function generateJewelryVideoWithGemini(params: {
   personGeneration?: "allow_adult" | "dont_allow";
   negativePrompt?: string;
   cast?: "product" | "model";
-  /** Replaces the text sent before the image. */
   openingText?: string;
   deadlineMs?: number;
 }): Promise<{ videoBase64: string; mimeType: string }> {
@@ -88,9 +83,15 @@ export async function generateJewelryVideoWithGemini(params: {
     throw new Error("GEMINI_API_KEY is not configured");
   }
 
-  const prompt = params.negativePrompt
-    ? `${params.prompt}\nDo not include: ${params.negativePrompt}`
-    : params.prompt;
+  const stability =
+    "Keep the jewelry identity locked: stable silhouette, stable metal color, stable stone layout, no flicker, no morphing, no melting metal. Gentle camera motion only.";
+  const prompt = [
+    params.prompt,
+    stability,
+    params.negativePrompt ? `Do not include: ${params.negativePrompt}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const startRes = await fetch(INTERACTIONS_URL, {
     method: "POST",
@@ -103,7 +104,7 @@ export async function generateJewelryVideoWithGemini(params: {
       input: [
         {
           type: "text",
-          text: params.openingText ?? VIDEO_JEWELRY_LOCK,
+          text: `${params.openingText ?? VIDEO_JEWELRY_LOCK} ${stability}`,
         },
         {
           type: "image",
@@ -116,6 +117,8 @@ export async function generateJewelryVideoWithGemini(params: {
         type: "video",
         aspect_ratio: params.aspectRatio ?? "9:16",
         resolution: "720p",
+        // Shorter clips reduce morph/glitch risk and stay inside ~₹120–150 budget.
+        duration: "6s",
       },
       generation_config: {
         video_config: { task: "image_to_video" },

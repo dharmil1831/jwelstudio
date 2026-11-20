@@ -145,6 +145,7 @@ export async function POST(req: Request) {
     let videoImage = imageBase64;
     let videoMime = mimeType;
     if (wantsWornFrame) {
+      // 1K is enough to lock worn framing; 2K costs more and can still morph in video.
       const still = await generateJewelryWithGemini(
         imageBase64,
         mimeType,
@@ -153,7 +154,7 @@ export async function POST(req: Request) {
         undefined,
         true,
         VIDEO_ASPECT_RATIO[aspect],
-        { imageSize: "2K", timeoutMs: 80_000 },
+        { imageSize: "1K", timeoutMs: 80_000 },
       );
       videoImage = still.imageBase64;
       videoMime = still.mimeType;

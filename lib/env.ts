@@ -1,5 +1,3 @@
-/** Server-only environment helpers for generation providers. */
-
 function normalizeKey(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   let k = raw.replace(/^\uFEFF/, "").trim();
@@ -14,7 +12,6 @@ function normalizeKey(raw: string | undefined): string | undefined {
 
 export type ImageProviderPreference = "auto" | "openai" | "gemini";
 
-/** OpenAI API key from https://platform.openai.com/api-keys */
 export function getOpenAIApiKey(): string | undefined {
   return normalizeKey(process.env.OPENAI_API_KEY);
 }
@@ -27,7 +24,6 @@ export function isOpenAIConfigured(): boolean {
   return Boolean(getOpenAIApiKey());
 }
 
-/** Gemini API key from https://aistudio.google.com/apikey */
 export function getGeminiApiKey(): string | undefined {
   return (
     normalizeKey(process.env.GEMINI_API_KEY) ??
@@ -51,19 +47,27 @@ export function getGoogleCalendarApiKey(): string | undefined {
   return normalizeKey(process.env.GOOGLE_CALENDAR_API_KEY);
 }
 
-const DEFAULT_GEMINI_VIDEO_MODEL = "gemini-omni-1.1-flash";
+const DEFAULT_GEMINI_VIDEO_MODEL = "gemini-omni-1.2-flash";
 
-/** Preview Veo ids shut down 22 Oct 2026. Ignore them if still set in the environment. */
 const RETIRED_GEMINI_VIDEO_MODELS = new Set([
   "veo-3.1-fast-generate-preview",
   "veo-3.1-generate-preview",
   "veo-3.1-lite-generate-preview",
 ]);
 
-/** Gemini video model. Override with GEMINI_VIDEO_MODEL. */
+/** Older Omni endpoints — route to 1.2 for better jewelry stability and lower cost. */
+const LEGACY_GEMINI_VIDEO_MODELS = new Set([
+  "gemini-omni-1.1-flash",
+  "gemini-omni-flash-preview",
+]);
+
 export function getGeminiVideoModel(): string {
   const configured = process.env.GEMINI_VIDEO_MODEL?.trim();
-  if (!configured || RETIRED_GEMINI_VIDEO_MODELS.has(configured)) {
+  if (
+    !configured ||
+    RETIRED_GEMINI_VIDEO_MODELS.has(configured) ||
+    LEGACY_GEMINI_VIDEO_MODELS.has(configured)
+  ) {
     return DEFAULT_GEMINI_VIDEO_MODEL;
   }
   return configured;
@@ -73,11 +77,9 @@ export function isVideoGenerationConfigured(): boolean {
   return isGeminiConfigured();
 }
 
-/** auto = Gemini first when available, OpenAI fallback; openai/gemini force one provider. */
 export function getImageProviderPreference(): ImageProviderPreference {
   const raw = process.env.IMAGE_PROVIDER?.trim().toLowerCase();
   if (raw === "openai" || raw === "gemini" || raw === "auto") return raw;
-  // Default to gemini-only path when unset so production does not burn OpenAI by accident.
   if (isGeminiConfigured()) return "gemini";
   if (isOpenAIConfigured()) return "openai";
   return "auto";
