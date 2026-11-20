@@ -8,6 +8,7 @@ import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { DownloadImageButton } from "@/components/download-image-button";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
 import { PromptConsentFields } from "@/components/prompt-consent-fields";
+import { SelfieCameraModal } from "@/components/selfie-camera-modal";
 import { SelfieConsentFields } from "@/components/selfie-consent-fields";
 import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fields";
 import { renderBrandedVideo, videoLengthLabel } from "@/lib/brand-video";
@@ -227,6 +228,7 @@ export function StudioApp({
   const [customPrompt, setCustomPrompt] = useState("");
   const [promptConsent, setPromptConsent] = useState(false);
   const [selfieConsent, setSelfieConsent] = useState(false);
+  const [selfieCameraOpen, setSelfieCameraOpen] = useState(false);
   const [brand, setBrand] = useState<BrandFormState>(EMPTY_BRAND);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1381,6 +1383,16 @@ export function StudioApp({
   const guest = authenticated === false;
   const requireSignIn = (reason?: string) => setAuthSheet({ open: true, reason });
 
+  const selfieCameraEl = (
+    <SelfieCameraModal
+      open={selfieCameraOpen}
+      onClose={() => setSelfieCameraOpen(false)}
+      onCapture={(file) => {
+        applySelfie(file);
+      }}
+    />
+  );
+
   const authSheetEl = (
     <AuthSheet
       open={authSheet.open}
@@ -1427,6 +1439,13 @@ export function StudioApp({
           onSelfieConsent={(next) => {
             setSelfieConsent(next);
             writeSelfieConsent(next);
+          }}
+          onOpenSelfieCamera={() => {
+            if (!selfieConsent) {
+              setError(SELFIE_CONSENT_REQUIRED_MESSAGE);
+              return;
+            }
+            setSelfieCameraOpen(true);
           }}
           onLeaveEditor={leaveEditor}
           lookNotice={lookNotice}
@@ -1592,6 +1611,7 @@ export function StudioApp({
       <>
         {mobileHome}
         {authSheetEl}
+        {selfieCameraEl}
         <div className="hidden rounded-2xl border border-primary/30 bg-primary/10 p-8 text-center lg:block">
           <p className="text-foreground/80">
             Log in to upload jewelry and generate model shots or background stills.
@@ -1612,6 +1632,7 @@ export function StudioApp({
     <>
       {mobileHome}
       {authSheetEl}
+      {selfieCameraEl}
       <div className="hidden gap-8 lg:grid lg:grid-cols-[minmax(0,360px)_1fr]">
       <aside className="flex flex-col gap-5 rounded-2xl border border-primary/20 bg-secondary/95 p-6 shadow-md">
         {!authenticated ? (
@@ -1959,23 +1980,24 @@ export function StudioApp({
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <label
-                    className={`flex items-center justify-center rounded-xl px-3 py-3 text-center text-xs font-semibold text-white ${
+                  <button
+                    type="button"
+                    disabled={!selfieConsent}
+                    onClick={() => {
+                      if (!selfieConsent) {
+                        setError(SELFIE_CONSENT_REQUIRED_MESSAGE);
+                        return;
+                      }
+                      setSelfieCameraOpen(true);
+                    }}
+                    className={`rounded-xl px-3 py-3 text-center text-xs font-semibold text-white ${
                       selfieConsent
-                        ? "cursor-pointer bg-primary hover:opacity-95"
+                        ? "bg-primary hover:opacity-95"
                         : "cursor-not-allowed bg-primary/40"
                     }`}
                   >
                     Take selfie
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="user"
-                      disabled={!selfieConsent}
-                      className="sr-only"
-                      onChange={onSelfiePick}
-                    />
-                  </label>
+                  </button>
                   <label
                     className={`flex items-center justify-center rounded-xl border px-3 py-3 text-center text-xs font-semibold ${
                       selfieConsent

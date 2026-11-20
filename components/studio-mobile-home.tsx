@@ -187,6 +187,7 @@ export type StudioMobileHomeProps = {
   onPromptConsent: (value: boolean) => void;
   selfieConsent: boolean;
   onSelfieConsent: (value: boolean) => void;
+  onOpenSelfieCamera: () => void;
   brand: BrandFormState;
   onBrand: (value: BrandFormState) => void;
   subject: Subject;
@@ -1307,26 +1308,18 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                       </p>
                     )}
                     <div className="grid grid-cols-2 gap-2">
-                      <label
-                        className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-3 text-center text-xs font-bold text-white ${
+                      <button
+                        type="button"
+                        disabled={!props.selfieConsent}
+                        onClick={() => props.onOpenSelfieCamera()}
+                        className={`rounded-xl px-2 py-3 text-center text-xs font-bold text-white ${
                           props.selfieConsent
-                            ? "cursor-pointer bg-primary"
+                            ? "bg-primary"
                             : "cursor-not-allowed bg-primary/40"
                         }`}
                       >
                         Take selfie
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="user"
-                          disabled={!props.selfieConsent}
-                          className="sr-only"
-                          onChange={(e) => {
-                            props.onPickSelfie(e.target.files?.[0] ?? null);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
+                      </button>
                       <label
                         className={`flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-center text-xs font-bold ${
                           props.selfieConsent
