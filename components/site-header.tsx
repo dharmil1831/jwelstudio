@@ -181,7 +181,7 @@ export function SiteHeader({
             Pricing
           </Link>
           <Link href="/gallery" className="hover:text-primary">
-            Gallery
+            Studio
           </Link>
 
           {session === null ? (
@@ -273,7 +273,7 @@ export function SiteHeader({
                       onClick={() => setMenuOpen(false)}
                       className="block px-4 py-2 text-sm text-foreground/80 hover:bg-accent/30"
                     >
-                      Gallery
+                      Studio
                     </Link>
                     <Link
                       href="/pricing"

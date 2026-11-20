@@ -1417,7 +1417,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               You&apos;re browsing as a guest
             </h2>
             <p className="mt-2 text-sm text-foreground/70">
-              Sign in to get 5 free credits. Your gallery and saved looks live in your account.
+              Sign in to get 5 free credits. Your Studio and saved looks live in your account.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               <button
@@ -1457,7 +1457,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                   Profile
                 </Link>
                 <Link href="/gallery" className="rounded-xl border border-primary/25 py-3 text-center text-sm font-semibold">
-                  Gallery
+                  Studio
                 </Link>
                 <button
                   type="button"

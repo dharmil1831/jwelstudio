@@ -92,7 +92,7 @@ export default async function ProfilePage() {
             href="/gallery"
             className="rounded-xl border border-primary/25 bg-white/70 py-3 text-center text-sm font-semibold text-foreground hover:bg-accent/30"
           >
-            Gallery
+            Studio
           </Link>
         </div>
 

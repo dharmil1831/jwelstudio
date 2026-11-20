@@ -5,7 +5,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Your gallery — Jwelpixel",
+  title: "Your Studio — Jwelpixel",
   robots: { index: false, follow: false },
 };
 
@@ -16,12 +16,12 @@ export default async function GalleryPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-6 pb-10 sm:px-6 lg:px-6 lg:py-16 lg:pb-16">
         <Link href="/" className="hidden text-sm font-medium text-primary hover:text-accent lg:inline">
-          ← Studio
+          ← Create
         </Link>
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-normal text-foreground lg:mt-6">
-          Your gallery
+          Your Studio
         </h1>
-        <p className="mt-2 text-foreground/70">Past model shots from your account.</p>
+        <p className="mt-2 text-foreground/70">Past generations from your account.</p>
         <div className="mt-6 lg:mt-10">
           <GalleryGrid />
         </div>

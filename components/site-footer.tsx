@@ -2,9 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 const LINKS = [
-  { href: "/", label: "Studio" },
+  { href: "/", label: "Create" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/gallery", label: "Gallery" },
+  { href: "/gallery", label: "Studio" },
   { href: "/login", label: "Log in" },
 ] as const;
 
