@@ -1,10 +1,10 @@
-export const PROMPT_CONSENT_STORAGE_KEY = "jwelpixel-prompt-consent-v1";
+export const PROMPT_CONSENT_STORAGE_KEY = "jwelpixel-prompt-consent-v2";
 
 export const PROMPT_DISCLAIMER =
-  "Custom prompts are for jewelry product marketing only. Do not ask for nude, sexual, violent, hateful, or illegal images. We may block unsafe prompts.";
+  "Custom prompts are for jewelry product marketing only. Do not ask for nude, sexual, violent, hateful, or illegal images. We may block unsafe prompts. Jwelpixel is not responsible for misuse of generations or prompts — the account holder is solely responsible for what they request and how results are used.";
 
 export const PROMPT_CONSENT_LABEL =
-  "I agree to use custom prompts only for jewelry marketing and not for NSFW, sexual, violent, or illegal content.";
+  "I agree to use custom prompts only for jewelry marketing and not for NSFW, sexual, violent, or illegal content. I am solely responsible for my prompts, uploads, and how I use any generated results; Jwelpixel is not liable for misuse by my account.";
 
 export const PROMPT_BLOCKED_MESSAGE =
   "This prompt was blocked. Custom prompts are for jewelry marketing only — no NSFW, nude, sexual, violent, or illegal requests.";

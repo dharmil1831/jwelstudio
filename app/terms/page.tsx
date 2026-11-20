@@ -44,7 +44,9 @@ export default function TermsPage() {
           Results are for the account holder’s business use, such as product
           listings and campaigns. AI output can miss details, change a piece, or
           look unlike the photo. Check every result before you publish it. We
-          do not promise a particular look, likeness, or sales result.
+          do not promise a particular look, likeness, or sales result. You are
+          responsible for reviewing and using every result; misuse of a
+          generation is the account holder’s responsibility, not ours.
         </p>
       </section>
       <section>
@@ -75,6 +77,12 @@ export default function TermsPage() {
             Custom prompts are for jewelry product marketing only. Do not request
             nude, sexual, NSFW, violent, hateful, or otherwise unsafe images.
             We may block prompts and suspend accounts that break this rule.
+          </li>
+          <li>
+            You are solely responsible for your uploads, custom prompts, and how
+            you use any generated images or videos. Misuse of the service or of
+            generated results is the account holder’s responsibility.{" "}
+            {sitePublic.name} is not liable for that misuse.
           </li>
         </ul>
         <p className="mt-3">

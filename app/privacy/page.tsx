@@ -65,9 +65,11 @@ export default function PrivacyPage() {
           >
             {sitePublic.supportEmail}
           </a>{" "}
-          and we will remove it. Deleting your account removes your uploads and
-          results as described below. Full rules and suspension language are in
-          our{" "}
+          and we will remove it. The account holder is solely responsible for
+          prompts, uploads, and how generated results are used;{" "}
+          {sitePublic.name} is not responsible for misuse of generations. Deleting
+          your account removes your uploads and results as described below. Full
+          rules and suspension language are in our{" "}
           <Link href="/terms" className="text-primary underline">
             Terms of use — Acceptable use
           </Link>
