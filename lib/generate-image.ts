@@ -15,7 +15,6 @@ export type GeneratedJewelryImage = {
   mimeType: string;
   provider: ImageProviderId;
   attempted: ImageProviderId[];
-  /** True when a saved-look photo was dropped so generation could finish. */
   droppedReferences?: boolean;
 };
 
@@ -26,7 +25,6 @@ function isFallbackWorthy(error: unknown): boolean {
   );
 }
 
-/** Map provider errors to safe user-facing messages (no infra/provider leak). */
 export function sanitizeProviderError(
   error: unknown,
   provider?: ImageProviderId,
@@ -34,7 +32,6 @@ export function sanitizeProviderError(
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
 
-  // Log technical detail server-side only.
   console.error("[image-provider]", provider ?? "unknown", message.slice(0, 500));
 
   if (
@@ -88,6 +85,7 @@ async function runGemini(
   extraImages?: GeminiExtraImage[],
   wornOnModel?: boolean,
   aspectRatio?: string,
+  imageSize?: "1K" | "2K",
 ): Promise<{ imageBase64: string; mimeType: string }> {
   return generateJewelryWithGemini(
     imageBase64,
@@ -97,10 +95,10 @@ async function runGemini(
     extraImages,
     wornOnModel,
     aspectRatio,
+    { imageSize: imageSize ?? "1K" },
   );
 }
 
-/** If the saved-look photo makes Gemini reject the request, try once without it. */
 async function geminiWithOptionalRetry(params: {
   imageBase64: string;
   mimeType: string;
@@ -109,6 +107,7 @@ async function geminiWithOptionalRetry(params: {
   extraImages?: GeminiExtraImage[];
   wornOnModel?: boolean;
   aspectRatio?: string;
+  imageSize?: "1K" | "2K";
   attempted: ImageProviderId[];
 }): Promise<GeneratedJewelryImage> {
   const {
@@ -119,6 +118,7 @@ async function geminiWithOptionalRetry(params: {
     extraImages,
     wornOnModel,
     aspectRatio,
+    imageSize,
     attempted,
   } = params;
   try {
@@ -130,6 +130,7 @@ async function geminiWithOptionalRetry(params: {
       extraImages,
       wornOnModel,
       aspectRatio,
+      imageSize,
     );
     return { ...out, provider: "gemini", attempted };
   } catch (error) {
@@ -145,16 +146,12 @@ async function geminiWithOptionalRetry(params: {
       undefined,
       wornOnModel,
       aspectRatio,
+      imageSize,
     );
     return { ...out, provider: "gemini", attempted, droppedReferences: true };
   }
 }
 
-/**
- * Gemini primary with OpenAI fallback when IMAGE_PROVIDER=auto.
- * Force one provider with IMAGE_PROVIDER=openai|gemini.
- * Extra images (logo / selfie / theme) are Gemini-only; OpenAI fallback uses jewelry image alone.
- */
 export async function generateJewelryImage(params: {
   imageBase64: string;
   mimeType: string;
@@ -163,8 +160,18 @@ export async function generateJewelryImage(params: {
   extraImages?: GeminiExtraImage[];
   wornOnModel?: boolean;
   aspectRatio?: string;
+  imageSize?: "1K" | "2K";
 }): Promise<GeneratedJewelryImage> {
-  const { imageBase64, mimeType, prompt, format, extraImages, wornOnModel, aspectRatio } = params;
+  const {
+    imageBase64,
+    mimeType,
+    prompt,
+    format,
+    extraImages,
+    wornOnModel,
+    aspectRatio,
+    imageSize,
+  } = params;
   const preference = getImageProviderPreference();
   const attempted: ImageProviderId[] = [];
 
@@ -200,6 +207,7 @@ export async function generateJewelryImage(params: {
         extraImages,
         wornOnModel,
         aspectRatio,
+        imageSize,
         attempted,
       });
     } catch (e) {
@@ -207,7 +215,6 @@ export async function generateJewelryImage(params: {
     }
   }
 
-  // auto: Gemini first (cheaper / current default), OpenAI only as fallback
   const primary: ImageProviderId | null = geminiReady
     ? "gemini"
     : openaiReady
@@ -243,6 +250,7 @@ export async function generateJewelryImage(params: {
         extraImages,
         wornOnModel,
         aspectRatio,
+        imageSize,
         attempted,
       });
     }
@@ -266,6 +274,7 @@ export async function generateJewelryImage(params: {
               extraImages,
               wornOnModel,
               aspectRatio,
+              imageSize,
             );
       return { ...out, provider: fallback, attempted };
     } catch (fallbackError) {

@@ -1,7 +1,6 @@
 const UNREADABLE_IMAGE =
   "Could not read this photo. On iPhone, use JPG: Settings → Camera → Formats → Most Compatible, or share the photo as JPG.";
 
-/** Soft cap for generate API (server rejects above 6_000_000). */
 export const MAX_UPLOAD_BASE64_CHARS = 5_800_000;
 
 function fileToBase64(file: File): Promise<string> {
@@ -21,10 +20,6 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/**
- * Fit any photo for generation. Callers never ask the user to check file size.
- * A small photo is kept. A large one is reduced until it is safe to send.
- */
 export async function prepareImageForUpload(
   file: File,
   maxBase64Chars = MAX_UPLOAD_BASE64_CHARS,
@@ -63,7 +58,8 @@ export async function prepareImageForUpload(
   }
 
   const longest = Math.max(decoded.width, decoded.height);
-  if (canSendOriginal && longest <= 2048 && file.size > 0 && file.size <= 700_000) {
+  // Cap uploads near 1K model input so decode/upload stay light.
+  if (canSendOriginal && longest <= 1536 && file.size > 0 && file.size <= 700_000) {
     try {
       const base64 = await fileToBase64(file);
       if (base64.length > 0 && base64.length <= maxBase64Chars) {
@@ -80,8 +76,8 @@ export async function prepareImageForUpload(
     }
   }
 
-  const edges = [2048, 1920, 1600, 1536, 1280, 1024, 768, 512];
-  const qualities = [0.9, 0.82, 0.74, 0.66];
+  const edges = [1536, 1280, 1024, 768, 512];
+  const qualities = [0.86, 0.78, 0.7, 0.62];
   let lastResult: { base64: string; mimeType: string } | null = null;
 
   try {
@@ -114,7 +110,7 @@ export async function prepareImageForUpload(
   );
 }
 
-/** @deprecated Use prepareImageForUpload — kept for callers that need a fixed edge. */
+/** @deprecated Use prepareImageForUpload */
 export async function resizeImageForUpload(
   file: File,
   maxBase64Chars = MAX_UPLOAD_BASE64_CHARS,
@@ -272,7 +268,6 @@ function drawScaled(
   return canvas;
 }
 
-/** Downscale photos in-browser. JPEG keeps payloads under Vercel body limits. */
 export async function resizeImageFile(
   file: File,
   maxEdge: number,

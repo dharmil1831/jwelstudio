@@ -307,14 +307,8 @@ export async function POST(req: Request) {
         "IMAGE — SELFIE / OWN MODEL (this is the real person to portray; preserve their face identity):",
     });
   }
-  if (brand.logoBase64 && brand.logoMimeType) {
-    extraImages.push({
-      data: brand.logoBase64,
-      mimeType: brand.logoMimeType,
-      label:
-        "IMAGE — BRAND LOGO reference only. Do NOT draw this logo, any text, phone number, or grams badge into the photograph. The logo is placed later on the marketing poster.",
-    });
-  }
+  // Brand logo is applied on the marketing poster client-side — do not send it
+  // to Gemini (extra image slows generation and the model is told not to draw it).
 
   const deducted = await deductCredits(user.id, CREDIT_COST_PER_GENERATION);
   if (!deducted.ok) {

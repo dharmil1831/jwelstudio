@@ -11,7 +11,6 @@ type GeminiPart = {
 export type GeminiExtraImage = {
   data: string;
   mimeType: string;
-  /** Shown to the model before this image so roles stay clear. */
   label?: string;
 };
 
@@ -103,8 +102,8 @@ export async function generateJewelryWithGemini(
           responseModalities: ["TEXT", "IMAGE"],
           imageConfig: {
             aspectRatio: resolvedAspect,
-            // 2K ≈ social-ready; closer to 1080px targets than default 1K
-            imageSize: options?.imageSize ?? "2K",
+            // 1K matches ~1080 export targets and is much faster than 2K.
+            imageSize: options?.imageSize ?? "1K",
           },
         },
       }),
