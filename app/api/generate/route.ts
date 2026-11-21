@@ -10,10 +10,10 @@ import { generateJewelryImage } from "@/lib/generate-image";
 import {
   buildBackgroundPrompt,
   buildJewelryPrompt,
+  buildLockedBackgroundPrompt,
   buildThemeSwapPrompt,
   withBrandPrompt,
   withSelfieTryOnPrompt,
-  withSharedBackgroundLockPrompt,
   withThemeReferencePrompt,
 } from "@/lib/prompts";
 import { getSessionUser } from "@/lib/session";
@@ -259,6 +259,9 @@ export async function POST(req: Request) {
         "If that note names a necklace, earrings, stones, metal, or any jewelry design, ignore those words. The new product photo replaces all jewelry.",
       ].join(" ");
     }
+  } else if (backgroundLock && style.mode === "background") {
+    // Dedicated lock prompt — do not mix luxury/scene text that invents a new set.
+    prompt = buildLockedBackgroundPrompt(style);
   } else {
     prompt =
       style.mode === "background"
@@ -271,9 +274,6 @@ export async function POST(req: Request) {
   }
   if (themeRef && style.mode !== "model") {
     prompt = withThemeReferencePrompt(prompt);
-  }
-  if (backgroundLock) {
-    prompt = withSharedBackgroundLockPrompt(prompt);
   }
   if (json.transparentBackdrop === true && style.mode === "background") {
     prompt = [

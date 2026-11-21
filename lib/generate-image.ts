@@ -138,6 +138,13 @@ async function geminiWithOptionalRetry(params: {
     if (!extraImages?.length || /timed out|timeout|abort/i.test(message)) {
       throw error;
     }
+    // Never drop a BACKGROUND LOCK — batch set consistency matters more than a soft retry.
+    const hasBackgroundLock = extraImages.some((extra) =>
+      /BACKGROUND LOCK/i.test(extra.label ?? ""),
+    );
+    if (hasBackgroundLock) {
+      throw error;
+    }
     const out = await runGemini(
       imageBase64,
       mimeType,

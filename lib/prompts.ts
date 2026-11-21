@@ -313,8 +313,16 @@ function jewelryShadowLine(
   }
 }
 
+const solidBackdropLock = (hex: string) =>
+  [
+    `SOLID BACKDROP LOCK: fill every non-jewelry background pixel with exact hex ${hex}.`,
+    "Flat, even color only — no silk folds, velvet texture, fabric drape, marble veins, wood grain, gradient wash, table edge, or prop surface.",
+    "Soft studio lighting on the jewelry only. Do not invent a styled set.",
+  ].join(" ");
+
 export function buildBackgroundPrompt(style: StudioStyle): string {
   const shadowLine = jewelryShadowLine(style.jewelryShadow);
+  const solidHex = style.backdropColor;
 
   if (style.customPrompt) {
     return [
@@ -326,11 +334,9 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
       "No model, no person, no hands, no body, no mannequin, no neck form.",
       "The jewelry must remain the hero subject, sharp and true to the reference.",
       "",
-      "User creative direction (follow unless it conflicts with jewelry fidelity or safety):",
+      "User creative direction (follow unless it conflicts with jewelry fidelity, solid backdrop, or safety):",
       style.customPrompt,
-      style.backdropColor
-        ? `Backdrop color: use a clean, even solid fill of exact hex ${style.backdropColor} as the main background color behind the jewelry.`
-        : null,
+      solidHex ? solidBackdropLock(solidHex) : null,
       shadowLine,
       "",
       noCropRule,
@@ -343,9 +349,28 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
       .join(" ");
   }
 
-  const colorLine = style.backdropColor
-    ? `Backdrop color: use a clean, even solid fill of exact hex ${style.backdropColor} as the main background color behind the jewelry. Soft lighting that flatters metal and stones.`
-    : "Backdrop: use the scene / setting mood below — do not force a flat solid white unless the scene is studio white.";
+  // Solid color selected: never let luxury/scene invent silk or velvet (batch mismatch).
+  if (solidHex) {
+    return [
+      jewelryFidelityRules,
+      "Only change the backdrop, surface, lighting, and camera — never the jewelry identity.",
+      "",
+      "Task: create one photorealistic product photograph of this exact jewelry piece on a clean solid backdrop.",
+      "No model, no person, no hands, no body, no mannequin, no neck form.",
+      "The jewelry must remain the hero subject, sharp and true to the reference.",
+      "",
+      "Framing:",
+      framingCopy[style.framing],
+      noCropRule,
+      "Output format:",
+      formatCopy[style.format],
+      solidBackdropLock(solidHex),
+      shadowLine,
+      "Ignore scene and mood chips that ask for silk, velvet, boutique, marble, or lifestyle sets — the solid hex wins.",
+      "",
+      finalCheck,
+    ].join(" ");
+  }
 
   return [
     jewelryFidelityRules,
@@ -362,15 +387,39 @@ export function buildBackgroundPrompt(style: StudioStyle): string {
     formatCopy[style.format],
     "Scene / setting:",
     sceneCopy[style.scene],
-    colorLine,
+    "Backdrop: use the scene / setting mood below — do not force a flat solid white unless the scene is studio white.",
     shadowLine,
     "Mood:",
     backgroundVibeCopy[style.vibe],
+    "Keep the backdrop consistent: same surface family for every shot in a set (do not switch between plain seamless paper and draped fabric).",
     "",
     finalCheck,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].join(" ");
+}
+
+/** Used when a prior batch image locks the empty background for the rest of the set. */
+export function buildLockedBackgroundPrompt(style: StudioStyle): string {
+  const shadowLine = jewelryShadowLine(style.jewelryShadow);
+  return [
+    jewelryFidelityRules,
+    "Only change the jewelry product — never invent a new backdrop.",
+    "",
+    "Task: place this exact jewelry into the BACKGROUND LOCK photo's empty background.",
+    "No model, no person, no hands, no body, no mannequin, no neck form.",
+    "Copy the lock image's empty background closely: same color, texture, folds, surface, and lighting.",
+    "If the lock background is flat seamless paper, keep it flat. If it is draped fabric, keep the same fabric.",
+    "Do not switch to a different set. Do not invent silk when the lock is plain, or plain when the lock is fabric.",
+    "Ignore scene, mood, and solid-color text if they conflict with the lock image — the lock image wins for background only.",
+    "",
+    "Framing:",
+    framingCopy[style.framing],
+    noCropRule,
+    "Output format:",
+    formatCopy[style.format],
+    shadowLine,
+    "",
+    finalCheck,
+  ].join(" ");
 }
 
 export function subjectPromptLine(subject: StudioStyle["subject"]): string {
@@ -430,7 +479,7 @@ export function withSharedBackgroundLockPrompt(basePrompt: string): string {
     "SHARED BACKGROUND LOCK (batch catalog):",
     "A labeled BACKGROUND LOCK image is the master photo for this set.",
     "Copy ONLY that image's empty background: same surface, color, texture, lighting direction, and softness.",
-    "Do not invent a new scene, table, color, or lighting setup.",
+    "Do not invent a new scene, table, color, fabric, or lighting setup.",
     "Do not copy the lock image's jewelry, and do not copy its crop. If matching that photo's camera distance would cut off the new piece, zoom out and add margin.",
     "Place the FULL new jewelry product into that background as ONE arrangement only — never duplicate the set or recreate a collage from the lock image.",
     "Show every part visible in the new upload from top to bottom, including dangling rows, side earrings, and the lower pendant.",
