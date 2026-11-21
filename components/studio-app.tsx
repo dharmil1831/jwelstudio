@@ -162,7 +162,11 @@ function resolveBackdropPayload(
     return { backdropMode: "solid", backdropColor: "#F5F0E8" };
   }
   if (opts.batchMode === "white") {
-    return { backdropMode: "solid", backdropColor: "#FFFFFF" };
+    // Prefer the color the user picked in Background controls when provided.
+    return {
+      backdropMode: "solid",
+      backdropColor: opts.solidHex ?? "#FFFFFF",
+    };
   }
   return {
     backdropMode: "solid",
@@ -1022,10 +1026,27 @@ export function StudioApp({
       )?.generationId;
 
       const festivalOn = festivalSelected(brand);
-      const backdrop = resolveBackdropPayload({
-        batchMode: batchBackdropMode,
-        festivalOn,
-      });
+      const batchMode: "model" | "background" =
+        tab === "model" ? "model" : "background";
+      // Match single-generate backdrop: live Background color / Original scene,
+      // unless the dedicated Batch tab's White / Soft studio / Keep scene chips apply.
+      const backdrop =
+        batchMode !== "background"
+          ? null
+          : festivalOn
+            ? { backdropMode: "scene" as const }
+            : tab === "batch"
+              ? resolveBackdropPayload({
+                  batchMode: batchBackdropMode,
+                  solidHex: cutoutTransparent ? "#FFFFFF" : backdropColor,
+                  festivalOn,
+                })
+              : sceneBackdrop
+                ? { backdropMode: "scene" as const }
+                : resolveBackdropPayload({
+                    solidHex: cutoutTransparent ? "#FFFFFF" : backdropColor,
+                    festivalOn,
+                  });
       const batchScene = festivalOn ? "festive_indoor" : scene;
       const batchVibe = festivalOn ? "festive" : vibe;
 
@@ -1054,16 +1075,30 @@ export function StudioApp({
             body: JSON.stringify({
               imageBase64: base64,
               mimeType,
-              mode: "background",
+              mode: batchMode,
+              placement: batchMode === "model" ? placement : undefined,
+              subject: batchMode === "model" ? subject : undefined,
+              shot: batchMode === "model" ? shot : undefined,
+              lookPreset:
+                batchMode === "model" && !customPrompt.trim()
+                  ? lookPreset
+                  : undefined,
               framing,
               scene: batchScene,
               vibe: batchVibe,
               format,
               customWidth: customSize?.width,
               customHeight: customSize?.height,
-              backdropMode: backdrop.backdropMode,
-              backdropColor: backdrop.backdropColor,
-              jewelryShadow,
+              backdropMode: backdrop?.backdropMode,
+              backdropColor: backdrop?.backdropColor,
+              jewelryShadow:
+                batchMode === "background"
+                  ? cutoutTransparent
+                    ? "off"
+                    : jewelryShadow
+                  : undefined,
+              transparentBackdrop:
+                batchMode === "background" && cutoutTransparent,
               customPrompt: customPrompt.trim() || undefined,
               brandName: brand.brandName || undefined,
               marketingLine: brand.marketingLine || undefined,
@@ -1075,7 +1110,16 @@ export function StudioApp({
               logoBase64: brand.logoBase64 || undefined,
               logoMimeType: brand.logoMimeType || undefined,
               themeId: themeForBatch || undefined,
-              backgroundLockGenerationId: lockId,
+              modelTemplateId:
+                batchMode === "model" &&
+                !themeForBatch &&
+                canModelTemplates &&
+                modelTemplateId
+                  ? modelTemplateId
+                  : undefined,
+              // Lock shared backdrop only for product/background batches.
+              backgroundLockGenerationId:
+                batchMode === "background" ? lockId : undefined,
             }),
             signal: controller.signal,
           });
@@ -1133,15 +1177,17 @@ export function StudioApp({
         }
       };
 
-      while (
-        !lockGenerationId &&
-        pending.length > 0 &&
-        !batchAbortRef.current &&
-        !stopForCredits
-      ) {
-        const id = pending.shift();
-        if (!id) break;
-        await generateOne(id);
+      if (batchMode === "background") {
+        while (
+          !lockGenerationId &&
+          pending.length > 0 &&
+          !batchAbortRef.current &&
+          !stopForCredits
+        ) {
+          const id = pending.shift();
+          if (!id) break;
+          await generateOne(id);
+        }
       }
 
       const worker = async () => {
@@ -1152,7 +1198,10 @@ export function StudioApp({
         ) {
           const id = pending.shift();
           if (!id) return;
-          await generateOne(id, lockGenerationId);
+          await generateOne(
+            id,
+            batchMode === "background" ? lockGenerationId : undefined,
+          );
         }
       };
 
@@ -1182,15 +1231,25 @@ export function StudioApp({
       batchItems,
       batchRunning,
       credits,
+      tab,
+      placement,
+      subject,
+      shot,
+      lookPreset,
       framing,
       scene,
       vibe,
       format,
       customSize,
       batchBackdropMode,
+      backdropColor,
+      cutoutTransparent,
+      sceneBackdrop,
       jewelryShadow,
       customPrompt,
       brand,
+      canModelTemplates,
+      modelTemplateId,
       releaseSavedLook,
       ensurePromptAllowed,
     ],
@@ -1514,7 +1573,6 @@ export function StudioApp({
             setSceneBackdrop(false);
             setBackdropColor(hex);
             setBackdropHexInput(hex);
-            setBatchBackdropMode("white");
           }}
           backdropHexInput={backdropHexInput}
           onBackdropHexInput={setBackdropHexInput}
@@ -1529,8 +1587,20 @@ export function StudioApp({
             setSceneBackdrop(false);
             setBackdropColor(next);
             setBackdropHexInput(next);
-            setBatchBackdropMode("white");
           }}
+          batchItems={batchItems.map((i) => ({
+            id: i.id,
+            fileName: i.file.name,
+            previewUrl: i.previewUrl,
+            status: i.status,
+            resultUrl: i.resultUrl,
+            generationId: i.generationId,
+            error: i.error,
+          }))}
+          batchRunning={batchRunning}
+          onRemoveBatchItem={removeBatchItem}
+          onRetryBatchItem={(id) => void runBatchIds([id])}
+          onClearBatch={clearBatch}
           jewelryShadow={jewelryShadow}
           onShadow={dropLook(setJewelryShadow)}
           videoPreset={videoPreset}

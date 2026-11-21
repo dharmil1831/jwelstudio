@@ -10,10 +10,11 @@ import { MobileStudioNav, type StudioScreen } from "@/components/mobile-studio-n
 import { ClassicBackdropRow } from "@/components/classic-backdrop-row";
 import { ReflectionControls } from "@/components/reflection-controls";
 import { GenerationPreviewPlaceholder } from "@/components/generation-preview-placeholder";
+import { DownloadImageButton } from "@/components/download-image-button";
 import { estimatedGenerationPercent } from "@/lib/generation-progress";
+import { downloadFilename } from "@/lib/download-image";
 import { PromptConsentFields } from "@/components/prompt-consent-fields";
 import { SelfieConsentFields } from "@/components/selfie-consent-fields";
-import { DownloadImageButton } from "@/components/download-image-button";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { PLAN_LABELS, normalizePlanId } from "@/lib/entitlements";
 import { BrandedVideoStage, VideoBrandFields } from "@/components/video-brand-fields";
@@ -164,6 +165,16 @@ const TOOLS: { id: Tool; label: string }[] = [
   { id: "resize", label: "Resize" },
 ];
 
+export type StudioMobileBatchItem = {
+  id: string;
+  fileName: string;
+  previewUrl: string;
+  status: "idle" | "queued" | "running" | "done" | "failed";
+  resultUrl?: string;
+  generationId?: string;
+  error?: string;
+};
+
 export type StudioMobileHomeProps = {
   credits: number | null;
   plan?: string | null;
@@ -247,6 +258,11 @@ export type StudioMobileHomeProps = {
   onPickJewelry: (file: File | null) => void;
   onPickSelfie: (file: File | null) => void;
   onAddBatch: (files: FileList | null) => void;
+  batchItems: StudioMobileBatchItem[];
+  batchRunning: boolean;
+  onRemoveBatchItem: (id: string) => void;
+  onRetryBatchItem: (id: string) => void;
+  onClearBatch: () => void;
   onSelectJob: (job: "model" | "background" | "video") => void;
   onGenerate: (job?: "model" | "background" | "video") => void;
   themeSnapshot: () => ThemeStyleSnapshot;
@@ -333,6 +349,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   const [feed, setFeed] = useState<Feed>("all");
   const [tool, setTool] = useState<Tool>("model");
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [batchZoomUrl, setBatchZoomUrl] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const planId = normalizePlanId(props.plan);
@@ -391,6 +408,18 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
     loadingElapsedSec,
     tool === "video" || Boolean(props.brandingVideo),
   );
+  const batchItems = props.batchItems ?? [];
+  const batchDoneCount = batchItems.filter(
+    (i) => i.status === "done" && i.resultUrl,
+  ).length;
+  const batchRunningIndex =
+    batchItems.findIndex((i) => i.status === "running") + 1;
+  const batchActive = batchItems.some(
+    (i) => i.status !== "idle" || Boolean(i.resultUrl),
+  );
+  const hasBatchQueue = batchItems.length > 0;
+  const canGenerate =
+    Boolean(props.previewUrl) || hasBatchQueue;
 
   async function logout() {
     setLoggingOut(true);
@@ -712,6 +741,108 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               const showVideoIdle =
                 !props.loading && !props.brandingVideo && !showVideoPlayer && tool === "video";
 
+              if (batchActive && tool !== "video") {
+                return (
+                  <div
+                    ref={(node) => {
+                      previewSlotRef.current = node;
+                    }}
+                    className="space-y-3"
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      {batchItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="overflow-hidden rounded-xl border border-primary/15 bg-white"
+                        >
+                          <div className="relative aspect-square bg-secondary/35">
+                            {item.resultUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBatchZoomUrl(item.resultUrl!);
+                                  setZoomOpen(true);
+                                }}
+                                className="block h-full w-full"
+                                aria-label={`View ${item.fileName}`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={item.resultUrl}
+                                  alt={item.fileName}
+                                  className="h-full w-full object-contain p-1"
+                                />
+                              </button>
+                            ) : item.status === "failed" ? (
+                              <div className="flex h-full flex-col items-center justify-center gap-1 bg-red-50 p-2 text-center">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={item.previewUrl}
+                                  alt=""
+                                  className="h-12 w-12 rounded-lg object-cover opacity-60"
+                                />
+                                <p className="text-[10px] font-semibold text-red-700">
+                                  Failed
+                                </p>
+                                <p className="line-clamp-2 text-[9px] text-red-700/80">
+                                  {item.error ?? "Try again"}
+                                </p>
+                              </div>
+                            ) : (
+                              <GenerationPreviewPlaceholder
+                                aspectClass="absolute inset-0 !mx-0 h-full w-full !rounded-none"
+                                label={
+                                  item.status === "running"
+                                    ? "Generating…"
+                                    : item.status === "queued"
+                                      ? "Queued…"
+                                      : "Waiting…"
+                                }
+                                compact
+                              />
+                            )}
+                          </div>
+                          <div className="space-y-1 px-2 py-1.5">
+                            <p className="truncate text-[10px] text-foreground/65">
+                              {item.fileName}
+                            </p>
+                            {item.resultUrl ? (
+                              <DownloadImageButton
+                                url={item.resultUrl}
+                                generationId={item.generationId}
+                                filename={downloadFilename(
+                                  item.resultUrl,
+                                  `jwelpixel-batch-${props.format}`,
+                                  "image/jpeg",
+                                )}
+                                className="text-[10px] font-semibold text-primary underline"
+                                label="Download"
+                              />
+                            ) : item.status === "failed" &&
+                              !props.batchRunning ? (
+                              <button
+                                type="button"
+                                onClick={() => props.onRetryBatchItem(item.id)}
+                                className="text-[10px] font-semibold text-primary underline"
+                              >
+                                Retry · 1 credit if it succeeds
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-center text-[11px] text-foreground/55">
+                      {props.batchRunning
+                        ? batchRunningIndex > 0
+                          ? `Generating ${batchRunningIndex} of ${batchItems.length}…`
+                          : `Preparing batch… ${batchDoneCount} of ${batchItems.length} ready`
+                        : `${batchDoneCount} of ${batchItems.length} ready`}
+                    </p>
+                  </div>
+                );
+              }
+
               if (props.loading || props.brandingVideo) {
                 return (
                   <div
@@ -968,6 +1099,67 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                       }}
                     />
                   </label>
+                  {batchItems.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold text-foreground/70">
+                          {batchItems.length} in batch
+                          {props.batchRunning
+                            ? ` · ${batchDoneCount} ready`
+                            : ""}
+                        </p>
+                        {!props.batchRunning ? (
+                          <button
+                            type="button"
+                            onClick={props.onClearBatch}
+                            className="text-[11px] font-semibold text-primary underline"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                      <ul className="flex flex-col gap-1.5">
+                        {batchItems.map((item) => (
+                          <li
+                            key={item.id}
+                            className="flex items-center gap-2 rounded-lg bg-secondary/50 px-2 py-1.5"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.previewUrl}
+                              alt=""
+                              className="h-9 w-9 shrink-0 rounded-md object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[11px] font-medium">
+                                {item.fileName}
+                              </p>
+                              <p className="text-[10px] text-foreground/55">
+                                {item.status === "done"
+                                  ? "Ready"
+                                  : item.status === "running"
+                                    ? "Generating…"
+                                    : item.status === "queued"
+                                      ? "Queued"
+                                      : item.status === "failed"
+                                        ? "Failed"
+                                        : "Waiting"}
+                              </p>
+                            </div>
+                            {!props.batchRunning ? (
+                              <button
+                                type="button"
+                                onClick={() => props.onRemoveBatchItem(item.id)}
+                                className="shrink-0 text-[10px] font-semibold text-foreground/55"
+                              >
+                                Remove
+                              </button>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   {props.selfiePreviewUrl ? (
                     <p className="rounded-xl bg-primary/10 px-3 py-2 text-[11px] text-foreground/70">
                       Selfie uploaded — your photo is the model. Placement, scene, mood, and format still apply.
@@ -1184,6 +1376,67 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                       }}
                     />
                   </label>
+                  {batchItems.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold text-foreground/70">
+                          {batchItems.length} in batch
+                          {props.batchRunning
+                            ? ` · ${batchDoneCount} ready`
+                            : ""}
+                        </p>
+                        {!props.batchRunning ? (
+                          <button
+                            type="button"
+                            onClick={props.onClearBatch}
+                            className="text-[11px] font-semibold text-primary underline"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                      <ul className="flex flex-col gap-1.5">
+                        {batchItems.map((item) => (
+                          <li
+                            key={item.id}
+                            className="flex items-center gap-2 rounded-lg bg-secondary/50 px-2 py-1.5"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.previewUrl}
+                              alt=""
+                              className="h-9 w-9 shrink-0 rounded-md object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[11px] font-medium">
+                                {item.fileName}
+                              </p>
+                              <p className="text-[10px] text-foreground/55">
+                                {item.status === "done"
+                                  ? "Ready"
+                                  : item.status === "running"
+                                    ? "Generating…"
+                                    : item.status === "queued"
+                                      ? "Queued"
+                                      : item.status === "failed"
+                                        ? "Failed"
+                                        : "Waiting"}
+                              </p>
+                            </div>
+                            {!props.batchRunning ? (
+                              <button
+                                type="button"
+                                onClick={() => props.onRemoveBatchItem(item.id)}
+                                className="shrink-0 text-[10px] font-semibold text-foreground/55"
+                              >
+                                Remove
+                              </button>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               {tool === "video" ? (
@@ -1398,7 +1651,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               </p>
             ) : null}
             {props.error ? <p className="text-sm text-red-600">{props.error}</p> : null}
-            {!props.previewUrl && !props.loading ? (
+            {!canGenerate && !props.loading ? (
               <p className="text-center text-xs font-medium text-foreground/60">
                 Upload jewelry first — Generate stays locked so credits are not spent.
               </p>
@@ -1410,7 +1663,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 props.brandingVideo ||
                 props.savingTheme ||
                 props.generationReady === false ||
-                !props.previewUrl
+                !canGenerate
               }
               onClick={() =>
                 props.onGenerate(
@@ -1429,16 +1682,22 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                   !props.videoLogoSrc
                   ? `Opening the box… ${loadingPercent}%`
                   : `Adding your brand… ${loadingPercent}%`
+                : props.batchRunning
+                ? batchRunningIndex > 0
+                  ? `Generating ${batchRunningIndex} of ${batchItems.length}…`
+                  : `Batch ${batchDoneCount} of ${batchItems.length}…`
                 : props.loading
                 ? tool === "video"
                   ? `Generating video… ${loadingPercent}%`
                   : `Generating… ${loadingPercent}%`
-                : !props.previewUrl
+                : !canGenerate
                   ? "Upload jewelry to generate"
                   : props.guest
                     ? "Generate · sign in for 5 free credits"
                   : tool === "video"
                     ? `Generate video · ${CREDIT_COST_PER_VIDEO} credits`
+                    : hasBatchQueue
+                      ? `Generate all · ${batchItems.length} credit${batchItems.length === 1 ? "" : "s"}`
                     : tool === "model" && props.modelTemplateId && !props.selfiePreviewUrl
                       ? "Generate with this model · 1 credit"
                       : "Generate · 1 credit"}
@@ -1516,18 +1775,27 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
         plan={props.plan ?? null}
       />
       <MobileStudioNav active={screen} onSelect={showScreen} />
-      {stillResultUrl ? (
+      {stillResultUrl || batchZoomUrl ? (
         <ImageLightbox
-          url={stillResultUrl}
+          url={batchZoomUrl || stillResultUrl!}
           alt="Generated jewelry photo"
           open={zoomOpen}
-          onClose={() => setZoomOpen(false)}
+          onClose={() => {
+            setZoomOpen(false);
+            setBatchZoomUrl(null);
+          }}
           filename={
-            props.finishedPreviewUrl
+            props.finishedPreviewUrl && !batchZoomUrl
               ? `jwelpixel-${props.format}.png`
               : `jwelpixel-${props.format}`
           }
-          generationId={props.finishedPreviewUrl ? undefined : props.generationId ?? undefined}
+          generationId={
+            batchZoomUrl
+              ? batchItems.find((i) => i.resultUrl === batchZoomUrl)?.generationId
+              : props.finishedPreviewUrl
+                ? undefined
+                : props.generationId ?? undefined
+          }
         />
       ) : null}
     </div>
