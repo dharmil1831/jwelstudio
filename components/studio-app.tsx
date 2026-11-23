@@ -2837,6 +2837,9 @@ export function StudioApp({
                   `jwelpixel-batch-${format}`,
                   resultMime,
                 )}
+                generationId={
+                  batchItems.find((i) => i.resultUrl === resultUrl)?.generationId
+                }
               />
             ) : null}
           </div>
@@ -2891,7 +2894,7 @@ export function StudioApp({
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  className="block h-full w-full cursor-pointer"
+                  className="group relative block h-full w-full cursor-pointer"
                   aria-label="View full size"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2902,6 +2905,9 @@ export function StudioApp({
                     }
                     className="h-full w-full bg-background/50 object-contain"
                   />
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-3 py-2 text-center text-xs font-semibold text-white opacity-90 transition group-hover:opacity-100">
+                    Click to expand
+                  </span>
                 </button>
               </div>
             )}
@@ -2910,11 +2916,11 @@ export function StudioApp({
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  aria-label="Zoom in"
-                  title="Zoom in"
-                  className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-primary/25 bg-secondary text-xl font-light leading-none text-foreground hover:bg-accent/30"
+                  aria-label="Expand preview"
+                  title="Expand preview"
+                  className="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-primary/25 bg-secondary px-3 text-sm font-semibold text-foreground hover:bg-accent/30"
                 >
-                  +
+                  Expand
                 </button>
               ) : null}
               {canThemes &&
@@ -2998,6 +3004,11 @@ export function StudioApp({
                           : `jwelpixel-model-${format}`,
                         resultMime,
                       )
+                }
+                generationId={
+                  finishedUrl || videoBrandedFile
+                    ? undefined
+                    : generationId ?? undefined
                 }
               />
             ) : null}
