@@ -3,6 +3,14 @@ const UNREADABLE_IMAGE =
 
 export const MAX_UPLOAD_BASE64_CHARS = 5_800_000;
 
+/** File input accept list for jewelry / selfie / batch uploads. */
+export const JEWELRY_UPLOAD_ACCEPT =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
+
+/** Shown under upload dropzones so users know formats and size handling. */
+export const JEWELRY_UPLOAD_HINT =
+  "JPG, PNG, WebP, or HEIC · large photos are resized automatically";
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

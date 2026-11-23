@@ -13,6 +13,10 @@ import { GenerationPreviewPlaceholder } from "@/components/generation-preview-pl
 import { DownloadImageButton } from "@/components/download-image-button";
 import { estimatedGenerationPercent } from "@/lib/generation-progress";
 import { downloadFilename } from "@/lib/download-image";
+import {
+  JEWELRY_UPLOAD_ACCEPT,
+  JEWELRY_UPLOAD_HINT,
+} from "@/lib/image-resize";
 import { PromptConsentFields } from "@/components/prompt-consent-fields";
 import { SelfieConsentFields } from "@/components/selfie-consent-fields";
 import { ImageLightbox } from "@/components/image-lightbox";
@@ -420,6 +424,16 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
   const hasBatchQueue = batchItems.length > 0;
   const canGenerate =
     Boolean(props.previewUrl) || hasBatchQueue;
+  const creditsNeeded =
+    tool === "video"
+      ? CREDIT_COST_PER_VIDEO
+      : hasBatchQueue
+        ? Math.max(1, batchItems.length)
+        : 1;
+  const outOfCredits =
+    !props.guest &&
+    props.credits !== null &&
+    props.credits < creditsNeeded;
 
   async function logout() {
     setLoggingOut(true);
@@ -962,7 +976,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 >
                   <input
                     type="file"
-                    accept="image/*"
+                    accept={JEWELRY_UPLOAD_ACCEPT}
                     className="sr-only"
                     onChange={(e) => props.onPickJewelry(e.target.files?.[0] ?? null)}
                   />
@@ -990,6 +1004,9 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                         />
                         <span className="text-sm font-semibold text-foreground">
                           Tap to upload jewelry
+                        </span>
+                        <span className="text-[11px] text-foreground/55">
+                          {JEWELRY_UPLOAD_HINT}
                         </span>
                         <span className="text-[11px] text-foreground/55">
                           Full piece stays visible — nothing gets cropped
@@ -1025,9 +1042,12 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
             {stillResultUrl ? (
               <label className="block rounded-xl border border-dashed border-primary/30 bg-white px-3 py-2 text-center text-xs font-semibold text-foreground/70">
                 Change jewelry photo
+                <span className="mt-1 block text-[10px] font-medium text-foreground/50">
+                  {JEWELRY_UPLOAD_HINT}
+                </span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={JEWELRY_UPLOAD_ACCEPT}
                   className="sr-only"
                   onChange={(e) => props.onPickJewelry(e.target.files?.[0] ?? null)}
                 />
@@ -1087,9 +1107,12 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                   <p className="text-xs text-foreground/60">Every extra photo uses this model look.</p>
                   <label className="block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
                     Add photos
+                    <span className="mt-1 block text-[10px] font-medium text-foreground/50">
+                      {JEWELRY_UPLOAD_HINT}
+                    </span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={JEWELRY_UPLOAD_ACCEPT}
                       multiple
                       className="sr-only"
                       onChange={(e) => {
@@ -1364,9 +1387,12 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                   <p className="text-xs text-foreground/60">Extra photos use this same backdrop.</p>
                   <label className="block rounded-xl border border-dashed border-primary px-3 py-3 text-center text-sm">
                     Add photos
+                    <span className="mt-1 block text-[10px] font-medium text-foreground/50">
+                      {JEWELRY_UPLOAD_HINT}
+                    </span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={JEWELRY_UPLOAD_ACCEPT}
                       multiple
                       className="sr-only"
                       onChange={(e) => {
@@ -1601,7 +1627,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                         From gallery
                         <input
                           type="file"
-                          accept="image/*"
+                          accept={JEWELRY_UPLOAD_ACCEPT}
                           disabled={!props.selfieConsent}
                           className="sr-only"
                           onChange={(e) => {
@@ -1651,6 +1677,19 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
               </p>
             ) : null}
             {props.error ? <p className="text-sm text-red-600">{props.error}</p> : null}
+            {props.generationReady === false ? (
+              <p className="rounded-xl bg-primary/15 px-3 py-2 text-xs text-primary" role="status">
+                Generation is temporarily unavailable. Please try again later.
+              </p>
+            ) : null}
+            {outOfCredits ? (
+              <p className="rounded-xl bg-primary/10 px-3 py-2 text-xs text-foreground/75">
+                Out of credits — Generate stays locked.{" "}
+                <Link href="/pricing" className="font-semibold text-primary underline">
+                  Buy credits
+                </Link>
+              </p>
+            ) : null}
             {!canGenerate && !props.loading ? (
               <p className="text-center text-xs font-medium text-foreground/60">
                 Upload jewelry first — Generate stays locked so credits are not spent.
@@ -1663,6 +1702,7 @@ export function StudioMobileHome(props: StudioMobileHomeProps) {
                 props.brandingVideo ||
                 props.savingTheme ||
                 props.generationReady === false ||
+                outOfCredits ||
                 !canGenerate
               }
               onClick={() =>

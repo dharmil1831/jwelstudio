@@ -193,6 +193,7 @@ export function BuyCreditsButton({ packId }: { packId: string }) {
       </button>
       <p className="mt-2 text-center text-[11px] leading-relaxed text-foreground/55">
         Auto-pay bills this pack every month for 12 months. The first payment starts the mandate.
+        Close the checkout window anytime to cancel without paying.
       </p>
       {error ? (
         <p className="mt-2 text-center text-xs text-red-600" role="alert">

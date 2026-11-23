@@ -17,7 +17,11 @@ import { ShareImageButton } from "@/components/share-image-button";
 import { ThemesPanel, type ThemeListItem } from "@/components/themes-panel";
 import { ModelTemplatePicker } from "@/components/model-template-picker";
 import type { PublicModelTemplate } from "@/lib/model-template-categories";
-import { prepareImageForUpload } from "@/lib/image-resize";
+import {
+  JEWELRY_UPLOAD_ACCEPT,
+  JEWELRY_UPLOAD_HINT,
+  prepareImageForUpload,
+} from "@/lib/image-resize";
 import { downloadFilename } from "@/lib/download-image";
 import { finishProductImage } from "@/lib/product-finish";
 import {
@@ -531,7 +535,7 @@ export function StudioApp({
 
   const applyFile = useCallback((next: File | null) => {
     if (next && !isAcceptedImage(next)) {
-      setError("Please choose a JPG, PNG, or WebP image.");
+      setError("Please choose a JPG, PNG, WebP, or HEIC image.");
       return;
     }
     setFile(next);
@@ -544,7 +548,7 @@ export function StudioApp({
     if (!list || list.length === 0) return;
     const incoming = Array.from(list).filter(isAcceptedImage);
     if (incoming.length === 0) {
-      setError("Please choose JPG, PNG, or WebP images.");
+      setError("Please choose JPG, PNG, WebP, or HEIC images.");
       return;
     }
     setError(null);
@@ -594,7 +598,7 @@ export function StudioApp({
         return;
       }
       if (next && !isAcceptedImage(next)) {
-        setError("Please choose a JPG, PNG, or WebP selfie.");
+        setError("Please choose a JPG, PNG, WebP, or HEIC selfie.");
         return;
       }
       setSelfieFile(next);
@@ -1733,6 +1737,14 @@ export function StudioApp({
             Generation is temporarily unavailable. Please try again later.
           </p>
         ) : null}
+        {credits === 0 ? (
+          <p className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-foreground/75">
+            Out of credits — Generate stays locked.{" "}
+            <Link href="/pricing" className="font-semibold text-primary underline">
+              Buy credits
+            </Link>
+          </p>
+        ) : null}
 
         <div
           role="tablist"
@@ -1798,7 +1810,7 @@ export function StudioApp({
             <input
               id="inline-batch-upload"
               type="file"
-              accept="image/*"
+              accept={JEWELRY_UPLOAD_ACCEPT}
               multiple
               className="sr-only"
               onChange={(e) => {
@@ -1815,6 +1827,9 @@ export function StudioApp({
               className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-background/40 px-4 py-4 text-center text-sm text-foreground/70 hover:border-primary"
             >
               Add more pieces, up to {BATCH_MAX}
+              <span className="mt-1 block text-xs text-foreground/45">
+                {JEWELRY_UPLOAD_HINT}
+              </span>
               <span className="mt-1 block text-xs text-foreground/45">
                 {tab === "background"
                   ? "Every photo uses the backdrop color and shadow on this tab."
@@ -1880,7 +1895,7 @@ export function StudioApp({
             <input
               id="batch-upload"
               type="file"
-              accept="image/*"
+              accept={JEWELRY_UPLOAD_ACCEPT}
               multiple
               className="sr-only"
               onChange={(e) => {
@@ -1911,6 +1926,9 @@ export function StudioApp({
               }`}
             >
               Drop or tap to add up to {BATCH_MAX}
+              <span className="mt-1 block text-xs text-foreground/45">
+                {JEWELRY_UPLOAD_HINT}
+              </span>
               <span className="mt-1 block text-xs text-foreground/45">
                 One jewelry product per photo works best. First photo sets the
                 shared backdrop for the rest.
@@ -1972,7 +1990,7 @@ export function StudioApp({
             <input
               id="jewelry-upload"
               type="file"
-              accept="image/*"
+              accept={JEWELRY_UPLOAD_ACCEPT}
               className="sr-only"
               onChange={onPick}
             />
@@ -2004,7 +2022,7 @@ export function StudioApp({
                 <>
                   Drop or tap to upload
                   <span className="mt-1 block text-xs text-foreground/45">
-                    JPG or PNG works best on iPhone
+                    {JEWELRY_UPLOAD_HINT}
                   </span>
                 </>
               )}
@@ -2078,7 +2096,7 @@ export function StudioApp({
                     From gallery
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={JEWELRY_UPLOAD_ACCEPT}
                       disabled={!selfieConsent}
                       className="sr-only"
                       onChange={onSelfiePick}
@@ -2688,6 +2706,11 @@ export function StudioApp({
             Retry failed (
             {batchItems.filter((i) => i.status === "failed").length})
           </button>
+        ) : null}
+        {!file && batchItems.length === 0 && tab !== "video" && !loading ? (
+          <p className="text-center text-[11px] font-medium text-foreground/60">
+            Upload a jewelry photo first — Generate stays locked until then.
+          </p>
         ) : null}
         {!(batchItems.length > 0 && tab !== "video") ? (
           <p className="text-center text-[11px] text-foreground/55">

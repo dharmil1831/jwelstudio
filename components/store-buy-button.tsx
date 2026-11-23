@@ -44,6 +44,9 @@ export function StoreBuyButton({ packId }: { packId: string }) {
       >
         {paid ? "Payment received" : loading ? "Opening the store…" : "Subscribe monthly"}
       </button>
+      <p className="mt-2 text-center text-[11px] leading-relaxed text-foreground/55">
+        You can close the store checkout anytime without paying.
+      </p>
       {paid ? (
         <p className="mt-2 text-center text-xs text-foreground/70">
           The store has the payment. Credits appear on this page in a few seconds.
